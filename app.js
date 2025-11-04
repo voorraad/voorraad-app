@@ -117,15 +117,24 @@ vriezerSelect.addEventListener('change', vulSchuifDropdowns);
 // ---
 form.addEventListener('submit', (e) => {
     e.preventDefault(); 
+
+    // --- NIEUW: Pak de lade naam uit de dropdown ---
+    const schuifDropdown = document.getElementById('item-schuif');
+    const geselecteerdeLadeId = schuifDropdown.value;
+    const geselecteerdeLadeNaam = schuifDropdown.options[schuifDropdown.selectedIndex].text;
+    // ---------------------------------------------
+
     itemsCollectie.add({
         naam: document.getElementById('item-naam').value,
         aantal: parseFloat(document.getElementById('item-aantal').value),
         eenheid: document.getElementById('item-eenheid').value,
         vriezer: document.getElementById('item-vriezer').value,
-        ladeId: document.getElementById('item-schuif').value,
+        ladeId: geselecteerdeLadeId, // We slaan de ID nog steeds op
+        ladeNaam: geselecteerdeLadeNaam, // <-- HET NIEUWE VELD
         ingevrorenOp: firebase.firestore.FieldValue.serverTimestamp()
     })
     .then(() => {
+
         // --- LOGICA VOOR "ONTHOUD LADE" CHECKBOX (VERPLAATST) ---
         const rememberCheck = document.getElementById('remember-drawer-check');
         
@@ -149,7 +158,7 @@ form.addEventListener('submit', (e) => {
 // STAP 4: Items Tonen (Read) - NU MET KLEUR & DASHBOARD
 // ---
 function laadItems() {
-    itemsCollectie.orderBy("vriezer").orderBy("ladeId").onSnapshot((snapshot) => {
+    itemsCollectie.orderBy("vriezer").orderBy("ladeNaam").onSnapshot((snapshot) => {
         // Reset de lijsten
         lijstVriezer1.innerHTML = '';
         lijstVriezer2.innerHTML = '';
@@ -281,15 +290,24 @@ lijstVriezer2.addEventListener('click', handleItemLijstClick);
 editForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const id = editId.value;
+
+    // --- NIEUW: Pak de lade naam uit de dropdown ---
+    const schuifDropdown = document.getElementById('edit-item-schuif');
+    const geselecteerdeLadeId = schuifDropdown.value;
+    const geselecteerdeLadeNaam = schuifDropdown.options[schuifDropdown.selectedIndex].text;
+    // ---------------------------------------------
+
     itemsCollectie.doc(id).update({
         naam: editNaam.value,
         aantal: parseFloat(editAantal.value),
         eenheid: editEenheid.value,
         vriezer: editVriezer.value,
-        ladeId: editSchuif.value
+        ladeId: geselecteerdeLadeId,
+        ladeNaam: geselecteerdeLadeNaam // <-- HET NIEUWE VELD
     })
     .then(sluitItemModal);
 });
+
 function sluitItemModal() { editModal.style.display = 'none'; }
 btnCancel.addEventListener('click', sluitItemModal);
 
