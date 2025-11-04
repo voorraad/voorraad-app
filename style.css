@@ -279,4 +279,10 @@ li .item-buttons { display: flex; gap: 10px; }
         justify-content: flex-end;
         flex-shrink: 0;
     }
+    .btn-logout {
+    background-color: #FF6B6B;
+}
+.btn-logout:hover {
+    background-color: #FF8F8F;
+}
 }
