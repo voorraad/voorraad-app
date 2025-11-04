@@ -331,7 +331,24 @@ async function handleLadeLijstClick(e) {
 }
 ladesLijstV1.addEventListener('click', handleLadeLijstClick);
 ladesLijstV2.addEventListener('click', handleLadeLijstClick);
-
+// ---
+// STAP 7: UITLOGGEN LOGICA
+// ---
+logoutBtn.addEventListener('click', () => {
+    if (confirm("Weet je zeker dat je wilt uitloggen?")) {
+        auth.signOut()
+            .then(() => {
+                console.log("Gebruiker uitgelogd.");
+                // De onAuthStateChanged listener (hieronder)
+                // pakt dit automatisch op en stuurt de gebruiker
+                // terug naar index.html.
+            })
+            .catch((error) => {
+                console.error("Fout bij uitloggen:", error);
+                alert("Er is een fout opgetreden bij het uitloggen.");
+            });
+    }
+});
 // ---
 // ALLES STARTEN
 // ---
