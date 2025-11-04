@@ -368,7 +368,7 @@ function filterItems(term) {
         const itemText = item.querySelector('.item-text strong').textContent.toLowerCase();
         
         // 3. Toon of verberg het kaartje
-        if (itemText.includes(term)) {
+        if (itemText.startsWith(term)) { // <-- AANGEPAST: .includes() is .startsWith() geworden
             item.style.display = 'flex'; // 'flex' is hoe ze standaard getoond worden
         } else {
             item.style.display = 'none'; // Verberg als het niet matcht
