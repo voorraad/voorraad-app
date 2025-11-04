@@ -47,6 +47,7 @@ const sluitLadeBeheerKnop = document.getElementById('btn-sluit-lade-beheer');
 const addLadeForm = document.getElementById('add-lade-form');
 const ladesLijstV1 = document.getElementById('lades-lijst-v1');
 const ladesLijstV2 = document.getElementById('lades-lijst-v2');
+const logoutBtn = document.getElementById('logout-btn');
 
 
 // ---
