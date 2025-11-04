@@ -351,6 +351,67 @@ logoutBtn.addEventListener('click', () => {
     }
 });
 // ---
+// STAP 8: ZOEKBALK LOGICA
+// ---
+
+searchBar.addEventListener('input', (e) => {
+    const searchTerm = e.target.value.toLowerCase();
+    filterItems(searchTerm);
+});
+
+function filterItems(term) {
+    // 1. Pak alle item-kaartjes (de <li> elementen)
+    const items = document.querySelectorAll('#lijst-vriezer-1 li, #lijst-vriezer-2 li');
+    
+    items.forEach(item => {
+        // 2. Zoek de productnaam binnen het kaartje
+        const itemText = item.querySelector('.item-text strong').textContent.toLowerCase();
+        
+        // 3. Toon of verberg het kaartje
+        if (itemText.includes(term)) {
+            item.style.display = 'flex'; // 'flex' is hoe ze standaard getoond worden
+        } else {
+            item.style.display = 'none'; // Verberg als het niet matcht
+        }
+    });
+
+    // 4. Verberg lade-titels (<h3>) als ze leeg zijn
+    checkLadesInLijst(document.getElementById('lijst-vriezer-1'));
+    checkLadesInLijst(document.getElementById('lijst-vriezer-2'));
+}
+
+/**
+ * Deze helper-functie controleert alle lade-titels (<h3>) in een lijst (<ul>).
+ * Als alle items (<li>) onder een titel verborgen zijn, 
+ * wordt de titel zelf ook verborgen.
+ */
+function checkLadesInLijst(lijstElement) {
+    const lades = lijstElement.querySelectorAll('.schuif-titel');
+    
+    lades.forEach(ladeTitel => {
+        let nextElement = ladeTitel.nextElementSibling;
+        let itemsInDezeLade = 0;
+        let zichtbareItems = 0;
+
+        // Loop door alle <li> elementen die direct na deze titel komen
+        while (nextElement && nextElement.tagName === 'LI') {
+            itemsInDezeLade++;
+            // Check of het item zichtbaar is (niet 'display: none')
+            if (nextElement.style.display !== 'none') {
+                zichtbareItems++;
+            }
+            nextElement = nextElement.nextElementSibling;
+        }
+
+        // Als er items in de lade horen, maar er is er geen enkele zichtbaar:
+        if (itemsInDezeLade > 0 && zichtbareItems === 0) {
+            ladeTitel.style.display = 'none'; // Verberg de lade-titel
+        } else {
+            ladeTitel.style.display = 'block'; // Toon de lade-titel
+        }
+    });
+}
+// ---
 // ALLES STARTEN
 // ---
 // AANGEPAST: Start de app pas na een succesvolle auth check
