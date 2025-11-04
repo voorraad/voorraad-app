@@ -125,17 +125,22 @@
     </div>
 
     <div id="lade-beheer-modal" class="modal-overlay">
-        <div class="modal-header">
-            <h2>Beheer Lades</h2>
-            <button type="button" id="btn-sluit-lade-beheer" class="btn-cancel">Sluiten</button>
+        
+        <div class="modal-content"> 
+        
+            <div class="modal-header">
+                <h2>Beheer Lades</h2>
+                <button type="button" id="btn-sluit-lade-beheer" class="btn-cancel">Sluiten</button>
             </div>
+            
             <form id="add-lade-form">
                 <h3>Nieuwe Lade Toevoegen</h3>
                 <input type="text" id="lade-naam" placeholder="Naam van nieuwe lade" required>
                 <select id="lade-vriezer" required>
                     <option value="" disabled selected>Kies vriezer...</option>
                     <option value="Vriezer 1">Vriezer 1 (Klein)</option>
-                    <option value="Vriezer 2">Vriezer 2 (Groot)</option> </select>
+                    <option value="Vriezer 2">Vriezer 2 (Groot)</option> 
+                </select>
                 <button type="submit">Lade Toevoegen</button>
             </form>
             <hr>
