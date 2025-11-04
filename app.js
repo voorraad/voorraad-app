@@ -139,7 +139,21 @@ function laadItems() {
             const ladeNaam = ladesMap[item.ladeId] || "Onbekende Lade";
             const li = document.createElement('li');
             const aantalText = formatAantal(item.aantal, item.eenheid);
-            
+        // Bereken de leeftijd
+if (item.ingevrorenOp) {
+    const ingevrorenDatum = item.ingevrorenOp.toDate();
+    const vandaag = new Date();
+    const diffTijd = Math.abs(vandaag - ingevrorenDatum);
+    const diffDagen = Math.ceil(diffTijd / (1000 * 60 * 60 * 24));
+
+    if (diffDagen > 180) { // 6+ maanden
+        li.classList.add('item-old');
+    } else if (diffDagen > 90) { // 3-6 maanden
+        li.classList.add('item-medium');
+    } else { // 0-3 maanden
+        li.classList.add('item-fresh');
+    }
+}   
             // AANGEPAST: Knoppen zijn nu iconen
             li.innerHTML = `
                 <div class="item-text">
@@ -425,4 +439,11 @@ auth.onAuthStateChanged((user) => {
         console.log("Niet ingelogd, terug naar index.html");
         window.location.replace('index.html');
     }
+// Voeg toe bij je snelkoppelingen
+const printBtn = document.getElementById('print-btn');
+
+// Voeg toe bij je event listeners
+printBtn.addEventListener('click', () => {
+    window.print();
+});
 });
