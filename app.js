@@ -149,8 +149,17 @@ function initBarcodeScanner() {
     });
 
     // --- LOGICA VOOR DE CAMERA ---
+    
+    // Controleer of ZXing wel geladen is. Zo niet, verberg de scan-knop.
+    if (typeof ZXing === 'undefined') {
+        console.error("ZXing scanner bibliotheek is niet geladen!");
+        barcodeScanBtn.style.display = 'none';
+        return; // Stop de functie hier
+    }
+    
     const codeReader = new ZXing.BrowserMultiFormatReader();
     let selectedDeviceId;
+    let controls; // Om de camera-controls op te slaan
 
     // --- Knop om de scan-modal te OPENEN ---
     barcodeScanBtn.addEventListener('click', async () => {
@@ -166,31 +175,30 @@ function initBarcodeScanner() {
                 selectedDeviceId = videoInputDevices[0].deviceId;
             } else {
                 alert("Geen camera gevonden op dit apparaat.");
+                scannerModal.style.display = 'none'; // Verberg modal als er geen camera is
                 return;
             }
 
             console.log(`Camera ${selectedDeviceId} wordt gebruikt`);
 
-            const controls = await codeReader.decodeFromVideoDevice(selectedDeviceId, 'scanner-video', (result, err) => {
+            // Start het scannen
+            controls = await codeReader.decodeFromVideoDevice(selectedDeviceId, 'scanner-video', (result, err) => {
                 if (result) {
+                    // --- SUCCESS! Barcode gevonden ---
                     console.log("Barcode gevonden:", result.text);
-                    controls.stop(); 
+                    if (controls) {
+                        controls.stop(); // Stop de camera-track
+                    }
                     scannerModal.style.display = 'none';
                     
                     barcodeInput.value = result.text;
                     fetchProductFromAPI(result.text);
                 }
                 if (err && !(err instanceof ZXing.NotFoundException)) {
+                    // Log andere fouten, maar negeer "NotFoundException" (dat is normaal)
                     console.error(err);
                 }
             });
-
-            // Sla de 'controls' op zodat de "Annuleren" knop werkt
-            scannerSluitBtn.onclick = () => {
-                controls.stop(); 
-                scannerModal.style.display = 'none';
-                scannerSluitBtn.onclick = null; 
-            };
 
         } catch (error) {
             console.error("Fout bij starten camera:", error);
@@ -199,9 +207,12 @@ function initBarcodeScanner() {
         }
     });
 
-    // --- Knop om de scan-modal te SLUITEN (fallback) ---
+    // --- Knop om de scan-modal te SLUITEN ---
     scannerSluitBtn.addEventListener('click', () => {
-        codeReader.reset(); 
+        if (controls) {
+            controls.stop(); // Stop de camera-track
+        }
+        codeReader.reset(); // Algemene reset van de lezer
         scannerModal.style.display = 'none';
     });
 }
