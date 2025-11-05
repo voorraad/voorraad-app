@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vriezer Voorraad</title>
+    <title>Mijn Vriezer Voorraad</title>
     
     <link rel="stylesheet" href="style.css">
     
@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     
+    <!-- Je favicon links -->
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
@@ -33,6 +34,7 @@
             </div>
         </div>
 
+        <!-- Dashboard (uit vorige stap) -->
         <div id="dashboard" style="display: flex; gap: 20px; padding: 10px; background-color: #f0f0f0; border-radius: 5px; margin-bottom: 20px;">
             <strong id="dash-totaal">Laden...</strong>
             <span id="dash-v1">Laden...</span>
@@ -40,8 +42,25 @@
         </div>
 
         <form id="add-item-form">
+            <!-- Autocomplete (uit vorige stap) -->
             <input type="text" id="item-naam" placeholder="Productnaam" required list="product-suggesties">
             <datalist id="product-suggesties"></datalist>
+
+            <!-- ****** NIEUW: BARCODE SCANNER BLOK ****** -->
+            <div class="barcode-container">
+                <input type="text" id="item-barcode" placeholder="Typ EAN-code..." inputmode="numeric">
+                
+                <!-- Scan Knop -->
+                <button type="button" id="barcode-scan-btn" title="Scan barcode met camera" style="width: 50px; background-color: #66DDAA; color: #1a1a1a;">
+                    <i class="fas fa-camera"></i>
+                </button>
+                
+                <!-- Zoek Knop -->
+                <button type="button" id="barcode-search-btn" title="Zoek product op EAN-code">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <!-- ****** EINDE NIEUWE BLOK ****** -->
 
             <input type="number" id="item-aantal" placeholder="Aantal" value="1" step="0.25" min="0.25" required>
             
@@ -65,6 +84,7 @@
                 <option value="" disabled selected>Kies eerst een vriezer...</option> 
             </select>
             
+            <!-- "Onthoud Lade" Checkbox (uit vorige stap) -->
             <div style="grid-column: 1 / 3; display: flex; align-items: center; gap: 10px;">
                 <input type="checkbox" id="remember-drawer-check" style="width: auto;">
                 <label for="remember-drawer-check" style="margin: 0; font-weight: normal;">Onthoud vriezer en lade</label>
@@ -89,6 +109,7 @@
         </div>
     </div>
     
+    <!-- Item Bewerken Modal (onveranderd) -->
     <div id="edit-modal" class="modal-overlay">
         <div class="modal-content">
             <h2>Item Bewerken</h2>
@@ -124,10 +145,9 @@
         </div>
     </div>
 
+    <!-- Lade Beheer Modal (met "Sluiten" knop bovenaan) -->
     <div id="lade-beheer-modal" class="modal-overlay">
-        
         <div class="modal-content"> 
-        
             <div class="modal-header">
                 <h2>Beheer Lades</h2>
                 <button type="button" id="btn-sluit-lade-beheer" class="btn-cancel">Sluiten</button>
@@ -155,12 +175,34 @@
                     <ul id="lades-lijst-v2"></ul>
                 </div>
             </div>
-            </div> </div>
+        </div> 
+    </div>
+    
+    <!-- ****** NIEUWE BARCODE SCANNER MODAL ****** -->
+    <div id="scanner-modal" class="modal-overlay" style="align-items: flex-start; padding-top: 50px;">
+        <div class="modal-content" style="max-width: 640px; padding: 15px;">
+            <div class="modal-header">
+                <h2>Scan Barcode</h2>
+                <button type="button" id="scanner-sluit-btn" class="btn-cancel">Annuleren</button>
+            </div>
+            <!-- Hier komt de camerafeed -->
+            <video id="scanner-video" style="width: 100%; height: auto; border-radius: 5px;"></video>
+            <p style="text-align: center; margin-top: 10px;">Richt de camera op een barcode.</p>
+        </div>
+    </div>
+    <!-- ****** EINDE SCANNER MODAL ****** -->
+
+
+    <!-- Firebase Scripts -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    
+    <!-- ****** NIEUWE SCANNER BIBLIOTHEEK ****** -->
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@latest/umd/zxing.min.js"></script>
+    
+    <!-- Je eigen app script (altijd als laatste) -->
     <script src="app.js"></script>
 
 </body>
 </html>
-
