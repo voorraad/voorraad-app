@@ -98,7 +98,8 @@ async function fetchProductFromAPI(barcode) {
     document.getElementById('item-naam').value = "Bezig met zoeken...";
     
     try {
-        const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=product_name,brands`);
+        // 1. Vraag BEIDE velden op: de Nederlandse (nl) en de standaard (product_name)
+        const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=product_name_nl,product_name,brands`);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -106,13 +107,25 @@ async function fetchProductFromAPI(barcode) {
         
         const data = await response.json();
         
-        if (data.status === 1 && data.product && data.product.product_name) {
-            let productName = data.product.product_name;
-            if (data.product.brands) {
-                productName = `${data.product.brands}: ${productName}`;
+        // 2. Check of het product bestaat
+        if (data.status === 1 && data.product) {
+            
+            // 3. Kies de Nederlandse naam, en als die NIET bestaat, pak de standaardnaam
+            let productName = data.product.product_name_nl || data.product.product_name; 
+            
+            if (productName) { // Check of we überhaupt een naam hebben
+                if (data.product.brands) {
+                    productName = `${data.product.brands}: ${productName}`;
+                }
+                document.getElementById('item-naam').value = productName;
+                document.getElementById('item-aantal').focus();
+            } else {
+                // Dit gebeurt als het product wel bestaat, maar geen naam heeft (zeldzaam)
+                alert("Product gevonden, maar zonder naam. Voer handmatig in.");
+                document.getElementById('item-naam').value = ""; 
+                document.getElementById('item-naam').focus();
             }
-            document.getElementById('item-naam').value = productName;
-            document.getElementById('item-aantal').focus(); 
+
         } else {
             alert("Product niet gevonden in de database. Voer het handmatig in.");
             document.getElementById('item-naam').value = ""; 
