@@ -1,4 +1,3 @@
-
 // Stap 1: Initialiseer Firebase
 const firebaseConfig = typeof __firebase_config !== 'undefined' 
     ? JSON.parse(__firebase_config) 
