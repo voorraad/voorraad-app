@@ -88,7 +88,7 @@ function formatDatum(timestamp) {
 }
 
 // ---
-// BARCODE API & SCANNER FUNCTIES (NIEUW)
+// BARCODE API & SCANNER FUNCTIES
 // ---
 
 /**
@@ -614,7 +614,7 @@ auth.onAuthStateChanged((user) => {
     if (user) {
         console.log("Ingelogd als:", user.displayName || user.email || user.uid);
         laadLades(); // Hoofdfunctie die alles start
-        initBarcodeScanner(); // <-- NIEUWE FUNCTIE HIER AANROEPEN
+        initBarcodeScanner(); // <-- HIER WORDT DE SCANNER GESTART
     } else {
         console.log("Niet ingelogd, terug naar index.html");
         window.location.replace('index.html');
