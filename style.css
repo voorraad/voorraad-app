@@ -25,22 +25,21 @@ body {
     border-bottom: 2px solid #e0e0e0;
     padding-bottom: 10px;
     margin-bottom: 20px;
-    flex-wrap: wrap; /* Toestaan om te 'wrappen' op mobiel */
-    gap: 15px; /* Ruimte tussen titel en knoppen als ze wrappen */
+    flex-wrap: wrap; /* Toestaan om te 'wrappen' */
+    gap: 15px; 
 }
 
 /* Container voor de knoppen in de header */
 .header-buttons {
-    display: flex;
-    flex-wrap: wrap; /* Knoppen mogen ook wrappen */
+    display: grid; /* GEWIJZIGD: Standaard op grid */
+    grid-template-columns: 1fr; /* GEWIJZIGD: Eén kolom (gestapeld) */
     gap: 10px;
-    justify-content: flex-end;
+    width: 100%; /* GEWIJZIGD: Volledige breedte op mobiel */
 }
 
-/* Zorgt dat knoppen groeien/krimpen op mobiel */
 .header-buttons .btn-beheer {
-    flex-grow: 1;
-    min-width: 120px; /* Zorgt dat knoppen niet te smal worden */
+    width: 100%; /* Zorgt dat knoppen de grid vullen */
+    box-sizing: border-box; /* Zorgt dat padding netjes past */
 }
 /* --- EINDE AANPASSING HEADER --- */
 
@@ -72,7 +71,7 @@ hr { border: none; height: 1px; background-color: #e0e0e0; margin: 25px 0; }
 /* --- De Formulieren --- */
 #add-item-form {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr; /* GEWIJZIGD: Standaard één kolom voor mobiel */
     gap: 15px;
 }
 #add-lade-form {
@@ -82,13 +81,13 @@ hr { border: none; height: 1px; background-color: #e0e0e0; margin: 25px 0; }
 }
 #add-lade-form button { background-color: #4A90E2; }
 
-#item-naam { grid-column: 1 / 3; }
+#item-naam { grid-column: 1 / -1; } /* Vult de ene kolom */
 #item-aantal, #item-eenheid, #item-vriezer, #item-schuif {
     width: 100%;
     box-sizing: border-box;
 }
-#add-item-form button { grid-column: 1 / 3; width: 100%; }
-#add-lade-form button { grid-column: 1 / 2; width: 100%; }
+#add-item-form button { grid-column: 1 / -1; width: 100%; }
+#add-lade-form button { grid-column: 1 / -1; width: 100%; }
 
 #add-item-form label[for="remember-drawer-check"] {
     display: inline;
@@ -284,6 +283,36 @@ li .item-buttons { display: flex; gap: 10px; }
 
 /* --- MEDIA QUERY VOOR GROTERE SCHERMEN --- */
 @media (min-width: 768px) {
+    
+    /* Header knoppen weer naast elkaar */
+    .header-bar {
+        flex-wrap: nowrap;
+    }
+    .header-buttons {
+        display: flex; /* Terug naar flex */
+        width: auto; /* Terug naar auto breedte */
+    }
+
+    /* Formulier weer in twee kolommen */
+    #add-item-form {
+        grid-template-columns: 1fr 1fr; /* Terug naar twee kolommen */
+    }
+    #item-naam { grid-column: 1 / 3; }
+    #add-item-form button { grid-column: 1 / 3; }
+
+    /* Barcode container weer naast elkaar */
+    .barcode-container {
+        grid-column: 1 / 3;
+        display: flex; /* Terug naar flex */
+        flex-direction: row; /* Zeker zijn */
+        gap: 10px;
+    }
+    .barcode-container button {
+        width: 50px; /* Vaste breedte op desktop */
+        padding: 12px;
+    }
+    
+    /* Voorraadlijst in een grid */
     #lijst-vriezer-1,
     #lijst-vriezer-2 {
         display: grid;
@@ -313,15 +342,6 @@ li .item-buttons { display: flex; gap: 10px; }
         width: auto;
         justify-content: flex-end;
         flex-shrink: 0;
-    }
-    
-    /* Zorg dat de header-knoppen op desktop weer netjes naast elkaar staan */
-    .header-bar {
-        flex-wrap: nowrap;
-    }
-    .header-buttons .btn-beheer {
-        flex-grow: 0; /* Niet meer laten groeien */
-        min-width: auto; /* Standaard breedte */
     }
 }
 
@@ -354,15 +374,15 @@ li .item-buttons { display: flex; gap: 10px; }
 
 /* --- HERSTELD: BARCODE ZOEKVELD STIJL --- */
 .barcode-container {
-    grid-column: 1 / 3; 
-    display: flex;
+    grid-column: 1 / -1; /* Zorgt dat het in de 1-kolom grid past */
+    display: grid; /* GEWIJZIGD: Standaard op grid */
+    grid-template-columns: 1fr; /* GEWIJZIGD: Eén kolom (gestapeld) */
     gap: 10px;
 }
 .barcode-container input {
     flex-grow: 1; 
     min-width: 0; 
 }
-/* Stijl de knoppen in de barcode container */
 .barcode-container button {
     flex-shrink: 0; 
     background-color: #4A90E2; /* Blauw (Zoek) */
@@ -374,8 +394,9 @@ li .item-buttons { display: flex; gap: 10px; }
     font-size: 16px; 
     
     /* --- DE FIX --- */
-    padding: 12px; /* Matcht de input hoogte */
-    width: 50px;   /* Nette, vaste breedte */
+    padding: 12px; /* Zorgt voor correcte hoogte */
+    width: 100%;   /* GEWIJZIGD: Volledige breedte */
+    box-sizing: border-box; /* Zorgt dat padding netjes past */
     /* aspect-ratio: 1 / 1;  <-- VERWIJDERD */
     /* --- EINDE FIX --- */
 
