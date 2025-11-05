@@ -352,7 +352,7 @@ li .item-buttons { display: flex; gap: 10px; }
     font-size: 1.1em;
 }
 
-/* --- AANGEPAST: BARCODE ZOEKVELD STIJL --- */
+/* --- HERSTELD: BARCODE ZOEKVELD STIJL --- */
 .barcode-container {
     grid-column: 1 / 3; 
     display: flex;
@@ -372,11 +372,16 @@ li .item-buttons { display: flex; gap: 10px; }
     cursor: pointer;
     transition: background-color 0.2s ease;
     font-size: 16px; 
-    padding: 12px; /* Match input padding */
+    
+    /* --- DE FIX --- */
+    padding: 12px; /* Matcht de input hoogte */
+    width: 50px;   /* Nette, vaste breedte */
+    /* aspect-ratio: 1 / 1;  <-- VERWIJDERD */
+    /* --- EINDE FIX --- */
+
     display: inline-flex; 
     align-items: center; 
     justify-content: center; 
-    aspect-ratio: 1 / 1; /* Maakt de knop vierkant */
 }
 .barcode-container button:hover {
     background-color: #63a4f0;
@@ -389,7 +394,7 @@ li .item-buttons { display: flex; gap: 10px; }
 .barcode-container button#barcode-scan-btn:hover {
     background-color: #88FFCC;
 }
-/* --- EINDE AANGEPASTE STIJLEN --- */
+/* --- EINDE HERSTELDE STIJLEN --- */
 
 
 /* --- STIJLEN VOOR KLEURCODERING --- */
@@ -456,3 +461,5 @@ li.item-old {
         display: none !important;
     }
 }
+
+
