@@ -22,6 +22,7 @@ const ladesCollectie = db.collection('lades');
 // ---
 let alleLades = [];
 let ladesMap = {};
+let uniekeProductNamen = new Set(); // Voor autocomplete
 
 // ---
 // Snelkoppelingen naar elementen
@@ -48,12 +49,19 @@ const ladesLijstV1 = document.getElementById('lades-lijst-v1');
 const ladesLijstV2 = document.getElementById('lades-lijst-v2');
 const logoutBtn = document.getElementById('logout-btn');
 const searchBar = document.getElementById('search-bar');
-
-// --- SNELKOPPELINGEN VOOR NIEUWE FUNCTIES ---
 const printBtn = document.getElementById('print-btn');
 const dashTotaal = document.getElementById('dash-totaal');
 const dashV1 = document.getElementById('dash-v1');
 const dashV2 = document.getElementById('dash-v2');
+
+// --- NIEUWE SNELKOPPELINGEN VOOR BARCODE ---
+const barcodeInput = document.getElementById('item-barcode');
+const barcodeSearchBtn = document.getElementById('barcode-search-btn');
+const barcodeScanBtn = document.getElementById('barcode-scan-btn');
+const scannerModal = document.getElementById('scanner-modal');
+const scannerSluitBtn = document.getElementById('scanner-sluit-btn');
+const scannerVideo = document.getElementById('scanner-video');
+
 
 // ---
 // HELPER FUNCTIES
@@ -73,17 +81,138 @@ function formatAantal(aantal, eenheid) {
     return `${aantal} ${eenheid}`;
 }
 
-// Helper voor 'Ingevroren op' datum
 function formatDatum(timestamp) {
     if (!timestamp) return 'Onbekende datum';
-    const datum = timestamp.toDate(); // Zet Firebase timestamp om naar JS Date
-    return datum.toLocaleDateString('nl-BE'); // Maakt er "4/11/2025" van
+    const datum = timestamp.toDate(); 
+    return datum.toLocaleDateString('nl-BE'); 
 }
+
+// ---
+// BARCODE API & SCANNER FUNCTIES (NIEUW)
+// ---
+
+/**
+ * Voert de daadwerkelijke zoekopdracht uit bij de API
+ */
+async function fetchProductFromAPI(barcode) {
+    document.getElementById('item-naam').value = "Bezig met zoeken...";
+    
+    try {
+        const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=product_name,brands`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.status === 1 && data.product && data.product.product_name) {
+            let productName = data.product.product_name;
+            if (data.product.brands) {
+                productName = `${data.product.brands}: ${productName}`;
+            }
+            document.getElementById('item-naam').value = productName;
+            document.getElementById('item-aantal').focus(); 
+        } else {
+            alert("Product niet gevonden in de database. Voer het handmatig in.");
+            document.getElementById('item-naam').value = ""; 
+            document.getElementById('item-naam').focus();
+        }
+    } catch (error) {
+        console.error("Fout bij ophalen product:", error);
+        alert("Fout bij het verbinden met de product-database.");
+        document.getElementById('item-naam').value = "";
+    }
+}
+
+/**
+ * Voegt listeners toe aan de barcode knoppen, het veld, en de camera modal
+ */
+function initBarcodeScanner() {
+    // --- Knop voor Handmatig Zoeken ---
+    barcodeSearchBtn.addEventListener('click', () => {
+        const barcode = barcodeInput.value;
+        if (barcode) {
+            fetchProductFromAPI(barcode);
+        }
+    });
+    
+    // --- Enter in Handmatig Veld ---
+    barcodeInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const barcode = barcodeInput.value;
+            if (barcode) {
+                fetchProductFromAPI(barcode);
+            }
+        }
+    });
+
+    // --- LOGICA VOOR DE CAMERA ---
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    let selectedDeviceId;
+
+    // --- Knop om de scan-modal te OPENEN ---
+    barcodeScanBtn.addEventListener('click', async () => {
+        scannerModal.style.display = 'flex';
+        
+        try {
+            const videoInputDevices = await codeReader.listVideoInputDevices();
+            const rearCamera = videoInputDevices.find(device => device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('omgeving'));
+            
+            if (rearCamera) {
+                selectedDeviceId = rearCamera.deviceId;
+            } else if (videoInputDevices.length > 0) {
+                selectedDeviceId = videoInputDevices[0].deviceId;
+            } else {
+                alert("Geen camera gevonden op dit apparaat.");
+                return;
+            }
+
+            console.log(`Camera ${selectedDeviceId} wordt gebruikt`);
+
+            const controls = await codeReader.decodeFromVideoDevice(selectedDeviceId, 'scanner-video', (result, err) => {
+                if (result) {
+                    console.log("Barcode gevonden:", result.text);
+                    controls.stop(); 
+                    scannerModal.style.display = 'none';
+                    
+                    barcodeInput.value = result.text;
+                    fetchProductFromAPI(result.text);
+                }
+                if (err && !(err instanceof ZXing.NotFoundException)) {
+                    console.error(err);
+                }
+            });
+
+            // Sla de 'controls' op zodat de "Annuleren" knop werkt
+            scannerSluitBtn.onclick = () => {
+                controls.stop(); 
+                scannerModal.style.display = 'none';
+                scannerSluitBtn.onclick = null; 
+            };
+
+        } catch (error) {
+            console.error("Fout bij starten camera:", error);
+            alert(`Fout bij camera: ${error.message}`);
+            scannerModal.style.display = 'none';
+        }
+    });
+
+    // --- Knop om de scan-modal te SLUITEN (fallback) ---
+    scannerSluitBtn.addEventListener('click', () => {
+        codeReader.reset(); 
+        scannerModal.style.display = 'none';
+    });
+}
+// --- EINDE BARCODE FUNCTIES ---
+
 
 // ---
 // STAP 2: LADES OPHALEN & APP INITIALISEREN
 // ---
 async function laadLades() {
+    // Sorteert lades op vriezer, daarna op naam
     ladesCollectie.orderBy("vriezer").orderBy("naam").onSnapshot(snapshot => {
         alleLades = [];
         ladesMap = {};
@@ -113,39 +242,36 @@ vriezerSelect.addEventListener('change', vulSchuifDropdowns);
 
 
 // ---
-// STAP 3: Items Opslaan (Create)
+// STAP 3: Items Opslaan (Create) - NU MET ladeNaam
 // ---
 form.addEventListener('submit', (e) => {
     e.preventDefault(); 
 
-    // --- NIEUW: Pak de lade naam uit de dropdown ---
+    // Pak de lade naam uit de dropdown voor correct sorteren
     const schuifDropdown = document.getElementById('item-schuif');
     const geselecteerdeLadeId = schuifDropdown.value;
     const geselecteerdeLadeNaam = schuifDropdown.options[schuifDropdown.selectedIndex].text;
-    // ---------------------------------------------
 
     itemsCollectie.add({
         naam: document.getElementById('item-naam').value,
         aantal: parseFloat(document.getElementById('item-aantal').value),
         eenheid: document.getElementById('item-eenheid').value,
         vriezer: document.getElementById('item-vriezer').value,
-        ladeId: geselecteerdeLadeId, // We slaan de ID nog steeds op
-        ladeNaam: geselecteerdeLadeNaam, // <-- HET NIEUWE VELD
+        ladeId: geselecteerdeLadeId,
+        ladeNaam: geselecteerdeLadeNaam, // <-- VELD VOOR SORTEREN
         ingevrorenOp: firebase.firestore.FieldValue.serverTimestamp()
     })
     .then(() => {
-
-        // --- LOGICA VOOR "ONTHOUD LADE" CHECKBOX (VERPLAATST) ---
+        // "Onthoud Lade" logica
         const rememberCheck = document.getElementById('remember-drawer-check');
         
         if (rememberCheck.checked) {
-            // Reset alleen de item-specifieke velden
             document.getElementById('item-naam').value = '';
+            document.getElementById('item-barcode').value = ''; // Reset ook barcode
             document.getElementById('item-aantal').value = 1;
             document.getElementById('item-eenheid').value = "stuks";
-            document.getElementById('item-naam').focus(); // Zet cursor terug in naam-veld
+            document.getElementById('item-naam').focus(); 
         } else {
-            // Volledige reset (zoals het hoort)
             form.reset();
             document.getElementById('item-eenheid').value = "stuks";
             document.getElementById('item-vriezer').value = "";
@@ -155,18 +281,17 @@ form.addEventListener('submit', (e) => {
 });
 
 // ---
-// STAP 4: Items Tonen (Read) - NU MET KLEUR & DASHBOARD
+// STAP 4: Items Tonen (Read) - NU MET ladeNaam sortering
 // ---
 function laadItems() {
+    // SORTEERT NU OP ladeNaam IPV ladeId
     itemsCollectie.orderBy("vriezer").orderBy("ladeNaam").onSnapshot((snapshot) => {
-        // Reset de lijsten
         lijstVriezer1.innerHTML = '';
         lijstVriezer2.innerHTML = '';
-
-        // --- Reset de tellers voor het dashboard ---
+        
         let countV1 = 0;
         let countV2 = 0;
-        // ---------------------------------
+        uniekeProductNamen.clear(); // Voor autocomplete
 
         let huidigeLadeIdV1 = "";
         let huidigeLadeIdV2 = "";
@@ -174,28 +299,28 @@ function laadItems() {
         snapshot.docs.forEach((doc) => {
             const item = doc.data();
             const docId = doc.id;
-            const ladeNaam = ladesMap[item.ladeId] || "Onbekende Lade";
+            
+            uniekeProductNamen.add(item.naam); // Vul autocomplete
+            
+            // Gebruik de opgeslagen ladeNaam, of val terug op de ladesMap (voor oude items)
+            const ladeNaam = item.ladeNaam || ladesMap[item.ladeId] || "Onbekende Lade";
+            
             const li = document.createElement('li');
             const aantalText = formatAantal(item.aantal, item.eenheid);
-            const datumText = formatDatum(item.ingevrorenOp); // <-- Voor weergave
+            const datumText = formatDatum(item.ingevrorenOp); 
             
-            // --- KLEURCODERING LOGICA ---
+            // Kleurcodering logica
             if (item.ingevrorenOp) {
                 const ingevrorenDatum = item.ingevrorenOp.toDate();
                 const vandaag = new Date();
                 const diffTijd = Math.abs(vandaag - ingevrorenDatum);
                 const diffDagen = Math.ceil(diffTijd / (1000 * 60 * 60 * 24));
 
-                if (diffDagen > 180) { // 6+ maanden
-                    li.classList.add('item-old');
-                } else if (diffDagen > 90) { // 3-6 maanden
-                    li.classList.add('item-medium');
-                } else { // 0-3 maanden
-                    li.classList.add('item-fresh');
-                }
+                if (diffDagen > 180) { li.classList.add('item-old'); } 
+                else if (diffDagen > 90) { li.classList.add('item-medium'); } 
+                else { li.classList.add('item-fresh'); }
             }   
             
-            // AANGEPAST: Toont nu ook de datum
             li.innerHTML = `
                 <div class="item-text">
                     <strong>${item.naam} (${aantalText})</strong>
@@ -212,9 +337,10 @@ function laadItems() {
             `;
 
             if (item.vriezer === 'Vriezer 1') {
-                countV1++; // <-- Tel voor dashboard
-                if (item.ladeId !== huidigeLadeIdV1) {
-                    huidigeLadeIdV1 = item.ladeId;
+                countV1++; 
+                // Gebruik ladeNaam voor de groepering
+                if (ladeNaam !== huidigeLadeIdV1) {
+                    huidigeLadeIdV1 = ladeNaam;
                     const titel = document.createElement('h3');
                     titel.className = 'schuif-titel';
                     titel.textContent = ladeNaam;
@@ -222,9 +348,10 @@ function laadItems() {
                 }
                 lijstVriezer1.appendChild(li);
             } else if (item.vriezer === 'Vriezer 2') {
-                countV2++; // <-- Tel voor dashboard
-                if (item.ladeId !== huidigeLadeIdV2) {
-                    huidigeLadeIdV2 = item.ladeId;
+                countV2++; 
+                // Gebruik ladeNaam voor de groepering
+                if (ladeNaam !== huidigeLadeIdV2) {
+                    huidigeLadeIdV2 = ladeNaam;
                     const titel = document.createElement('h3');
                     titel.className = 'schuif-titel';
                     titel.textContent = ladeNaam;
@@ -234,22 +361,30 @@ function laadItems() {
             }
         });
         
-        // --- Update het dashboard ---
+        // Update dashboard
         dashTotaal.textContent = `Totaal: ${countV1 + countV2}`;
         dashV1.textContent = `Vriezer 1: ${countV1}`;
         dashV2.textContent = `Vriezer 2: ${countV2}`;
-        // -----------------------------
+        
+        // Vul autocomplete
+        const datalist = document.getElementById('product-suggesties');
+        datalist.innerHTML = ''; 
+        uniekeProductNamen.forEach(naam => {
+            const option = document.createElement('option');
+            option.value = naam;
+            datalist.appendChild(option);
+        });
 
     }, (error) => {
         console.error("Fout bij ophalen items: ", error);
         if (error.code === 'failed-precondition') {
-             alert("FOUT: De database query is mislukt. Waarschijnlijk moet je een 'composite index' (voor vriezer/ladeId) aanmaken in je Firebase Console. Check de JavaScript console (F12) voor een directe link om dit te fixen.");
+             alert("FOUT: De database query is mislukt. Waarschijnlijk moet je een 'composite index' (voor vriezer/ladeNaam) aanmaken in je Firebase Console. Check de JavaScript console (F12) voor een directe link om dit te fixen.");
         }
     });
 }
 
 // ---
-// STAP 5: Items Verwijderen & Bewerken (Listeners)
+// STAP 5: Items Verwijderen & Bewerken (Listeners) - NU MET ladeNaam
 // ---
 function handleItemLijstClick(e) {
     const editButton = e.target.closest('.edit-btn');
@@ -271,7 +406,7 @@ function handleItemLijstClick(e) {
             editAantal.value = item.aantal;
             editEenheid.value = item.eenheid || 'stuks';
             editVriezer.value = item.vriezer;
-            editSchuif.innerHTML = '';
+            editSchuif.innerHTML = ''; 
             const gefilterdeLades = alleLades.filter(lade => lade.vriezer === item.vriezer);
             gefilterdeLades.forEach(lade => {
                 const option = document.createElement('option');
@@ -291,11 +426,10 @@ editForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const id = editId.value;
 
-    // --- NIEUW: Pak de lade naam uit de dropdown ---
+    // Pak de lade naam uit de dropdown voor correct sorteren
     const schuifDropdown = document.getElementById('edit-item-schuif');
     const geselecteerdeLadeId = schuifDropdown.value;
     const geselecteerdeLadeNaam = schuifDropdown.options[schuifDropdown.selectedIndex].text;
-    // ---------------------------------------------
 
     itemsCollectie.doc(id).update({
         naam: editNaam.value,
@@ -303,11 +437,10 @@ editForm.addEventListener('submit', (e) => {
         eenheid: editEenheid.value,
         vriezer: editVriezer.value,
         ladeId: geselecteerdeLadeId,
-        ladeNaam: geselecteerdeLadeNaam // <-- HET NIEUWE VELD
+        ladeNaam: geselecteerdeLadeNaam // <-- VELD VOOR SORTEREN
     })
     .then(sluitItemModal);
 });
-
 function sluitItemModal() { editModal.style.display = 'none'; }
 btnCancel.addEventListener('click', sluitItemModal);
 
@@ -357,7 +490,6 @@ function vulLadeBeheerLijst() {
     });
 }
 
-// --- HERSTELD: Lade toevoegen formulier ---
 addLadeForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const naam = document.getElementById('lade-naam').value;
@@ -367,7 +499,6 @@ addLadeForm.addEventListener('submit', (e) => {
         vriezer: vriezer
     })
     .then(() => {
-        // Simpelweg het formulier resetten.
         addLadeForm.reset();
     });
 });
@@ -469,7 +600,7 @@ function checkLadesInLijst(lijstElement) {
 }
 
 // ---
-// STAP 9: PRINT LOGICA (VERPLAATST)
+// STAP 9: PRINT LOGICA
 // ---
 printBtn.addEventListener('click', () => {
     window.print();
@@ -482,9 +613,11 @@ printBtn.addEventListener('click', () => {
 auth.onAuthStateChanged((user) => {
     if (user) {
         console.log("Ingelogd als:", user.displayName || user.email || user.uid);
-        laadLades(); // Dit laadt lades, en 'laadLades' laadt vervolgens 'laadItems'
+        laadLades(); // Hoofdfunctie die alles start
+        initBarcodeScanner(); // <-- NIEUWE FUNCTIE HIER AANROEPEN
     } else {
         console.log("Niet ingelogd, terug naar index.html");
         window.location.replace('index.html');
     }
 });
+
