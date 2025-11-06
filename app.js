@@ -225,13 +225,50 @@ function renderDynamischeLijsten() {
         const kolomDiv = document.createElement('div');
         kolomDiv.className = 'vriezer-kolom';
         kolomDiv.innerHTML = `<h2>${vriezer.naam}</h2>`;
-        
-        const ul = document.createElement('ul');
-        ul.id = `vriezer-${vriezer.id}`; 
-        
+
+        // --- NIEUW: Filter Dropdown Toevoegen ---
         const vriezerLades = alleLades
             .filter(lade => lade.vriezerId === vriezer.id)
             .sort((a, b) => a.naam.localeCompare(b.naam));
+
+        // Maak de filter container alleen als er lades zijn
+        if (vriezerLades.length > 0) {
+            const filterContainer = document.createElement('div');
+            filterContainer.className = 'lade-filter-container';
+            
+            const filterLabel = document.createElement('label');
+            filterLabel.htmlFor = `filter-${vriezer.id}`;
+            filterLabel.textContent = 'Toon schuif:';
+            
+            const filterSelect = document.createElement('select');
+            filterSelect.id = `filter-${vriezer.id}`;
+            filterSelect.className = 'lade-filter-select';
+            
+            // Optie "Alles"
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = 'Alle schuiven';
+            filterSelect.appendChild(allOption);
+
+            // Vul opties voor elke lade
+            vriezerLades.forEach(lade => {
+                const ladeOption = document.createElement('option');
+                ladeOption.value = lade.id;
+                ladeOption.textContent = lade.naam;
+                filterSelect.appendChild(ladeOption);
+            });
+
+            // Koppel de filterfunctie aan deze dropdown
+            filterSelect.addEventListener('change', updateItemVisibility); 
+            
+            filterContainer.appendChild(filterLabel);
+            filterContainer.appendChild(filterSelect);
+            kolomDiv.appendChild(filterContainer); // Voeg filter toe aan kolom
+        }
+        // --- EINDE NIEUW ---
+        
+        const ul = document.createElement('ul');
+        ul.id = `vriezer-${vriezer.id}`; 
             
         const vriezerItems = alleItems.filter(item => item.vriezerId === vriezer.id);
         
@@ -239,7 +276,7 @@ function renderDynamischeLijsten() {
             const titel = document.createElement('h3');
             titel.className = 'schuif-titel';
             titel.textContent = lade.naam;
-            titel.dataset.ladeId = lade.id;
+            titel.dataset.ladeId = lade.id; // Belangrijk voor de filter!
             ul.appendChild(titel);
             
             const ladeItems = vriezerItems
@@ -249,7 +286,7 @@ function renderDynamischeLijsten() {
             ladeItems.forEach(item => {
                 const li = document.createElement('li');
                 li.dataset.id = item.id;
-                li.dataset.ladeId = item.ladeId;
+                li.dataset.ladeId = item.ladeId; // Belangrijk voor de filter!
                 li.dataset.vriezerId = item.vriezerId;
                 
                 if (item.ingevrorenOp) {
@@ -281,6 +318,7 @@ function renderDynamischeLijsten() {
     updateItemVisibility(); 
     updateDashboard(); 
 }
+
 
 function updateDashboard() {
     dashboard.innerHTML = '';
@@ -604,15 +642,57 @@ logoutBtn.addEventListener('click', () => {
 searchBar.addEventListener('input', updateItemVisibility);
 function updateItemVisibility() {
     const searchTerm = searchBar.value.toLowerCase();
-    document.querySelectorAll('#vriezer-lijsten-container li').forEach(item => {
-        const itemText = item.querySelector('.item-text strong').textContent.toLowerCase();
-        const matchesSearch = itemText.startsWith(searchTerm);
-        item.style.display = matchesSearch ? 'flex' : 'none';
-    });
-    document.querySelectorAll('.vriezer-kolom ul').forEach(ul => {
-        checkLadesInLijst(ul);
+
+    // Ga door ELKE vriezer-kolom
+    document.querySelectorAll('.vriezer-kolom').forEach(kolom => {
+        
+        // 1. Wat is de status van de lade-filter voor DEZE kolom?
+        const ladeFilter = kolom.querySelector('.lade-filter-select');
+        // Als er geen filter is (bv. geen lades), is de waarde 'all'
+        const geselecteerdeLadeId = ladeFilter ? ladeFilter.value : 'all';
+
+        // We hebben een tracker nodig om te zien of een lade
+        // titels (H3) moet tonen.
+        const ladeHeeftZichtbareItems = {}; // { ladeId: true }
+
+        // 2. Loop 1: Bepaal zichtbaarheid ITEMS (LI)
+        kolom.querySelectorAll('li').forEach(item => {
+            const itemLadeId = item.dataset.ladeId;
+
+            // Check 1: Matcht het de lade-filter?
+            const matchesLade = (geselecteerdeLadeId === 'all' || geselecteerdeLadeId === itemLadeId);
+
+            // Check 2: Matcht het de zoekbalk?
+            const itemText = item.querySelector('.item-text strong').textContent.toLowerCase();
+            const matchesSearch = itemText.startsWith(searchTerm);
+
+            if (matchesLade && matchesSearch) {
+                item.style.display = 'flex';
+                // Markeer deze lade als "heeft zichtbare items"
+                ladeHeeftZichtbareItems[itemLadeId] = true; 
+            } else {
+                item.style.display = 'none';
+            }
+        });
+
+        // 3. Loop 2: Bepaal zichtbaarheid LADE TITELS (H3)
+        kolom.querySelectorAll('.schuif-titel').forEach(titel => {
+            const titelLadeId = titel.dataset.ladeId;
+            
+            if (geselecteerdeLadeId === 'all') {
+                // "Alles" modus: Toon titel alleen als er zichtbare items onder staan
+                const heeftItems = ladeHeeftZichtbareItems[titelLadeId] === true;
+                titel.style.display = heeftItems ? 'block' : 'none';
+            } else {
+                // "Specifieke Lade" modus: Toon de titel als het de geselecteerde lade is.
+                // De items (LI) eronder worden nog steeds gefilterd door de zoekbalk.
+                const isGeselecteerdeTitel = (geselecteerdeLadeId === titelLadeId);
+                titel.style.display = isGeselecteerdeTitel ? 'block' : 'none';
+            }
+        });
     });
 }
+
 function checkLadesInLijst(lijstElement) {
     const lades = lijstElement.querySelectorAll('.schuif-titel');
     lades.forEach(ladeTitel => {
