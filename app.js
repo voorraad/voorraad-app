@@ -311,6 +311,8 @@ ladeDiv.innerHTML = `
             dashTotaal.textContent = snapshot.size;
             // NIEUW: Zorg dat de filtering klopt bij het laden
             updateItemVisibility();
+            // NIEUW: Activeer drag-and-drop nu de lijsten bestaan
+            initDragAndDrop();
 
         }, err => {
             console.error("Fout bij laden items: ", err);
@@ -895,8 +897,76 @@ scanBtn.addEventListener('click', startScanner);
 stopScanBtn.addEventListener('click', sluitScanner);
 manualEanBtn.addEventListener('click', () => { /* ... (je bestaande code) ... */ });
 
-// --- Drag-and-Drop Logica (TIJDELIJK STUK) ---
-function initDragAndDrop() { console.log("Drag/Drop (tijdelijk stuk)"); }
+// ---
+// Drag-and-Drop Logica (VOLLEDIG HERSCHREVEN)
+// ---
+
+function initDragAndDrop() {
+    // 1. Zoek alle item-lijsten (<ul>) die we hebben gemaakt
+    const lijsten = document.querySelectorAll('.item-lijst');
+    
+    // 2. Maak elke lijst "sortable"
+    lijsten.forEach(lijst => {
+        // Voorkom dubbele initialisatie (als onSnapshot snel opnieuw laadt)
+        if (lijst.sortableInstance) {
+            lijst.sortableInstance.destroy();
+        }
+        
+        lijst.sortableInstance = new Sortable(lijst, {
+            group: 'items', // Items kunnen tussen lijsten met dezelfde group
+            animation: 150,
+            handle: '.item-info', // Zorgt dat je knoppen nog kunt klikken (optioneel)
+            
+            // 3. Dit is de belangrijke: wat te doen na het slepen?
+            onEnd: handleDragEnd
+        });
+    });
+}
+
+// NIEUWE HANDLER: Wordt aangeroepen als een item is verplaatst
+async function handleDragEnd(evt) {
+    // evt.from = de oude lijst (ul)
+    // evt.to = de new lijst (ul)
+    // evt.item = het item (li) dat is gesleept
+
+    // Als het item in dezelfde lijst is teruggezet, doe niets
+    if (evt.from === evt.to) {
+        return;
+    }
+
+    try {
+        // 1. Haal de ID's op
+        const itemId = evt.item.dataset.id;
+        const nieuweLadeId = evt.to.dataset.ladeId;
+
+        // 2. Zoek de data van de nieuwe lade (uit onze globale 'alleLades' array)
+        const nieuweLade = alleLades.find(l => l.id === nieuweLadeId);
+        
+        if (!nieuweLade) {
+            throw new Error("Doellade niet gevonden!");
+        }
+
+        // 3. Update het item in Firestore
+        await itemsCollectie.doc(itemId).update({
+            ladeId: nieuweLadeId,
+            ladeNaam: nieuweLade.naam, // Update de ladeNaam (belangrijk voor sortering!)
+            vriezerId: nieuweLade.vriezerId // Update de vriezerId
+        });
+
+        // 4. Geef feedback
+        const itemNaam = evt.item.querySelector('.item-naam').textContent;
+        showFeedback(`'${itemNaam}' verplaatst naar '${nieuweLade.naam}'!`, 'success');
+        
+        // Let op: laadItems() wordt *automatisch* opnieuw aangeroepen
+        // door de onSnapshot listener. De tellers worden dus vanzelf bijgewerkt.
+
+    } catch (err) {
+        console.error("Fout bij drag-and-drop: ", err);
+        showFeedback(err.message, 'error');
+        // Zet het item terug als er een fout is (SortableJS ondersteunt dit niet
+        // direct, maar de UI wordt hersteld bij de volgende snapshot-update)
+    }
+}
 
 // ---
 // ALLES STARTEN (AANGEPAST)
@@ -906,7 +976,6 @@ auth.onAuthStateChanged((user) => {
         console.log("Ingelogd als:", user.displayName || user.email || user.uid);
         currentUser = user; // Sla de gebruiker globaal op
         laadStamdata(); // NIEUWE STARTFUNCTIE
-        initDragAndDrop(); // (Wordt aangeroepen, maar doet nog niets)
     } else {
         currentUser = null;
         console.log("Niet ingelogd, terug naar index.html");
