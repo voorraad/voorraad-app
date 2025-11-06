@@ -44,6 +44,7 @@ const editAantal = document.getElementById('edit-item-aantal');
 const editEenheid = document.getElementById('edit-item-eenheid');
 const editVriezer = document.getElementById('edit-item-vriezer');
 const editSchuif = document.getElementById('edit-item-schuif');
+const editDatum = document.getElementById('edit-item-datum');
 const btnCancel = document.getElementById('btn-cancel');
 const logoutBtn = document.getElementById('logout-btn');
 const searchBar = document.getElementById('search-bar');
@@ -411,6 +412,18 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
             editVriezer.appendChild(option);
         });
         vulEditLadeDropdown(item.vriezerId, item.ladeId);
+        // --- NIEUW: Datum vullen ---
+        // item.ingevrorenOp is een Firestore Timestamp. Converteer naar Date-object.
+        const jsDate = item.ingevrorenOp ? item.ingevrorenOp.toDate() : new Date();
+
+        // Formatteer handmatig naar YYYY-MM-DD voor de input.
+        // (toISOString() gebruikt UTC en kan de datum een dag verschuiven)
+        const year = jsDate.getFullYear();
+        const month = (jsDate.getMonth() + 1).toString().padStart(2, '0'); // Maanden zijn 0-11
+        const day = jsDate.getDate().toString().padStart(2, '0');
+        
+        editDatum.value = `${year}-${month}-${day}`;
+        // --- EINDE NIEUW ---
         editModal.style.display = 'flex';
     }
 });
@@ -435,6 +448,11 @@ editForm.addEventListener('submit', (e) => {
     const geselecteerdeVriezerId = editVriezer.value;
     const geselecteerdeLadeId = editSchuif.value;
     const geselecteerdeLadeNaam = editSchuif.options[editSchuif.selectedIndex].text;
+    // --- NIEUW: Datum lezen ---
+    // De input geeft "YYYY-MM-DD". We forceren dit naar T00:00:00 lokale tijd.
+    // Firestore zet dit correct om naar een Timestamp.
+    const nieuweDatum = new Date(editDatum.value + "T00:00:00");
+    // --- EINDE NIEUW ---
     itemsCollectie.doc(id).update({
         naam: editNaam.value,
         aantal: parseFloat(editAantal.value),
