@@ -460,7 +460,7 @@ editForm.addEventListener('submit', (e) => {
         vriezerId: geselecteerdeVriezerId,
         ladeId: geselecteerdeLadeId,
         ladeNaam: geselecteerdeLadeNaam?
-        ingevrorenOp: new date (nieuweDatum)
+        ingevrorenOp: new Date (nieuweDatum)
     })
     .then(() => {
         sluitItemModal();
