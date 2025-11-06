@@ -161,9 +161,30 @@ button[type="submit"] {
 }
 button[type="submit"]:hover { background-color: #88FFCC; }
 
-
-/* --- AANGEPAST: Lade Filter (Stijlen verwijderd) --- */
-/* De stijlen voor .lade-filter-container en .lade-filter zijn verwijderd. */
+/* --- NIEUW: Lade Filter per Vriezer --- */
+.lade-filter-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 5px; /* Ruimte onder de H2 */
+    margin-bottom: 15px; /* Ruimte boven de lijst */
+}
+.lade-filter-container label {
+    font-weight: bold;
+    font-size: 0.9em;
+    color: #555;
+    flex-shrink: 0; /* Zorgt dat de label niet krimpt */
+}
+.lade-filter-select {
+    flex-grow: 1; /* Neemt de rest van de ruimte */
+    padding: 8px; /* Iets compacter dan de hoofd-inputs */
+    font-size: 15px;
+    background-color: #fdfdfd;
+    color: #333;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-family: 'Inter', system-ui, sans-serif;
+}
 
 
 /* --- De Voorraadlijst Container (Dynamisch) --- */
@@ -539,7 +560,7 @@ li.sortable-ghost {
     .item-buttons,
     #add-item-form label[for="remember-drawer-check"],
     input[type="checkbox"],
-    /* .lade-filter-container, (verwijderd) */
+    .lade-filter-container,
     .input-with-button button { 
         display: none !important; 
     }
