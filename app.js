@@ -690,6 +690,7 @@ logoutBtn.addEventListener('click', () => {
 searchBar.addEventListener('input', updateItemVisibility);
 function updateItemVisibility() {
     const searchTerm = searchBar.value.toLowerCase();
+    const isSearching = searchTerm.length > 0; // <-- NIEUW: Check of we actief zoeken
 
     // Ga door ELKE vriezer-kolom
     document.querySelectorAll('.vriezer-kolom').forEach(kolom => {
@@ -699,12 +700,17 @@ function updateItemVisibility() {
 
         const ladeHeeftZichtbareItems = {}; 
 
-        // 1. Loop 1: Bepaal zichtbaarheid ITEMS (LI) - Deze logica is ongewijzigd
+        // 1. Loop 1: Bepaal zichtbaarheid ITEMS (LI) - Deze is ongewijzigd
         kolom.querySelectorAll('li').forEach(item => {
             const itemLadeId = item.dataset.ladeId;
             const matchesLade = (geselecteerdeLadeId === 'all' || geselecteerdeLadeId === itemLadeId);
+            
+            // Pas de zoeklogica licht aan: zoek overal in de naam, niet alleen 'startsWith'
+            // const itemText = item.querySelector('.item-text strong').textContent.toLowerCase();
+            // const matchesSearch = itemText.startsWith(searchTerm); 
+            // -- OF -- (als je 'bevat' ipv 'begint met' wil)
             const itemText = item.querySelector('.item-text strong').textContent.toLowerCase();
-            const matchesSearch = itemText.startsWith(searchTerm);
+            const matchesSearch = itemText.includes(searchTerm); // <-- AANGEPAST (includes is vaak fijner)
 
             if (matchesLade && matchesSearch) {
                 item.style.display = 'flex';
@@ -714,19 +720,38 @@ function updateItemVisibility() {
             }
         });
 
-        // 2. Loop 2: Bepaal zichtbaarheid LADE GROEPEN (H3) - Deze is aangepast
-        // We verbergen/tonen nu de hele '.lade-group' i.p.v. alleen de '.schuif-titel'
+        // 2. Loop 2: Bepaal zichtbaarheid LADE GROEPEN - Deze is aangepast
         kolom.querySelectorAll('.lade-group').forEach(group => {
             const groupLadeId = group.dataset.ladeId;
-            
+            const heeftItems = ladeHeeftZichtbareItems[groupLadeId] === true;
+
+            let toonGroup = false;
+
             if (geselecteerdeLadeId === 'all') {
                 // "Alles" modus: Toon group alleen als er zichtbare items in zitten
-                const heeftItems = ladeHeeftZichtbareItems[groupLadeId] === true;
-                group.style.display = heeftItems ? 'block' : 'none';
+                if (heeftItems) {
+                    toonGroup = true;
+                }
             } else {
-                // "Specifieke Lade" modus: Toon de group als het de geselecteerde lade is.
-                const isGeselecteerdeGroup = (geselecteerdeLadeId === groupLadeId);
-                group.style.display = isGeselecteerdeGroup ? 'block' : 'none';
+                // "Specifieke Lade" modus: Toon de group als het de geselecteerde lade is
+                // (en hij moet ook items hebben die de zoekterm matchen)
+                if (geselecteerdeLadeId === groupLadeId && heeftItems) {
+                    toonGroup = true;
+                } else if (geselecteerdeLadeId === groupLadeId && !isSearching) {
+                    // Als een specifieke lade is gekozen, maar er is geen zoekterm,
+                    // toon hem dan ook (zelfs als hij leeg is).
+                    toonGroup = true;
+                }
+            }
+
+            // Stap A: Bepaal of de HELE group-div getoond moet worden
+            group.style.display = toonGroup ? 'block' : 'none';
+
+            // Stap B: (DE NIEUWE LOGICA)
+            // Als we aan het zoeken zijn EN deze group wordt getoond (omdat hij items heeft)
+            // forceer hem dan om open te klappen.
+            if (isSearching && toonGroup) { // <-- NIEUW
+                group.classList.remove('collapsed'); // <-- NIEUW
             }
         });
     });
