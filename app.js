@@ -84,9 +84,96 @@ function formatAantal(aantal, eenheid) { /* ... (je bestaande code) ... */ }
 function formatDatum(timestamp) { /* ... (je bestaande code) ... */ }
 function startScanner() { /* ... (je bestaande code) ... */ }
 function sluitScanner() { /* ... (je bestaande code) ... */ }
-function onScanSuccess(decodedText, decodedResult) { /* ... (je bestaande code) ... */ }
+// HERSCHREVEN: onScanSuccess
+async function onScanSuccess(ean, decodedResult) {
+    // 1. Laat de scanner doorgaan (voor 'batch' scannen)
+    // We roepen html5QrCode.pause() *niet* aan.
+    
+    // 2. Geef visuele feedback dat er gescand is
+    showFeedback(`EAN ${ean} gescand. Product opzoeken...`, 'info');
+
+    // 3. Haal de productnaam op
+    const productName = await fetchProductFromOFF(ean);
+    
+    if (!productName) {
+        showFeedback(`Product niet gevonden voor EAN ${ean}.`, 'error');
+        // We stoppen niet, gebruiker kan opnieuw proberen
+        return;
+    }
+    
+    // 4. Controleer de selecties in het HOOFD-formulier
+    const geselecteerdeVriezerId = vriezerSelect.value;
+    const geselecteerdeLadeId = schuifSelect.value;
+    
+    if (!geselecteerdeVriezerId || !geselecteerdeLadeId) {
+        sluitScanner(); // Sluit de scanner
+        showFeedback("Selecteer a.u.b. eerst een vriezer en lade in het toevoeg-formulier!", "error");
+        return;
+    }
+
+    // 5. Haal de ladeNaam op voor sortering
+    const geselecteerdeLadeNaam = schuifSelect.options[schuifSelect.selectedIndex].text;
+
+    // 6. Sla het item direct op in Firestore
+    try {
+        await itemsCollectie.add({
+            naam: productName,
+            aantal: 1, // Standaard aantal 1
+            eenheid: "stuks", // Standaard eenheid
+            ingevrorenOp: firebase.firestore.FieldValue.serverTimestamp(),
+            userId: currentUser.uid,
+            vriezerId: geselecteerdeVriezerId,
+            ladeId: geselecteerdeLadeId,
+            ladeNaam: geselecteerdeLadeNaam,
+            ean: ean // Sla de EAN op voor toekomstig gebruik (optioneel)
+        });
+        
+        showFeedback(`'${productName}' toegevoegd aan '${geselecteerdeLadeNaam}'!`, 'success');
+        
+        // Scanner blijft open voor volgend item...
+
+    } catch (err) {
+        console.error("Fout bij opslaan gescand item: ", err);
+        showFeedback(err.message, 'error');
+    }
+}
+
 function onScanFailure(error) { /* ... */ }
-async function fetchProductFromOFF(ean) { /* ... (je bestaande code) ... */ }
+// ---
+// Scanner Logica (HERSCHREVEN)
+// ---
+
+// HERSCHREVEN: fetchProductFromOFF
+async function fetchProductFromOFF(ean) {
+    // We gebruiken de proxy-URL die je waarschijnlijk in Stap 1 hebt ingesteld
+    const proxyUrl = 'https://proxy.vriezer.app/fetch-product'; 
+    
+    try {
+        const response = await fetch(`${proxyUrl}?ean=${ean}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.status === 0 || !data.product) {
+            console.warn("Product niet gevonden in OFF:", ean);
+            return null; // Product niet gevonden
+        }
+        
+        // We pakken de productnaam, of een generieke naam als die ontbreekt
+        const productName = data.product.product_name || data.product.generic_name || "Onbekend product";
+        
+        // Verwijder ongewenste tekens/toevoegingen
+        return productName.split(' - ')[0].split('(')[0].trim();
+
+    } catch (error) {
+        console.error('Fout bij ophalen OpenFoodFacts:', error);
+        return null; // Fout opgetreden
+    }
+}
+
 
 // ---
 // STAP 2: APP INITIALISATIE (NIEUW)
@@ -895,7 +982,16 @@ printBtn.addEventListener('click', () => window.print());
 // --- Scanner Listeners (blijft hetzelfde) ---
 scanBtn.addEventListener('click', startScanner);
 stopScanBtn.addEventListener('click', sluitScanner);
-manualEanBtn.addEventListener('click', () => { /* ... (je bestaande code) ... */ });
+// HERSCHREVEN: Listener voor handmatige EAN-invoer
+manualEanBtn.addEventListener('click', async () => {
+    const ean = prompt("Voer de EAN-code (barcode) handmatig in:", "");
+    
+    if (ean) {
+        // Roep *exact dezelfde* succes-functie aan
+        await onScanSuccess(ean.trim(), null);
+    }
+});
+
 
 // ---
 // Drag-and-Drop Logica (VOLLEDIG HERSCHREVEN)
