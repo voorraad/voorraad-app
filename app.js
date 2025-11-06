@@ -758,7 +758,35 @@ manualEanBtn.addEventListener('click', () => {
     const ean = prompt("Voer het EAN-nummer (barcode) handmatig in:", "");
     if (ean && ean.trim() !== "") fetchProductFromOFF(ean.trim());
 });
+// ---
+// STAP 10: ALLES OPENEN / SLUITEN LOGICA
+// ---
 
+// Snelkoppelingen naar de nieuwe knoppen
+const btnAllesOpenen = document.getElementById('btn-alles-openen');
+const btnAllesSluiten = document.getElementById('btn-alles-sluiten');
+
+// Functie om alle lades te openen
+btnAllesOpenen.addEventListener('click', () => {
+    // Zoek alle lade-groepen in de container
+    const alleLades = vriezerLijstenContainer.querySelectorAll('.lade-group');
+    
+    alleLades.forEach(lade => {
+        // Haal de 'collapsed' class weg om ze te openen
+        lade.classList.remove('collapsed');
+    });
+});
+
+// Functie om alle lades te sluiten
+btnAllesSluiten.addEventListener('click', () => {
+    // Zoek alle lade-groepen in de container
+    const alleLades = vriezerLijstenContainer.querySelectorAll('.lade-group');
+    
+    alleLades.forEach(lade => {
+        // Voeg de 'collapsed' class toe om ze te sluiten
+        lade.classList.add('collapsed');
+    });
+});
 // ---
 // ALLES STARTEN (AANGEPAST - DE FIX)
 // ---
