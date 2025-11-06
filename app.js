@@ -175,8 +175,7 @@ form.addEventListener('submit', (e) => {
         userId: currentUser.uid,
         vriezerId: geselecteerdeVriezerId,
         ladeId: geselecteerdeLadeId,
-        ladeNaam: geselecteerdeLadeNaam,
-        ingevrorenOp: new date (nieuweDatum)
+        ladeNaam: geselecteerdeLadeNaam
     })
     .then(() => {
         showFeedback(`'${itemNaam}' toegevoegd!`, 'success');
@@ -460,7 +459,8 @@ editForm.addEventListener('submit', (e) => {
         eenheid: editEenheid.value,
         vriezerId: geselecteerdeVriezerId,
         ladeId: geselecteerdeLadeId,
-        ladeNaam: geselecteerdeLadeNaam
+        ladeNaam: geselecteerdeLadeNaam?
+        ingevrorenOp: new date (nieuweDatum)
     })
     .then(() => {
         sluitItemModal();
