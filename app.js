@@ -34,9 +34,9 @@ let ladesBeheerListener = null;
 // Snelkoppelingen naar elementen
 // ---
 const form = document.getElementById('add-item-form');
-// Deze twee zijn TIJDELIJK ongebruikt (worden in Stap 3 vervangen)
-const lijstVriezer1 = document.getElementById('lijst-vriezer-1'); 
-const lijstVriezer2 = document.getElementById('lijst-vriezer-2');
+// Verwijderd: lijstVriezer1 en lijstVriezer2
+// NIEUW: De hoofdcontainer voor alle vriezerlijsten
+const vriezerLijstenContainer = document.getElementById('vriezer-lijsten-container'); 
 const vriezerSelect = document.getElementById('item-vriezer'); // Toevoeg-formulier vriezer
 const schuifSelect = document.getElementById('item-schuif'); // Toevoeg-formulier lade
 const editModal = document.getElementById('edit-modal');
@@ -205,30 +205,386 @@ form.addEventListener('submit', (e) => {
 });
 
 // ---
-// STAP 4: Items Tonen (Read) - (TIJDELIJK STUK)
+// STAP 4: Items Tonen (Read) - (VOLLEDIG HERSCHREVEN)
 // ---
-function laadItems() { 
-    console.log("laadItems wordt aangeroepen, maar is leeg. Dit wordt gerepareerd in Stap 3.");
-    // We laten deze leeg. In Stap 3 vullen we deze functie
-    // om de *nieuwe* datastructuur dynamisch te renderen.
-    document.getElementById('vriezer-lijsten-container').innerHTML = `
-        <p style="text-align: center; color: #777; font-size: 1.2em;">
-            Klaar voor Stap 3: Het hoofdscherm bouwen!
-        </p>
+
+// NIEUWE helper-functie om één item-LI te bouwen
+function renderItem(doc) {
+    const item = doc.data();
+    const li = document.createElement('li');
+    li.dataset.id = doc.id;
+    
+    // Data-attributen voor zoeken/filteren (wordt later gebruikt)
+    li.dataset.naam = item.naam.toLowerCase();
+    li.dataset.vriezer = item.vriezerId;
+    li.dataset.lade = item.ladeId;
+
+    const ingevrorenDatum = item.ingevrorenOp ? formatDatum(item.ingevrorenOp) : 'Onbekend';
+    
+    li.innerHTML = `
+        <div class="item-info">
+            <span class="item-naam">${item.naam}</span>
+            <span class="item-details">
+                ${formatAantal(item.aantal, item.eenheid)} | ${ingevrorenDatum}
+            </span>
+        </div>
+        <div class="item-buttons">
+            <button class="edit-btn" title="Bewerk"><i class="fas fa-pencil-alt"></i></button>
+            <button class="delete-btn" title="Verwijder"><i class="fas fa-trash-alt"></i></button>
+        </div>
     `;
+    return li;
+}
+
+// HERSCHREVEN: laadItems()
+function laadItems() { 
+    if (!currentUser) return;
+
+    // We gebruiken onSnapshot voor real-time updates!
+    itemsCollectie.where('userId', '==', currentUser.uid)
+        .orderBy('ladeNaam') // Sorteer op lade (zoals ingesteld bij 'add')
+        .orderBy('naam')     // Daarbinnen op naam
+        .onSnapshot(snapshot => {
+            
+            // Leeg de container
+            vriezerLijstenContainer.innerHTML = '';
+            
+            // 1. Loop door de globale 'alleVriezers' (uit stap 2)
+            alleVriezers.forEach(vriezer => {
+                // Maak een container voor deze vriezer
+                const vriezerDiv = document.createElement('div');
+                vriezerDiv.className = 'vriezer-container';
+                vriezerDiv.innerHTML = `<h2><i class="fas fa-snowflake"></i> ${vriezer.naam}</h2>`;
+
+                // 2. Filter de globale 'alleLades' voor deze vriezer
+                const ladesInVriezer = alleLades.filter(l => l.vriezerId === vriezer.id);
+                
+                if (ladesInVriezer.length === 0) {
+                     vriezerDiv.innerHTML += `<p class="empty-lade-msg"><i>Voeg lades toe via 'Beheer Vriezers' om items te zien.</i></p>`;
+                }
+
+                // 3. Loop door de lades van deze vriezer
+                ladesInVriezer.forEach(lade => {
+                    // Maak een container voor deze lade
+                    const ladeDiv = document.createElement('div');
+                    ladeDiv.className = 'lade-container';
+                    // We geven de UL de ID van de lade, handig voor drag-and-drop later
+                    ladeDiv.innerHTML = `
+                        <h3>${lade.naam}</h3>
+                        <ul class="item-lijst" id="lijst-${lade.id}" data-lade-id="${lade.id}"></ul>
+                    `;
+                    const ul = ladeDiv.querySelector('.item-lijst');
+
+                    // 4. Filter de items (uit de snapshot) voor deze lade
+                    const itemsInLade = snapshot.docs.filter(doc => doc.data().ladeId === lade.id);
+                    
+                    if (itemsInLade.length === 0) {
+                        ul.innerHTML = `<li class="empty-lade-msg"><i>Leeg</i></li>`;
+                    } else {
+                        itemsInLade.forEach(doc => {
+                            ul.appendChild(renderItem(doc));
+                        });
+                    }
+                    // Voeg de lade toe aan de vriezer-div
+                    vriezerDiv.appendChild(ladeDiv);
+                });
+                
+                // Voeg de complete vriezer-div toe aan de pagina
+                vriezerLijstenContainer.appendChild(vriezerDiv);
+            });
+            
+            // Update het dashboard (Stap 8, maar we kunnen de totalen al tellen)
+            dashTotaal.textContent = snapshot.size;
+
+        }, err => {
+            console.error("Fout bij laden items: ", err);
+            showFeedback(err.message, "error");
+        });
 }
 
 // ---
-// STAP 5: Items Verwijderen & Bewerken (Listeners) - (TIJDELIJK STUK)
+// STAP 5: Items Verwijderen & Bewerken (VOLLEDIG HERSCHREVEN)
 // ---
-function handleItemLijstClick(e) { /* ... (je bestaande code) ... */ }
-// Deze listeners zijn nu gekoppeld aan lege <ul>'s
-lijstVriezer1.addEventListener('click', handleItemLijstClick);
-lijstVriezer2.addEventListener('click', handleItemLijstClick);
-editForm.addEventListener('submit', (e) => { /* ... (je bestaande code) ... */ });
+
+// NIEUWE GEDELEGEERDE LISTENER:
+// Deze ene listener vangt alle clicks op binnen de container
+vriezerLijstenContainer.addEventListener('click', handleItemLijstClick);
+
+// VERWIJDER DEZE OUDE REGELS:
+// lijstVriezer1.addEventListener('click', handleItemLijstClick);
+// lijstVriezer2.addEventListener('click', handleItemLijstClick);
+
+
+// HERSCHREVEN: handleItemLijstClick
+async function handleItemLijstClick(e) {
+    const deleteBtn = e.target.closest('.delete-btn');
+    const editBtn = e.target.closest('.edit-btn');
+    
+    if (deleteBtn) {
+        const li = e.target.closest('li');
+        const id = li.dataset.id;
+        const naam = li.querySelector('.item-naam').textContent;
+
+        if (confirm(`Weet je zeker dat je '${naam}' wilt verwijderen?`)) {
+            try {
+                await itemsCollectie.doc(id).delete();
+                showFeedback(`'${naam}' verwijderd.`, 'success');
+            } catch (err) {
+                showFeedback(err.message, 'error');
+            }
+        }
+    } 
+    
+    else if (editBtn) {
+        const li = e.target.closest('li');
+        const id = li.dataset.id;
+        
+        try {
+            const doc = await itemsCollectie.doc(id).get();
+            if (!doc.exists) {
+                showFeedback("Item niet gevonden", "error");
+                return;
+            }
+            const item = doc.data();
+            
+            // 1. Vul de simpele velden
+            editId.value = doc.id;
+            editNaam.value = item.naam;
+            editAantal.value = item.aantal;
+            editEenheid.value = item.eenheid;
+            
+            // 2. Vul de 'Vriezer' dropdown (met 'alleVriezers')
+            editVriezer.innerHTML = ''; // Maak leeg
+            alleVriezers.forEach(vriezer => {
+                const option = document.createElement('option');
+                option.value = vriezer.id;
+                option.textContent = vriezer.naam;
+                if (vriezer.id === item.vriezerId) {
+                    option.selected = true; // Selecteer de huidige vriezer
+                }
+                editVriezer.appendChild(option);
+            });
+            
+            // 3. Vul de 'Lade' dropdown
+            // We roepen een *nieuwe* helper-functie aan (zie hieronder)
+            // We geven de vriezer-ID én de huidige lade-ID mee
+            vulEditLadeDropdown(item.vriezerId, item.ladeId);
+
+            // 4. Toon de modal
+            editModal.style.display = 'flex';
+            
+        } catch (err) {
+            showFeedback(err.message, 'error');
+        }
+    }
+}
+
+// NIEUWE HELPER: Vult de 'lade' dropdown in de EDIT modal
+function vulEditLadeDropdown(geselecteerdeVriezerId, selecteerLadeId = null) {
+    editSchuif.innerHTML = '<option value="" disabled>Kies een schuif...</option>';
+    
+    // Filter de globale 'alleLades' array
+    const gefilterdeLades = alleLades.filter(lade => lade.vriezerId === geselecteerdeVriezerId);
+    
+    gefilterdeLades.forEach(lade => {
+        const option = document.createElement('option');
+        option.value = lade.id;
+        option.textContent = lade.naam;
+        if (lade.id === selecteerLadeId) {
+            option.selected = true; // Selecteer de huidige lade
+        }
+        editSchuif.appendChild(option);
+    });
+}
+
+// NIEUWE LISTENER: Als de VRIEZER *in de modal* verandert...
+editVriezer.addEventListener('change', () => {
+    // ...vul dan de lade-dropdown opnieuw, maar zonder een lade te selecteren
+    vulEditLadeDropdown(editVriezer.value);
+});
+
+
+// HERSCHREVEN: Het opslaan van het bewerk-formulier
+editForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const id = editId.value;
+    const geselecteerdeVriezerId = editVriezer.value;
+    const geselecteerdeLadeId = editSchuif.value;
+
+    if (!geselecteerdeVriezerId || !geselecteerdeLadeId) {
+        showFeedback("Selecteer a.u.b. een vriezer én een lade.", "error");
+        return;
+    }
+
+    // Haal de ladeNaam op (voor sortering)
+    const geselecteerdeLadeNaam = editSchuif.options[editSchuif.selectedIndex].text;
+    const nieuweNaam = editNaam.value;
+
+    try {
+        await itemsCollectie.doc(id).update({
+            naam: nieuweNaam,
+            aantal: parseFloat(editAantal.value),
+            eenheid: editEenheid.value,
+            vriezerId: geselecteerdeVriezerId,
+            ladeId: geselecteerdeLadeId,
+            ladeNaam: geselecteerdeLadeNaam // Heel belangrijk voor sortering!
+        });
+        
+        showFeedback(`'${nieuweNaam}' bijgewerkt!`, 'success');
+        sluitItemModal();
+        
+    } catch (err) {
+        console.error("Fout bij bijwerken: ", err);
+        showFeedback(err.message, 'error');
+    }
+});
+
+// (sluitItemModal en btnCancel blijven hetzelfde)
 function sluitItemModal() { editModal.style.display = 'none'; }
 btnCancel.addEventListener('click', sluitItemModal);
 
+// ---
+// STAP 5: Items Verwijderen & Bewerken (VOLLEDIG HERSCHREVEN)
+// ---
+
+// NIEUWE GEDELEGEERDE LISTENER:
+// Deze ene listener vangt alle clicks op binnen de container
+vriezerLijstenContainer.addEventListener('click', handleItemLijstClick);
+
+// VERWIJDER DEZE OUDE REGELS:
+// lijstVriezer1.addEventListener('click', handleItemLijstClick);
+// lijstVriezer2.addEventListener('click', handleItemLijstClick);
+
+
+// HERSCHREVEN: handleItemLijstClick
+async function handleItemLijstClick(e) {
+    const deleteBtn = e.target.closest('.delete-btn');
+    const editBtn = e.target.closest('.edit-btn');
+    
+    if (deleteBtn) {
+        const li = e.target.closest('li');
+        const id = li.dataset.id;
+        const naam = li.querySelector('.item-naam').textContent;
+
+        if (confirm(`Weet je zeker dat je '${naam}' wilt verwijderen?`)) {
+            try {
+                await itemsCollectie.doc(id).delete();
+                showFeedback(`'${naam}' verwijderd.`, 'success');
+            } catch (err) {
+                showFeedback(err.message, 'error');
+            }
+        }
+    } 
+    
+    else if (editBtn) {
+        const li = e.target.closest('li');
+        const id = li.dataset.id;
+        
+        try {
+            const doc = await itemsCollectie.doc(id).get();
+            if (!doc.exists) {
+                showFeedback("Item niet gevonden", "error");
+                return;
+            }
+            const item = doc.data();
+            
+            // 1. Vul de simpele velden
+            editId.value = doc.id;
+            editNaam.value = item.naam;
+            editAantal.value = item.aantal;
+            editEenheid.value = item.eenheid;
+            
+            // 2. Vul de 'Vriezer' dropdown (met 'alleVriezers')
+            editVriezer.innerHTML = ''; // Maak leeg
+            alleVriezers.forEach(vriezer => {
+                const option = document.createElement('option');
+                option.value = vriezer.id;
+                option.textContent = vriezer.naam;
+                if (vriezer.id === item.vriezerId) {
+                    option.selected = true; // Selecteer de huidige vriezer
+                }
+                editVriezer.appendChild(option);
+            });
+            
+            // 3. Vul de 'Lade' dropdown
+            // We roepen een *nieuwe* helper-functie aan (zie hieronder)
+            // We geven de vriezer-ID én de huidige lade-ID mee
+            vulEditLadeDropdown(item.vriezerId, item.ladeId);
+
+            // 4. Toon de modal
+            editModal.style.display = 'flex';
+            
+        } catch (err) {
+            showFeedback(err.message, 'error');
+        }
+    }
+}
+
+// NIEUWE HELPER: Vult de 'lade' dropdown in de EDIT modal
+function vulEditLadeDropdown(geselecteerdeVriezerId, selecteerLadeId = null) {
+    editSchuif.innerHTML = '<option value="" disabled>Kies een schuif...</option>';
+    
+    // Filter de globale 'alleLades' array
+    const gefilterdeLades = alleLades.filter(lade => lade.vriezerId === geselecteerdeVriezerId);
+    
+    gefilterdeLades.forEach(lade => {
+        const option = document.createElement('option');
+        option.value = lade.id;
+        option.textContent = lade.naam;
+        if (lade.id === selecteerLadeId) {
+            option.selected = true; // Selecteer de huidige lade
+        }
+        editSchuif.appendChild(option);
+    });
+}
+
+// NIEUWE LISTENER: Als de VRIEZER *in de modal* verandert...
+editVriezer.addEventListener('change', () => {
+    // ...vul dan de lade-dropdown opnieuw, maar zonder een lade te selecteren
+    vulEditLadeDropdown(editVriezer.value);
+});
+
+
+// HERSCHREVEN: Het opslaan van het bewerk-formulier
+editForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const id = editId.value;
+    const geselecteerdeVriezerId = editVriezer.value;
+    const geselecteerdeLadeId = editSchuif.value;
+
+    if (!geselecteerdeVriezerId || !geselecteerdeLadeId) {
+        showFeedback("Selecteer a.u.b. een vriezer én een lade.", "error");
+        return;
+    }
+
+    // Haal de ladeNaam op (voor sortering)
+    const geselecteerdeLadeNaam = editSchuif.options[editSchuif.selectedIndex].text;
+    const nieuweNaam = editNaam.value;
+
+    try {
+        await itemsCollectie.doc(id).update({
+            naam: nieuweNaam,
+            aantal: parseFloat(editAantal.value),
+            eenheid: editEenheid.value,
+            vriezerId: geselecteerdeVriezerId,
+            ladeId: geselecteerdeLadeId,
+            ladeNaam: geselecteerdeLadeNaam // Heel belangrijk voor sortering!
+        });
+        
+        showFeedback(`'${nieuweNaam}' bijgewerkt!`, 'success');
+        sluitItemModal();
+        
+    } catch (err) {
+        console.error("Fout bij bijwerken: ", err);
+        showFeedback(err.message, 'error');
+    }
+});
+
+// (sluitItemModal en btnCancel blijven hetzelfde)
+function sluitItemModal() { editModal.style.display = 'none'; }
+btnCancel.addEventListener('click', sluitItemModal);
 
 // ---
 // STAP 6: VRIEZER BEHEER LOGICA (Functioneert - uit Stap 1)
