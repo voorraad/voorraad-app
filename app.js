@@ -459,7 +459,7 @@ editForm.addEventListener('submit', (e) => {
         eenheid: editEenheid.value,
         vriezerId: geselecteerdeVriezerId,
         ladeId: geselecteerdeLadeId,
-        ladeNaam: geselecteerdeLadeNaam?
+        ladeNaam: geselecteerdeLadeNaam,
         ingevrorenOp: new Date (nieuweDatum)
     })
     .then(() => {
