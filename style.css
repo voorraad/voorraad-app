@@ -28,6 +28,23 @@ body {
     gap: 10px;
 }
 
+/* --- NIEUW: HEADER KNOPPEN (MOBIELE STIJL) --- */
+.header-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Maakt een 2x2 grid */
+    gap: 8px;
+    /* Dwingt een minimale breedte af zodat de grid werkt */
+    min-width: 200px; 
+}
+
+.header-buttons button {
+    width: 100%; /* Knoppen vullen de grid cel */
+    padding: 10px 5px; /* Iets compactere padding */
+    font-size: 14px; /* Iets kleiner lettertype */
+}
+/* --- EINDE NIEUWE STIJL --- */
+
+
 h1 { color: #66DDAA; margin: 0; padding: 0; border: none; }
 
 .btn-beheer {
@@ -444,6 +461,33 @@ li .item-buttons {
     
     body { padding: 20px; }
     .container { padding: 25px; }
+
+    /* --- AANGEPAST: HEADER STIJLEN VOOR DESKTOP --- */
+    .header-bar {
+        flex-wrap: nowrap; /* Zorgt dat H1 en knoppen naast elkaar blijven */
+    }
+    
+    .header-buttons {
+        display: block; /* Terug naar normale flow */
+        grid-template-columns: none; /* Verwijder grid */
+        width: auto; /* Krimp naar inhoud */
+        min-width: 0;
+    }
+
+    .header-buttons button {
+        width: auto; /* Knoppen krijgen auto-breedte */
+        font-size: 15px; /* Terug naar normale grootte */
+        padding: 10px 15px; /* Terug naar normale padding */
+    }
+
+    /* Breng de marges terug die we uit HTML haalden */
+    #admin-beheer-knop,
+    #print-btn,
+    #logout-btn {
+        margin-left: 10px;
+    }
+    /* --- EINDE AANPASSING --- */
+    
     
     #add-item-form {
         grid-template-columns: 1fr 1fr;
@@ -462,16 +506,7 @@ li .item-buttons {
     #add-item-form div[style*="grid-column"] {
         grid-column: 1 / 3 !important; 
     }
-    
-    /* AANGEPAST: Deze grid-regels zijn niet langer nodig, 
-       .vriezer-kolom (flex: 1) regelt de layout. */
-    /*
-    #lijst-vriezer-1,
-    #lijst-vriezer-2 { ... }
-    .schuif-titel { ... }
-    */
 
-    /* De "kaarten" (ongewijzigd) */
     .vriezer-kolom ul li {
         flex-direction: row; 
         align-items: center; 
@@ -765,4 +800,5 @@ li.sortable-ghost {
             }
 
 }
+
 
