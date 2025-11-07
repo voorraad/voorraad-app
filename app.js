@@ -787,19 +787,25 @@ manualEanBtn.addEventListener('click', () => {
 // STAP 10: ALLES OPENEN / SLUITEN LOGICA
 // ---
 
-// Snelkoppelingen naar de nieuwe knoppen
-const btnAllesOpenen = document.getElementById('btn-alles-openen');
-const btnAllesSluiten = document.getElementById('btn-alles-sluiten');
+// Snelkoppeling naar de nieuwe knop
+const btnToggleAlles = document.getElementById('btn-toggle-alles');
 
-// Functie om alle lades te openen
-btnAllesOpenen.addEventListener('click', () => {
-    // Zoek alle lade-groepen in de container
+btnToggleAlles.addEventListener('click', () => {
     const alleLades = vriezerLijstenContainer.querySelectorAll('.lade-group');
-    
-    alleLades.forEach(lade => {
-        // Haal de 'collapsed' class weg om ze te openen
-        lade.classList.remove('collapsed');
-    });
+    if (alleLades.length === 0) return; // Doe niets als er geen lades zijn
+
+    // Kijk of er minstens ÉÉN lade gesloten (collapsed) is
+    const minstensEénGesloten = vriezerLijstenContainer.querySelector('.lade-group.collapsed');
+
+    if (minstensEénGesloten) {
+        // Er is minstens één lade dicht, dus: OPEN ALLES
+        alleLades.forEach(lade => lade.classList.remove('collapsed'));
+        btnToggleAlles.innerHTML = '<i class="fas fa-minus-square"></i> Alles Sluiten';
+    } else {
+        // Alles is al open, dus: SLUIT ALLES
+        alleLades.forEach(lade => lade.classList.add('collapsed'));
+        btnToggleAlles.innerHTML = '<i class="fas fa-plus-square"></i> Alles Openen';
+    }
 });
 
 // Functie om alle lades te sluiten
