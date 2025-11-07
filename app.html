@@ -28,14 +28,20 @@
 
     <div class="container">
         <div class="header-bar">
-            <h1>Vriezer Voorraad</h1>
-            <!-- AANGEPAST: class="header-buttons" toegevoegd aan de div -->
-            <!-- en inline margins verwijderd bij de knoppen -->
+            <!-- AANGEPAST: Nieuwe wrapper voor titel en admin-knop -->
+            <div class="header-title-wrapper">
+                <h1>Vriezer Voorraad</h1>
+                <!-- AANGEPAST: Admin knop is hierheen verplaatst -->
+                <button id="admin-beheer-knop" class="btn-beheer btn-admin" style="display: none;">
+                    <i class="fas fa-user-shield"></i>
+                    <!-- AANGEPAST: Tekst in een span gezet -->
+                    <span class="admin-knop-tekst">Admin Beheer</span>
+                </button>
+            </div>
+            
+            <!-- AANGEPAST: Deze div bevat nu enkel de 3 knoppen -->
             <div class="header-buttons">
                 <button id="vriezer-beheer-knop" class="btn-beheer">Vriezer Beheer</button>
-                <button id="admin-beheer-knop" class="btn-beheer btn-admin" style="display: none;">
-                    <i class="fas fa-user-shield"></i> Admin Beheer
-                </button>
                 <button id="print-btn" class="btn-beheer" style="background-color: #777;">Print</button>
                 <button id="logout-btn" class="btn-beheer btn-logout">Uitloggen</button>
             </div>
