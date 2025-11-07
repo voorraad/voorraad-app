@@ -24,25 +24,32 @@ body {
     border-bottom: 2px solid #e0e0e0;
     padding-bottom: 10px;
     margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 10px;
+    flex-wrap: wrap; /* Titel en knoppen onder elkaar */
+    gap: 15px; /* Ruimte tussen titel-blok en knoppen-blok */
 }
 
-/* --- NIEUW: HEADER KNOPPEN (MOBIELE STIJL) --- */
+/* --- AANGEPAST: Wrapper voor titel en admin-icoon --- */
+.header-title-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%; /* Neem volledige breedte op mobiel */
+}
+
+/* --- AANGEPAST: Stijl voor de 3 knoppen (Mobiel) --- */
 .header-buttons {
     display: grid;
-    grid-template-columns: 1fr 1fr; /* Maakt een 2x2 grid */
+    grid-template-columns: 1fr 1fr 1fr; /* 3 knoppen naast elkaar */
     gap: 8px;
-    /* Dwingt een minimale breedte af zodat de grid werkt */
-    min-width: 200px; 
+    width: 100%; /* Volledige breedte */
 }
 
 .header-buttons button {
     width: 100%; /* Knoppen vullen de grid cel */
     padding: 10px 5px; /* Iets compactere padding */
-    font-size: 14px; /* Iets kleiner lettertype */
+    font-size: 13px; /* Iets kleiner lettertype */
+    white-space: nowrap; /* Voorkom dat tekst ombreekt */
 }
-/* --- EINDE NIEUWE STIJL --- */
 
 
 h1 { color: #66DDAA; margin: 0; padding: 0; border: none; }
@@ -60,15 +67,29 @@ h1 { color: #66DDAA; margin: 0; padding: 0; border: none; }
 }
 .btn-beheer:hover { background-color: #63a4f0; }
 
-/* NIEUWE STIJL VOOR ADMIN KNOP */
+/* STIJL VOOR ADMIN KNOP */
 .btn-admin {
-    background-color: #FF6B6B; /* Opvallende kleur */
+    background-color: #FF6B6B;
 }
 .btn-admin:hover {
     background-color: #FF8F8F;
 }
-.btn-admin i {
-    margin-right: 5px;
+
+/* --- AANGEPAST: Admin knop specifiek (Mobiel) --- */
+#admin-beheer-knop {
+    /* Maak er een icoon-knop van */
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 18px; /* Grootte van icoon */
+    flex-shrink: 0; /* Voorkom krimpen */
+}
+.admin-knop-tekst {
+    /* Verberg tekst op mobiel */
+    display: none;
+}
+#admin-beheer-knop i {
+    margin-right: 0; /* Geen marge nodig als tekst weg is */
 }
 
 
@@ -465,25 +486,44 @@ li .item-buttons {
     /* --- AANGEPAST: HEADER STIJLEN VOOR DESKTOP --- */
     .header-bar {
         flex-wrap: nowrap; /* Zorgt dat H1 en knoppen naast elkaar blijven */
+        gap: 10px;
     }
     
+    .header-title-wrapper {
+        width: auto;
+        flex-grow: 1; /* Titel neemt ruimte, duwt knoppen naar rechts */
+    }
+
+    /* Admin knop terug naar normaal */
+    #admin-beheer-knop {
+        width: auto;
+        height: auto;
+        font-size: 15px; /* Terug naar normale grootte */
+        padding: 10px 15px; /* Terug naar normale padding */
+        margin-left: 10px; /* Ruimte tussen titel en knop */
+    }
+    .admin-knop-tekst {
+        display: inline; /* Toon de tekst weer */
+    }
+    #admin-beheer-knop i {
+        margin-right: 5px; /* Herstel marge */
+    }
+
+    /* De 3 knoppen terug naar normaal */
     .header-buttons {
-        display: block; /* Terug naar normale flow */
-        grid-template-columns: none; /* Verwijder grid */
+        display: block; /* Verwijder grid */
         width: auto; /* Krimp naar inhoud */
-        min-width: 0;
     }
 
     .header-buttons button {
         width: auto; /* Knoppen krijgen auto-breedte */
         font-size: 15px; /* Terug naar normale grootte */
         padding: 10px 15px; /* Terug naar normale padding */
+        white-space: normal; /* Terug naar normaal */
     }
 
     /* Breng de marges terug die we uit HTML haalden */
-    #admin-beheer-knop,
-    #print-btn,
-    #logout-btn {
+    .header-buttons button:not(:first-child) {
         margin-left: 10px;
     }
     /* --- EINDE AANPASSING --- */
