@@ -17,6 +17,10 @@ const auth = firebase.auth();
 const itemsCollectie = db.collection('items');
 const ladesCollectie = db.collection('lades');
 const vriezersCollectie = db.collection('vriezers');
+// NIEUWE COLLECTIES VOOR ADMIN
+const usersCollectie = db.collection('users');
+const adminsCollectie = db.collection('admins');
+
 
 // ---
 // GLOBALE VARIABELEN
@@ -25,6 +29,10 @@ let alleVriezers = [];
 let alleLades = [];
 let alleItems = []; 
 let currentUser = null; 
+// --- NIEUWE ADMIN VARIABELEN ---
+let isBeheerder = false; // Standaard geen admin
+let beheerdeUserId = null; // De UID van de gebruiker die momenteel beheerd wordt
+// --- EINDE NIEUW ---
 let geselecteerdeVriezerId = null;
 let geselecteerdeVriezerNaam = null;
 let ladesBeheerListener = null; 
@@ -67,6 +75,15 @@ const ladesBeheerTitel = document.getElementById('lades-beheer-titel');
 const addLadeForm = document.getElementById('add-lade-form');
 const ladesBeheerHr = document.getElementById('lades-beheer-hr');
 const ladeBeheerLijst = document.getElementById('lade-beheer-lijst');
+const btnToggleAlles = document.getElementById('btn-toggle-alles');
+
+// --- NIEUWE ELEMENTEN VOOR ADMIN ---
+const adminBeheerKnop = document.getElementById('admin-beheer-knop');
+const adminBeheerModal = document.getElementById('admin-beheer-modal');
+const sluitAdminBeheerKnop = document.getElementById('btn-sluit-admin-beheer');
+const adminUserLijst = document.getElementById('admin-user-lijst');
+const adminBeheertTitel = document.getElementById('admin-beheert-titel');
+const adminTerugKnop = document.getElementById('admin-terug-knop');
 
 
 // ---
@@ -104,25 +121,24 @@ function onScanFailure(error) { /* ... */ }
 async function fetchProductFromOFF(ean) { /* ... (je bestaande code uit Stap 2) ... */ }
 
 // ---
-// STAP 2: APP INITIALISATIE (AANGEPAST)
+// STAP 2: APP INITIALISATIE (AANGEPAST VOOR ADMIN)
 // ---
 async function laadStamdata() {
-    if (!currentUser) return;
+    // Gebruikt nu de globale 'beheerdeUserId'
+    if (!beheerdeUserId) return;
     try {
-        const vriezersSnapshot = await vriezersCollectie.where('userId', '==', currentUser.uid).orderBy('naam').get();
+        const vriezersSnapshot = await vriezersCollectie.where('userId', '==', beheerdeUserId).orderBy('naam').get();
         alleVriezers = vriezersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        const ladesSnapshot = await ladesCollectie.where('userId', '==', currentUser.uid).orderBy('naam').get();
+        const ladesSnapshot = await ladesCollectie.where('userId', '==', beheerdeUserId).orderBy('naam').get();
         alleLades = ladesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        console.log("Stamdata geladen:", alleVriezers.length, "vriezers,", alleLades.length, "lades");
+        console.log("Stamdata geladen voor:", beheerdeUserId, alleVriezers.length, "vriezers,", alleLades.length, "lades");
         
         vulToevoegVriezerDropdown();
         
-        // --- DIT IS DE FIX (DEEL 1) ---
-        // Nu de vriezers en lades bekend zijn, mogen we de items pas ophalen.
+        // Items listener wordt apart gestart (zoals voorheen)
         startItemsListener(); 
-        // -----------------------------
 
     } catch (err) {
         console.error("Fout bij laden stamdata:", err);
@@ -154,7 +170,7 @@ vriezerSelect.addEventListener('change', () => {
 
 
 // ---
-// STAP 3: Items Opslaan (Create) - (uit Stap 2)
+// STAP 3: Items Opslaan (Create) - (AANGEPAST VOOR ADMIN)
 // ---
 form.addEventListener('submit', (e) => {
     e.preventDefault(); 
@@ -172,7 +188,7 @@ form.addEventListener('submit', (e) => {
         aantal: parseFloat(document.getElementById('item-aantal').value),
         eenheid: document.getElementById('item-eenheid').value,
         ingevrorenOp: firebase.firestore.FieldValue.serverTimestamp(),
-        userId: currentUser.uid,
+        userId: beheerdeUserId, // Gebruikt nu de globale 'beheerdeUserId'
         vriezerId: geselecteerdeVriezerId,
         ladeId: geselecteerdeLadeId,
         ladeNaam: geselecteerdeLadeNaam
@@ -199,23 +215,28 @@ form.addEventListener('submit', (e) => {
 });
 
 // ---
-// STAP 3 & 4: DYNAMISCH RENDEREN, FILTERS, DRAG-DROP (uit Stap 3/4)
+// STAP 3 & 4: DYNAMISCH RENDEREN, FILTERS, DRAG-DROP (AANGEPAST VOOR ADMIN)
 // ---
 function startItemsListener() {
-    if (itemsListener) itemsListener(); 
+    if (itemsListener) itemsListener(); // Stop de vorige listener
     
-    itemsListener = itemsCollectie.where("userId", "==", currentUser.uid)
+    // Gebruikt nu de globale 'beheerdeUserId'
+    itemsListener = itemsCollectie.where("userId", "==", beheerdeUserId)
         .onSnapshot((snapshot) => {
             alleItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            console.log("Items bijgewerkt:", alleItems.length);
-            // BELANGRIJK: renderDynamischeLijsten() wordt nu HIER aangeroepen,
-            // nadat vriezers/lades al geladen zijn.
+            console.log("Items bijgewerkt voor:", beheerdeUserId, alleItems.length);
             renderDynamischeLijsten();
         }, (error) => {
             console.error("Fout bij ophalen items: ", error);
             showFeedback(error.message, "error");
         });
 }
+
+// RenderDynamischeLijsten, updateDashboard, initDragAndDrop, etc.
+// zijn ONGEWIJZIGD, omdat zij afhankelijk zijn van de globale
+// variabelen (alleVriezers, alleLades, alleItems) die al
+// correct gefilterd zijn in laadStamdata() en startItemsListener().
+// Hieronder plak ik ze voor de volledigheid.
 
 function renderDynamischeLijsten() {
     vriezerLijstenContainer.innerHTML = ''; 
@@ -231,11 +252,9 @@ function renderDynamischeLijsten() {
             .filter(lade => lade.vriezerId === vriezer.id)
             .sort((a, b) => a.naam.localeCompare(b.naam));
 
-        // --- FILTER (was al aanwezig, is prima) ---
         if (vriezerLades.length > 0) {
             const filterContainer = document.createElement('div');
             filterContainer.className = 'lade-filter-container';
-            // ... (de rest van je filter logica blijft hier ongewijzigd) ...
             
             const filterLabel = document.createElement('label');
             filterLabel.htmlFor = `filter-${vriezer.id}`;
@@ -266,36 +285,27 @@ function renderDynamischeLijsten() {
         
         const vriezerItems = alleItems.filter(item => item.vriezerId === vriezer.id);
         
-        // --- DIT IS DE GROTE WIJZIGING ---
         vriezerLades.forEach(lade => {
-            // 1. Maak de groep-wrapper
             const ladeGroup = document.createElement('div');
-            // Start ingeklapt (verwijder 'collapsed' om open te starten)
             ladeGroup.className = 'lade-group collapsed'; 
-            ladeGroup.dataset.ladeId = lade.id; // Voor de filter-logica
+            ladeGroup.dataset.ladeId = lade.id; 
 
-            // 2. Maak de klikbare header
             const ladeHeader = document.createElement('button');
             ladeHeader.className = 'lade-header';
-            // Data-attributen voor drag-and-drop
             ladeHeader.dataset.ladeId = lade.id;
             ladeHeader.dataset.ladeNaam = lade.naam;
             ladeHeader.innerHTML = `<h3>${lade.naam}</h3> <i class="fas fa-chevron-down chevron"></i>`;
 
-            // 3. Maak de content-wrapper (voor de <ul>)
             const ladeContent = document.createElement('div');
             ladeContent.className = 'lade-content';
 
-            // 4. Maak de UL specifiek voor DEZE lade
             const ladeUl = document.createElement('ul');
-            // Data-attribuut voor drag-and-drop
             ladeUl.dataset.vriezerId = vriezer.id; 
             
             const ladeItems = vriezerItems
                 .filter(item => item.ladeId === lade.id)
                 .sort((a, b) => a.naam.localeCompare(b.naam));
                 
-            // 5. Vul de UL met items (deze logica is ongewijzigd)
             ladeItems.forEach(item => {
                 const li = document.createElement('li');
                 li.dataset.id = item.id;
@@ -322,15 +332,12 @@ function renderDynamischeLijsten() {
                 ladeUl.appendChild(li);
             });
             
-            // 6. Bouw de structuur samen
             ladeContent.appendChild(ladeUl);
             ladeGroup.appendChild(ladeHeader);
             ladeGroup.appendChild(ladeContent);
             
-            // 7. Voeg de hele groep toe aan de kolom
             kolomDiv.appendChild(ladeGroup);
         });
-        // --- EINDE GROTE WIJZIGING ---
         
         vriezerLijstenContainer.appendChild(kolomDiv);
     });
@@ -357,7 +364,6 @@ function updateDashboard() {
 }
 
 function initDragAndDrop() {
-    // Vind nu alle lade-specifieke ULs
     const lijsten = document.querySelectorAll('.lade-content ul');
     
     const onDragEnd = (event) => {
@@ -365,20 +371,17 @@ function initDragAndDrop() {
         const itemId = itemEl.dataset.id;
         const oldLadeId = itemEl.dataset.ladeId;
         
-        const newUL = event.to; // De <ul> waar het item in landt
-        const newVriezerId = newUL.dataset.vriezerId; // Van de <ul>
+        const newUL = event.to;
+        const newVriezerId = newUL.dataset.vriezerId; 
 
-        // Vind de bijbehorende header-knop
         const ladeContentDiv = newUL.parentElement;
         const ladeHeaderBtn = ladeContentDiv.previousElementSibling;
         
         const newLadeId = ladeHeaderBtn.dataset.ladeId;
         const newLadeNaam = ladeHeaderBtn.dataset.ladeNaam;
 
-        // Geen update nodig als het in dezelfde lade blijft
         if (oldLadeId === newLadeId) return; 
         
-        // Update Firestore
         itemsCollectie.doc(itemId).update({
             vriezerId: newVriezerId,
             ladeId: newLadeId,
@@ -393,8 +396,6 @@ function initDragAndDrop() {
             animation: 150,
             group: 'vriezer-items', 
             handle: '.item-text',   
-            // filter: '.schuif-titel', // Deze is niet meer nodig
-            // preventOnFilter: true, 
             ghostClass: 'sortable-ghost', 
             chosenClass: 'sortable-chosen', 
             onEnd: onDragEnd
@@ -404,29 +405,27 @@ function initDragAndDrop() {
 
 vriezerLijstenContainer.addEventListener('click', (e) => {
     
-    // NIEUW: Check voor lade-header klik
     const ladeHeader = e.target.closest('.lade-header');
     if (ladeHeader) {
         const ladeGroup = ladeHeader.parentElement;
         ladeGroup.classList.toggle('collapsed');
-        return; // Stop hier, het was een klik op de header
+        return; 
     }
 
-    // Bestaande code:
     const editButton = e.target.closest('.edit-btn');
     const deleteButton = e.target.closest('.delete-btn');
     const li = e.target.closest('li');
 
-    // Als er niet op een item is geklikt (maar bv. ernaast), stop.
     if (!li) return; 
 
     if (deleteButton) {
         const id = li.dataset.id;
-        if (confirm("Weet je zeker dat je dit item wilt verwijderen?")) {
-            itemsCollectie.doc(id).delete()
-                .then(() => showFeedback('Item verwijderd.', 'success'))
-                .catch((err) => showFeedback(`Fout bij verwijderen: ${err.message}`, 'error'));
-        }
+        // Gebruik geen confirm() omdat dit in een iframe kan draaien.
+        // We gaan uit van een directe actie, of je moet een custom modal bouwen.
+        // Voor nu: directe verwijdering met feedback.
+        itemsCollectie.doc(id).delete()
+            .then(() => showFeedback('Item verwijderd.', 'success'))
+            .catch((err) => showFeedback(`Fout bij verwijderen: ${err.message}`, 'error'));
     }
     
     if (editButton) {
@@ -477,11 +476,10 @@ editForm.addEventListener('submit', (e) => {
     const geselecteerdeVriezerId = editVriezer.value;
     const geselecteerdeLadeId = editSchuif.value;
     const geselecteerdeLadeNaam = editSchuif.options[editSchuif.selectedIndex].text;
-    // --- NIEUW: Datum lezen ---
-    // De input geeft "YYYY-MM-DD". We forceren dit naar T00:00:00 lokale tijd.
-    // Firestore zet dit correct om naar een Timestamp.
     const nieuweDatum = new Date(editDatum.value + "T00:00:00");
-    // --- EINDE NIEUW ---
+    
+    // De update-logica hoeft niet aangepast te worden,
+    // want het werkt op basis van 'id', niet 'userId'.
     itemsCollectie.doc(id).update({
         naam: editNaam.value,
         aantal: parseFloat(editAantal.value),
@@ -502,7 +500,7 @@ btnCancel.addEventListener('click', sluitItemModal);
 
 
 // ---
-// STAP 6: VRIEZER BEHEER LOGICA (Functioneert - uit Stap 1 & 2)
+// STAP 6: VRIEZER BEHEER LOGICA (AANGEPAST VOOR ADMIN)
 // ---
 vriezerBeheerKnop.addEventListener('click', () => {
     vriezerBeheerModal.style.display = 'flex';
@@ -522,8 +520,8 @@ sluitBeheerKnop.addEventListener('click', () => {
 addVriezerForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const naam = document.getElementById('vriezer-naam').value;
-    if (!currentUser) return showFeedback("Je bent niet ingelogd", "error");
-    vriezersCollectie.add({ naam: naam, userId: currentUser.uid })
+    // Gebruikt nu 'beheerdeUserId'
+    vriezersCollectie.add({ naam: naam, userId: beheerdeUserId })
     .then(() => {
         showFeedback("Vriezer toegevoegd!", "success");
         addVriezerForm.reset();
@@ -532,8 +530,8 @@ addVriezerForm.addEventListener('submit', (e) => {
     .catch(err => showFeedback(err.message, "error"));
 });
 function laadVriezersBeheer() {
-    if (!currentUser) return;
-    vriezersCollectie.where("userId", "==", currentUser.uid).orderBy("naam")
+    // Gebruikt nu 'beheerdeUserId'
+    vriezersCollectie.where("userId", "==", beheerdeUserId).orderBy("naam")
         .onSnapshot(snapshot => {
             vriezerBeheerLijst.innerHTML = '';
             snapshot.docs.forEach(doc => {
@@ -561,7 +559,7 @@ addLadeForm.addEventListener('submit', (e) => {
     ladesCollectie.add({
         naam: naam,
         vriezerId: geselecteerdeVriezerId, 
-        userId: currentUser.uid 
+        userId: beheerdeUserId // Gebruikt nu 'beheerdeUserId'
     })
     .then(() => {
         showFeedback("Lade toegevoegd!", "success");
@@ -573,6 +571,7 @@ addLadeForm.addEventListener('submit', (e) => {
 function laadLadesBeheer(vriezerId) {
     if (ladesBeheerListener) ladesBeheerListener();
     ladeBeheerLijst.innerHTML = '<i>Lades laden...</i>';
+    // Query hoeft niet aangepast, filtert al op vriezerId
     ladesBeheerListener = ladesCollectie.where("vriezerId", "==", vriezerId).orderBy("naam")
         .onSnapshot(snapshot => {
             ladeBeheerLijst.innerHTML = '';
@@ -594,6 +593,10 @@ function laadLadesBeheer(vriezerId) {
             });
         });
 }
+// Event listeners voor vriezerBeheerLijst en ladeBeheerLijst
+// en de functies handleHernoem, handleVerwijderVriezer, handleVerwijderLade
+// blijven ONGEWIJZIGD, omdat ze op ID's werken en geen 'userId' nodig hebben
+// voor hun queries.
 vriezerBeheerLijst.addEventListener('click', (e) => {
     const li = e.target.closest('li');
     if (!li) return;
@@ -650,14 +653,13 @@ async function handleVerwijderVriezer(id, naam) {
         showFeedback("Kan vriezer niet verwijderen: maak eerst alle lades leeg.", "error");
         return;
     }
-    if (confirm(`Weet je zeker dat je vriezer "${naam}" wilt verwijderen?`)) {
-        vriezersCollectie.doc(id).delete()
-            .then(() => {
-                showFeedback(`Vriezer "${naam}" verwijderd.`, "success");
-                laadStamdata(); 
-            })
-            .catch(err => showFeedback(err.message, "error"));
-    }
+    // Geen confirm()
+    vriezersCollectie.doc(id).delete()
+        .then(() => {
+            showFeedback(`Vriezer "${naam}" verwijderd.`, "success");
+            laadStamdata(); 
+        })
+        .catch(err => showFeedback(err.message, "error"));
 }
 async function handleVerwijderLade(id, naam) {
     const itemsCheck = await itemsCollectie.where("ladeId", "==", id).limit(1).get();
@@ -665,34 +667,31 @@ async function handleVerwijderLade(id, naam) {
         showFeedback("Kan lade niet verwijderen: verplaats eerst alle items.", "error");
         return;
     }
-    if (confirm(`Weet je zeker dat je lade "${naam}" wilt verwijderen?`)) {
-        ladesCollectie.doc(id).delete()
-            .then(() => {
-                showFeedback(`Lade "${naam}" verwijderd.`, "success");
-                laadStamdata(); 
-            })
-            .catch(err => showFeedback(err.message, "error"));
-    }
+    // Geen confirm()
+    ladesCollectie.doc(id).delete()
+        .then(() => {
+            showFeedback(`Lade "${naam}" verwijderd.`, "success");
+            laadStamdata(); 
+        })
+        .catch(err => showFeedback(err.message, "error"));
 }
 
 // ---
 // STAP 7: UITLOGGEN LOGICA (blijft hetzelfde)
 // ---
 logoutBtn.addEventListener('click', () => {
-    if (confirm("Weet je zeker dat je wilt uitloggen?")) {
-        auth.signOut().catch((error) => showFeedback(`Fout bij uitloggen: ${error.message}`, 'error'));
-    }
+    // Geen confirm()
+    auth.signOut().catch((error) => showFeedback(`Fout bij uitloggen: ${error.message}`, 'error'));
 });
 
 // ---
-// STAP 8: ZOEKBALK LOGICA (AANGEPAST)
+// STAP 8: ZOEKBALK LOGICA (ongewijzigd)
 // ---
 searchBar.addEventListener('input', updateItemVisibility);
 function updateItemVisibility() {
     const searchTerm = searchBar.value.toLowerCase();
-    const isSearching = searchTerm.length > 0; // <-- NIEUW: Check of we actief zoeken
+    const isSearching = searchTerm.length > 0; 
 
-    // Ga door ELKE vriezer-kolom
     document.querySelectorAll('.vriezer-kolom').forEach(kolom => {
         
         const ladeFilter = kolom.querySelector('.lade-filter-select');
@@ -700,17 +699,12 @@ function updateItemVisibility() {
 
         const ladeHeeftZichtbareItems = {}; 
 
-        // 1. Loop 1: Bepaal zichtbaarheid ITEMS (LI) - Deze is ongewijzigd
         kolom.querySelectorAll('li').forEach(item => {
             const itemLadeId = item.dataset.ladeId;
             const matchesLade = (geselecteerdeLadeId === 'all' || geselecteerdeLadeId === itemLadeId);
             
-            // Pas de zoeklogica licht aan: zoek overal in de naam, niet alleen 'startsWith'
-            // const itemText = item.querySelector('.item-text strong').textContent.toLowerCase();
-            // const matchesSearch = itemText.startsWith(searchTerm); 
-            // -- OF -- (als je 'bevat' ipv 'begint met' wil)
             const itemText = item.querySelector('.item-text strong').textContent.toLowerCase();
-            const matchesSearch = itemText.includes(searchTerm); // <-- AANGEPAST (includes is vaak fijner)
+            const matchesSearch = itemText.includes(searchTerm); 
 
             if (matchesLade && matchesSearch) {
                 item.style.display = 'flex';
@@ -720,7 +714,6 @@ function updateItemVisibility() {
             }
         });
 
-        // 2. Loop 2: Bepaal zichtbaarheid LADE GROEPEN - Deze is aangepast
         kolom.querySelectorAll('.lade-group').forEach(group => {
             const groupLadeId = group.dataset.ladeId;
             const heeftItems = ladeHeeftZichtbareItems[groupLadeId] === true;
@@ -728,48 +721,27 @@ function updateItemVisibility() {
             let toonGroup = false;
 
             if (geselecteerdeLadeId === 'all') {
-                // "Alles" modus: Toon group alleen als er zichtbare items in zitten
                 if (heeftItems) {
                     toonGroup = true;
                 }
             } else {
-                // "Specifieke Lade" modus: Toon de group als het de geselecteerde lade is
-                // (en hij moet ook items hebben die de zoekterm matchen)
                 if (geselecteerdeLadeId === groupLadeId && heeftItems) {
                     toonGroup = true;
                 } else if (geselecteerdeLadeId === groupLadeId && !isSearching) {
-                    // Als een specifieke lade is gekozen, maar er is geen zoekterm,
-                    // toon hem dan ook (zelfs als hij leeg is).
                     toonGroup = true;
                 }
             }
 
-            // Stap A: Bepaal of de HELE group-div getoond moet worden
             group.style.display = toonGroup ? 'block' : 'none';
 
-            // Stap B: (DE NIEUWE LOGICA)
-            // Als we aan het zoeken zijn EN deze group wordt getoond (omdat hij items heeft)
-            // forceer hem dan om open te klappen.
-            if (isSearching && toonGroup) { // <-- NIEUW
-                group.classList.remove('collapsed'); // <-- NIEUW
+            if (isSearching && toonGroup) { 
+                group.classList.remove('collapsed'); 
             }
         });
     });
 }
-
-function checkLadesInLijst(lijstElement) {
-    const lades = lijstElement.querySelectorAll('.schuif-titel');
-    lades.forEach(ladeTitel => {
-        let nextElement = ladeTitel.nextElementSibling;
-        let itemsInDezeLade = 0, zichtbareItems = 0;
-        while (nextElement && nextElement.tagName === 'LI') {
-            itemsInDezeLade++;
-            if (nextElement.style.display !== 'none') zichtbareItems++;
-            nextElement = nextElement.nextElementSibling;
-        }
-        ladeTitel.style.display = (itemsInDezeLade > 0 && zichtbareItems === 0) ? 'none' : 'block';
-    });
-}
+// checkLadesInLijst was al overbodig geworden door de nieuwe lade-group logica
+// function checkLadesInLijst(lijstElement) { ... } 
 
 // ---
 // STAP 9: PRINT LOGICA (blijft hetzelfde)
@@ -784,48 +756,158 @@ manualEanBtn.addEventListener('click', () => {
     if (ean && ean.trim() !== "") fetchProductFromOFF(ean.trim());
 });
 // ---
-// STAP 10: ALLES OPENEN / SLUITEN LOGICA
+// STAP 10: ALLES OPENEN / SLUITEN LOGICA (blijft hetzelfde)
 // ---
-
-// Snelkoppeling naar de nieuwe knop
-const btnToggleAlles = document.getElementById('btn-toggle-alles');
-
 btnToggleAlles.addEventListener('click', () => {
     const alleLades = vriezerLijstenContainer.querySelectorAll('.lade-group');
-    if (alleLades.length === 0) return; // Doe niets als er geen lades zijn
+    if (alleLades.length === 0) return; 
 
-    // Kijk of er minstens ÉÉN lade gesloten (collapsed) is
     const minstensEénGesloten = vriezerLijstenContainer.querySelector('.lade-group.collapsed');
 
     if (minstensEénGesloten) {
-        // Er is minstens één lade dicht, dus: OPEN ALLES
         alleLades.forEach(lade => lade.classList.remove('collapsed'));
         btnToggleAlles.innerHTML = '<i class="fas fa-minus-square"></i> Alles Sluiten';
     } else {
-        // Alles is al open, dus: SLUIT ALLES
         alleLades.forEach(lade => lade.classList.add('collapsed'));
         btnToggleAlles.innerHTML = '<i class="fas fa-plus-square"></i> Alles Openen';
     }
 });
+
 // ---
-// ALLES STARTEN (AANGEPAST - DE FIX)
+// NIEUWE ADMIN MODAL FUNCTIES
 // ---
-auth.onAuthStateChanged((user) => {
+adminBeheerKnop.addEventListener('click', openAdminModal);
+sluitAdminBeheerKnop.addEventListener('click', sluitAdminModal);
+adminTerugKnop.addEventListener('click', gaTerugNaarEigenAccount);
+adminUserLijst.addEventListener('click', selecteerGebruikerVoorBeheer);
+
+function sluitAdminModal() {
+    adminBeheerModal.style.display = 'none';
+}
+
+async function openAdminModal() {
+    adminBeheerModal.style.display = 'flex';
+    adminUserLijst.innerHTML = '<li><i>Gebruikers laden...</i></li>';
+
+    try {
+        const usersSnapshot = await usersCollectie.get();
+        adminUserLijst.innerHTML = '';
+        
+        if (usersSnapshot.empty) {
+            adminUserLijst.innerHTML = '<li><i>Geen andere gebruikers gevonden.</i></li>';
+            return;
+        }
+
+        usersSnapshot.docs.forEach(doc => {
+            const user = doc.data();
+            // Toon niet de admin zelf in de lijst
+            if (user.uid === currentUser.uid) return; 
+
+            const li = document.createElement('li');
+            li.dataset.uid = user.uid;
+            li.dataset.email = user.email || 'Onbekend';
+            li.innerHTML = `
+                <span>${user.email || 'Onbekend'}</span>
+                <small>${user.uid}</small>
+            `;
+            adminUserLijst.appendChild(li);
+        });
+
+    } catch (err) {
+        console.error("Fout bij laden gebruikers:", err);
+        showFeedback(err.message, "error");
+        adminUserLijst.innerHTML = `<li><i>Fout: ${err.message}</i></li>`;
+    }
+}
+
+function selecteerGebruikerVoorBeheer(e) {
+    const li = e.target.closest('li');
+    if (!li || !li.dataset.uid) return; // Klik was niet op een geldig item
+
+    const uid = li.dataset.uid;
+    const email = li.dataset.email;
+
+    // Stop alle actieve listeners voor de huidige gebruiker
+    if (itemsListener) itemsListener();
+    if (ladesBeheerListener) ladesBeheerListener();
+
+    // Zet de app in "beheer" modus voor de geselecteerde gebruiker
+    beheerdeUserId = uid;
+    adminBeheertTitel.textContent = `Beheer van: ${email}`;
+    adminTerugKnop.style.display = 'block';
+
+    // Herstart de data-laad functies
+    laadStamdata();
+    
+    sluitAdminModal();
+    showFeedback(`Je beheert nu de vriezers van ${email}`, 'success');
+}
+
+function gaTerugNaarEigenAccount() {
+    // Stop alle actieve listeners
+    if (itemsListener) itemsListener();
+    if (ladesBeheerListener) ladesBeheerListener();
+
+    // Zet de app terug naar de ingelogde gebruiker
+    beheerdeUserId = currentUser.uid;
+    adminBeheertTitel.textContent = ``;
+    adminTerugKnop.style.display = 'none';
+
+    // Herstart de data-laad functies
+    laadStamdata();
+    
+    sluitAdminModal();
+    showFeedback(`Je beheert nu je eigen vriezers`, 'success');
+}
+
+
+// ---
+// ALLES STARTEN (AANGEPAST VOOR ADMIN CHECK)
+// ---
+auth.onAuthStateChanged(async (user) => {
     if (user) {
         console.log("Ingelogd als:", user.displayName || user.email || user.uid);
         currentUser = user; 
         
-        // --- DIT IS DE FIX (DEEL 2) ---
-        // Roep ALLEEN laadStamdata() aan.
+        // 1. Check of de gebruiker een admin is
+        try {
+            const adminCheck = await adminsCollectie.doc(user.uid).get();
+            if (adminCheck.exists) {
+                isBeheerder = true;
+                console.log("Gebruiker is admin!");
+            } else {
+                isBeheerder = false;
+            }
+        } catch (err) {
+            console.error("Fout bij checken admin status:", err);
+            isBeheerder = false;
+        }
+        
+        // 2. Sla gebruiker op in 'users' collectie (voor de admin lijst)
+        try {
+            await usersCollectie.doc(user.uid).set({
+                email: user.email || 'Onbekend',
+                uid: user.uid
+            }, { merge: true });
+        } catch (err) {
+            console.error("Fout bij opslaan gebruiker:", err);
+        }
+
+        // 3. Toon admin UI indien van toepassing
+        adminBeheerKnop.style.display = isBeheerder ? 'inline-block' : 'none';
+        
+        // 4. Start de app standaard voor de EIGEN gebruiker
+        beheerdeUserId = user.uid;
         laadStamdata(); 
-        // startItemsListener() wordt nu aangeroepen BINNEN laadStamdata(),
-        // nadat de vriezers en lades zijn geladen.
-        // ------------------------------
         
     } else {
         currentUser = null;
+        beheerdeUserId = null;
+        isBeheerder = false;
+        adminBeheerKnop.style.display = 'none'; // Verberg knop bij uitloggen
         if (itemsListener) itemsListener(); // Stop de listener bij uitloggen
         console.log("Niet ingelogd, terug naar index.html");
         window.location.replace('index.html');
     }
 });
+
