@@ -29,14 +29,15 @@
     <div class="container">
         <div class="header-bar">
             <h1>Vriezer Voorraad</h1>
-            <div>
+            <!-- AANGEPAST: class="header-buttons" toegevoegd aan de div -->
+            <!-- en inline margins verwijderd bij de knoppen -->
+            <div class="header-buttons">
                 <button id="vriezer-beheer-knop" class="btn-beheer">Vriezer Beheer</button>
-                <!-- NIEUWE ADMIN KNOP -->
                 <button id="admin-beheer-knop" class="btn-beheer btn-admin" style="display: none;">
                     <i class="fas fa-user-shield"></i> Admin Beheer
                 </button>
-                <button id="print-btn" class="btn-beheer" style="margin-left: 10px; background-color: #777;">Print</button>
-                <button id="logout-btn" class="btn-beheer btn-logout" style="margin-left: 10px;">Uitloggen</button>
+                <button id="print-btn" class="btn-beheer" style="background-color: #777;">Print</button>
+                <button id="logout-btn" class="btn-beheer btn-logout">Uitloggen</button>
             </div>
         </div>
 
@@ -186,7 +187,7 @@
         </div>
     </div>
     
-    <!-- NIEUWE ADMIN BEHEER MODAL -->
+    <!-- Admin Beheer Modal (ongewijzigd) -->
     <div id="admin-beheer-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
@@ -217,4 +218,5 @@
 
 </body>
 </html>
+
 
