@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     
+    <!-- Favicons (ongewijzigd) -->
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
@@ -30,6 +31,10 @@
             <h1>Vriezer Voorraad</h1>
             <div>
                 <button id="vriezer-beheer-knop" class="btn-beheer">Vriezer Beheer</button>
+                <!-- NIEUWE ADMIN KNOP -->
+                <button id="admin-beheer-knop" class="btn-beheer btn-admin" style="display: none;">
+                    <i class="fas fa-user-shield"></i> Admin Beheer
+                </button>
                 <button id="print-btn" class="btn-beheer" style="margin-left: 10px; background-color: #777;">Print</button>
                 <button id="logout-btn" class="btn-beheer btn-logout" style="margin-left: 10px;">Uitloggen</button>
             </div>
@@ -38,8 +43,10 @@
         <div id="feedback-message" class="feedback"></div>
 
         <div id="dashboard" class="dashboard-container">
-            </div>
+            <!-- Dashboard wordt gevuld door JS -->
+        </div>
 
+        <!-- Formulier (ongewijzigd) -->
         <form id="add-item-form">
             
             <div class="input-with-button" style="grid-column: 1 / 3;">
@@ -90,14 +97,16 @@
             <i class="fas fa-search"></i>
             <input type="text" id="search-bar" placeholder="Zoek een product...">
         </div>
-    <button id="btn-toggle-alles" class="btn-full-width-toggle">
+        <button id="btn-toggle-alles" class="btn-full-width-toggle">
             <i class="fas fa-plus-square"></i> Alles Openen
         </button>
         
         <div class="vriezer-container" id="vriezer-lijsten-container">
-            </div>
+            <!-- Vriezer kolommen worden gevuld door JS -->
+        </div>
     </div>
     
+    <!-- Edit Modal (ongewijzigd) -->
     <div id="edit-modal" class="modal-overlay">
         <div class="modal-content">
             <h2>Item Bewerken</h2>
@@ -109,17 +118,17 @@
                 <input type="number" id="edit-item-aantal" step="0.25" min="0.25" required>
                 <label for="edit-item-eenheid">Eenheid:</label>
                 <select id="edit-item-eenheid" required>
-                <option value="stuks">Stuks (x)</option>
-                <option value="zak">Zak</option>
-                <option value="boterpot">Boterpot</option>
-                <option value="ijsdoos">Ijsdoos</option>
-                <option value="iglodoos 450ml">Iglo doos 450ml</option>
-                <option value="iglodoos 1l laag">Iglo doos 1l laag</option>
-                <option value="iglodoos 1l hoog">Iglo doos 1l hoog</option>
-                <option value="gram">Gram (g)</option>
-                <option value="kilo">Kilo (kg)</option>
-                <option value="bakje">Bakje(s)</option>
-                <option value="portie">Portie(s)</option>
+                    <option value="stuks">Stuks (x)</option>
+                    <option value="zak">Zak</option>
+                    <option value="boterpot">Boterpot</option>
+                    <option value="ijsdoos">Ijsdoos</option>
+                    <option value="iglodoos 450ml">Iglo doos 450ml</option>
+                    <option value="iglodoos 1l laag">Iglo doos 1l laag</option>
+                    <option value="iglodoos 1l hoog">Iglo doos 1l hoog</option>
+                    <option value="gram">Gram (g)</option>
+                    <option value="kilo">Kilo (kg)</option>
+                    <option value="bakje">Bakje(s)</option>
+                    <option value="portie">Portie(s)</option>
                 </select>
                 <label for="edit-item-vriezer">Vriezer:</label>
                 <select id="edit-item-vriezer" required></select>
@@ -135,6 +144,7 @@
         </div>
     </div>
 
+    <!-- Vriezer Beheer Modal (ongewijzigd) -->
     <div id="vriezer-beheer-modal" class="modal-overlay">
         <div class="modal-content modal-groot"> 
             <div class="modal-header">
@@ -164,6 +174,7 @@
         </div> 
     </div>
 
+    <!-- Scan Modal (ongewijzigd) -->
     <div id="scan-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
@@ -175,6 +186,29 @@
         </div>
     </div>
     
+    <!-- NIEUWE ADMIN BEHEER MODAL -->
+    <div id="admin-beheer-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Admin Beheer</h2>
+                <button type="button" id="btn-sluit-admin-beheer" class="btn-cancel">Sluiten</button>
+            </div>
+            
+            <h3 id="admin-beheert-titel" style="color: #FF6B6B;"></h3>
+            
+            <button type="button" id="admin-terug-knop" class="btn-beheer" style="display: none; width: 100%; margin-bottom: 20px;">
+                <i class="fas fa-arrow-left"></i> Terug naar mijn eigen vriezers
+            </button>
+            
+            <h3>Beheer een andere gebruiker:</h3>
+            <p>Selecteer een gebruiker om diens vriezers in te zien en te beheren.</p>
+            <ul id="admin-user-lijst" class="admin-user-list">
+                <!-- Gebruikerslijst wordt gevuld door JS -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- Firebase Scripts (ongewijzigd) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -183,3 +217,4 @@
 
 </body>
 </html>
+
