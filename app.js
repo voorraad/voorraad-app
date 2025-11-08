@@ -44,7 +44,7 @@ let eigenUserId = null;
 let isEersteNotificatieCheck = true;
 let huidigeDelenListener = null;
 
-// --- Snelkoppelingen naar elementen (AANGEPAST) ---
+// --- Snelkoppelingen naar elementen ---
 const form = document.getElementById('add-item-form');
 const vriezerSelect = document.getElementById('item-vriezer'); 
 const schuifSelect = document.getElementById('item-schuif'); 
@@ -103,7 +103,6 @@ const shareModal = document.getElementById('share-modal');
 const sluitShareKnop = document.getElementById('btn-sluit-share');
 const shareInviteForm = document.getElementById('share-invite-form');
 const shareHuidigeLijst = document.getElementById('share-huidige-lijst');
-// --- NIEUWE Elementen ---
 const invitesBtn = document.getElementById('invites-btn');
 const invitesBadge = document.getElementById('invites-badge');
 const invitesModal = document.getElementById('invites-modal');
@@ -112,7 +111,7 @@ const invitesLijst = document.getElementById('invites-lijst');
 
 
 // ---
-// HELPER FUNCTIES (Modal & Aantal) (Onveranderd)
+// HELPER FUNCTIES (Modal & Aantal)
 // ---
 function showModal(modalElement) {
     if (modalElement) {
@@ -171,7 +170,7 @@ function handleAantalKlik(e) {
 }
 
 
-// --- Scanner functies (Onveranderd) ---
+// --- Scanner functies ---
 function startScanner() {
     html5QrCode = new Html5Qrcode(scannerContainerId);
     showModal(scanModal);
@@ -232,7 +231,7 @@ async function fetchProductFromOFF(ean) {
 
 
 // ---
-// STAP 2: AUTHENTICATIE & INITIALISATIE (Onveranderd)
+// STAP 2: AUTHENTICATIE & INITIALISATIE
 // ---
 auth.onAuthStateChanged((user) => {
     if (user) {
@@ -258,7 +257,7 @@ auth.onAuthStateChanged((user) => {
         profileEmailEl.textContent = userEmail;
 
         startAlleDataListeners();
-        startInvitesListener(); // AANGEPAST: Deze functie is nu krachtiger
+        startInvitesListener(); 
         
     } else {
         currentUser = null;
@@ -267,7 +266,7 @@ auth.onAuthStateChanged((user) => {
         isAdmin = false;
         
         stopAlleDataListeners(); 
-        if (invitesListener) { invitesListener(); invitesListener = null; } // Zorg dat alle listeners stoppen
+        if (invitesListener) { invitesListener(); invitesListener = null; } 
         if (huidigeDelenListener) { huidigeDelenListener(); huidigeDelenListener = null; }
         
         console.log("Niet ingelogd, terug naar index.html");
@@ -355,7 +354,7 @@ function updateAdminUI() {
 }
 
 // ---
-// STAP 3: DATA LISTENERS (Onveranderd)
+// STAP 3: DATA LISTENERS
 // ---
 function startAlleDataListeners() {
     if (!currentUser) return; 
@@ -367,7 +366,7 @@ function startAlleDataListeners() {
     if (vriezersListener) vriezersListener(); 
     let vriezersQuery;
     if (queryMethode === 'adminQuery') {
-        vriezersQuery = vriezersCollectie.where('eigenaarUid', '==', idVoorQuery);
+        vriezersQuery = vriezersCollectie.where('ledenUids', 'array-contains', idVoorQuery);
     } else {
         vriezersQuery = vriezersCollectie.where('ledenUids', 'array-contains', idVoorQuery);
     }
@@ -415,21 +414,18 @@ function startSubListeners(vriezers, idVoorQuery, queryMethode) {
 
     if (ladesListener) ladesListener();
     let ladesQuery;
-    if (queryMethode === 'adminQuery') {
-        ladesQuery = ladesCollectie.where('eigenaarUid', '==', idVoorQuery);
+    if (vriezerIds.length > 30) {
+         console.warn("Te veel vriezers om lades efficiënt op te halen. (Max 30)");
+         ladesQuery = ladesCollectie.where('eigenaarUid', '==', idVoorQuery);
+    } else if (vriezerIds.length > 0) {
+         ladesQuery = ladesCollectie.where('vriezerId', 'in', vriezerIds);
     } else {
-        if (vriezerIds.length > 30) {
-             console.warn("Te veel vriezers om lades efficiënt op te halen. (Max 30)");
-             ladesQuery = ladesCollectie.where('eigenaarUid', '==', idVoorQuery);
-        } else if (vriezerIds.length > 0) {
-             ladesQuery = ladesCollectie.where('vriezerId', 'in', vriezerIds);
-        } else {
-             ladesQuery = ladesCollectie.where('vriezerId', '==', 'null');
-        }
+         ladesQuery = ladesCollectie.where('vriezerId', '==', 'null');
     }
+    
 
     ladesListener = ladesQuery.onSnapshot(async (snapshot) => {
-        if (queryMethode === 'userQuery') {
+        if (queryMethode === 'userQuery') { 
             const oudeLades = await ladesCollectie.where('userId', '==', idVoorQuery).get();
             if (!oudeLades.empty) {
                 console.log(`Migratie: ${oudeLades.size} oude lade(s) gevonden...`);
@@ -447,10 +443,6 @@ function startSubListeners(vriezers, idVoorQuery, queryMethode) {
         }
         
         alleLades = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (queryMethode === 'adminQuery') {
-            alleLades = alleLades.filter(lade => vriezerIds.includes(lade.vriezerId));
-        }
-        
         console.log("Lades geladen:", alleLades.length);
         updateLadeDropdown(vriezerSelect.value, schuifSelect, false); 
         renderDynamischeLijsten(); 
@@ -459,21 +451,17 @@ function startSubListeners(vriezers, idVoorQuery, queryMethode) {
     
     if (itemsListener) itemsListener(); 
     let itemsQuery;
-     if (queryMethode === 'adminQuery') {
-        itemsQuery = itemsCollectie.where('eigenaarUid', '==', idVoorQuery);
+    if (vriezerIds.length > 30) {
+         console.warn("Te veel vriezers om items efficiënt op te halen. (Max 30)");
+         itemsQuery = itemsCollectie.where('eigenaarUid', '==', idVoorQuery);
+    } else if (vriezerIds.length > 0) {
+         itemsQuery = itemsCollectie.where('vriezerId', 'in', vriezerIds);
     } else {
-        if (vriezerIds.length > 30) {
-             console.warn("Te veel vriezers om items efficiënt op te halen. (Max 30)");
-             itemsQuery = itemsCollectie.where('eigenaarUid', '==', idVoorQuery);
-        } else if (vriezerIds.length > 0) {
-             itemsQuery = itemsCollectie.where('vriezerId', 'in', vriezerIds);
-        } else {
-             itemsQuery = itemsCollectie.where('vriezerId', '==', 'null');
-        }
+         itemsQuery = itemsCollectie.where('vriezerId', '==', 'null');
     }
     
     itemsListener = itemsQuery.onSnapshot(async (snapshot) => {
-        if (queryMethode === 'userQuery') {
+        if (queryMethode === 'userQuery') { 
             const oudeItems = await itemsCollectie.where('userId', '==', idVoorQuery).get();
             if (!oudeItems.empty) {
                 console.log(`Migratie: ${oudeItems.size} oude item(s) gevonden...`);
@@ -491,10 +479,6 @@ function startSubListeners(vriezers, idVoorQuery, queryMethode) {
         }
 
         alleItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (queryMethode === 'adminQuery') {
-            alleItems = alleItems.filter(item => vriezerIds.includes(item.vriezerId));
-        }
-        
         console.log("Items geladen:", alleItems.length);
         renderDynamischeLijsten(); 
         updateDashboard(); 
@@ -536,7 +520,7 @@ function startAdminUserListener() {
         }, (err) => console.error("Fout bij laden gebruikerslijst:", err.message));
 }
 
-// --- AANGEPAST: INVITES LISTENER (Stap 3.3) ---
+// Invites Listener
 function startInvitesListener() {
     if (invitesListener) invitesListener();
     if (!currentUser) return;
@@ -545,8 +529,6 @@ function startInvitesListener() {
         .where('gastEmail', '==', currentUser.email)
         .where('status', '==', 'pending')
         .onSnapshot((snapshot) => {
-            
-            // 1. Update de badge en het belletje
             if (snapshot.empty) {
                 console.log("Geen openstaande uitnodigingen.");
                 invitesBtn.style.display = 'none';
@@ -559,7 +541,6 @@ function startInvitesListener() {
                 invitesBadge.style.display = 'flex';
                 invitesBadge.textContent = snapshot.size;
                 
-                // 2. Vul de modal
                 invitesLijst.innerHTML = '';
                 snapshot.docs.forEach(doc => {
                     const invite = doc.data();
@@ -580,7 +561,7 @@ function startInvitesListener() {
         });
 }
 
-// --- AANGEPAST: Accept/Decline functies (Stap 3.3) ---
+// Accept/Decline functies
 async function acceptInvite(inviteId) {
     if (!currentUser) return;
     try {
@@ -612,7 +593,6 @@ async function acceptInvite(inviteId) {
         await batch.commit();
         
         showFeedback("Uitnodiging geaccepteerd! Je hebt nu toegang.", "success");
-        // De listener pikt dit op en sluit de modal als er geen invites meer zijn
         if (invitesBadge.textContent === '1') {
             hideModal(invitesModal);
         }
@@ -641,7 +621,7 @@ async function declineInvite(inviteId) {
 
 
 // ---
-// STAP 4: UI RENDERING (Dropdowns & Lijsten) (Onveranderd)
+// STAP 4: UI RENDERING (Dropdowns & Lijsten)
 // ---
 function vulToevoegVriezerDropdown() {
     const geselecteerdeId = vriezerSelect.value;
@@ -694,6 +674,7 @@ function updateLadeDropdown(vriezerId, ladeSelectElement, resetSelectie) {
     }
 }
 
+// --- AANGEPAST: renderDynamischeLijsten (DE FIX) ---
 async function renderDynamischeLijsten() {
     const openLadeIds = new Set();
     document.querySelectorAll('.lade-group:not(.collapsed)').forEach(group => {
@@ -701,9 +682,10 @@ async function renderDynamischeLijsten() {
     });
     const isFirstRender = (vriezerLijstenContainer.children.length === 0);
     
-    vriezerLijstenContainer.innerHTML = ''; 
+    // Stap 1: Sorteer vriezers
     alleVriezers.sort((a, b) => a.naam.localeCompare(b.naam));
 
+    // Stap 2: Groepeer vriezers
     const vriezersPerEigenaar = alleVriezers.reduce((acc, vriezer) => {
         const eigenaarId = vriezer.eigenaarUid;
         if (!acc[eigenaarId]) {
@@ -713,11 +695,18 @@ async function renderDynamischeLijsten() {
         return acc;
     }, {});
     
-    // Haal alle eigenaar-namen in één keer op
+    // Stap 3: Haal eigenaar-namen op
     const eigenaarIds = Object.keys(vriezersPerEigenaar);
     const userPromises = eigenaarIds.map(id => usersCollectie.doc(id).get());
     const userDocs = await Promise.all(userPromises);
     
+    // --- DE FIX: Container hier leegmaken ---
+    // Nadat alle 'await' operaties (data ophalen) klaar zijn,
+    // maken we de container leeg. Dit voorkomt de race condition.
+    vriezerLijstenContainer.innerHTML = '';
+    // --- EINDE FIX ---
+    
+    // Stap 4: Vul eigenaar-namen in
     userDocs.forEach(doc => {
         if (doc.exists && vriezersPerEigenaar[doc.id]) {
             vriezersPerEigenaar[doc.id].eigenaarNaam = doc.data().displayName || doc.data().email;
@@ -726,10 +715,13 @@ async function renderDynamischeLijsten() {
         }
     });
 
-    const eigenGroep = vriezersPerEigenaar[eigenUserId] ? vriezersPerEigenaar[eigenUserId].vriezers : [];
+    // Stap 5: Splits in "eigen" en "gedeelde" groepen
+    const idSpil = beheerdeUserId; 
+    const eigenGroep = vriezersPerEigenaar[idSpil] ? vriezersPerEigenaar[idSpil].vriezers : [];
     const gedeeldeGroepen = Object.entries(vriezersPerEigenaar)
-        .filter(([eigenaarId, data]) => eigenaarId !== eigenUserId);
+        .filter(([eigenaarId, data]) => eigenaarId !== idSpil);
 
+    // Stap 6: Render de groepen
     if (eigenGroep.length > 0) {
         const titel = document.createElement('h2');
         titel.textContent = (isAdmin && beheerdeUserId !== eigenUserId) 
@@ -752,6 +744,7 @@ async function renderDynamischeLijsten() {
         });
     }
 
+    // Stap 7: Render leeg-bericht indien nodig
     if (alleVriezers.length === 0) {
         vriezerLijstenContainer.innerHTML = '<p>Nog geen vriezers gevonden.</p>';
         if (isAdmin && beheerdeUserId !== eigenUserId) {
@@ -761,9 +754,11 @@ async function renderDynamischeLijsten() {
         }
     }
     
+    // Stap 8: Finaliseer UI
     initDragAndDrop();
     updateItemVisibility(); 
 }
+// --- EINDE AANPASSING ---
 
 function renderVriezerKolom(vriezer, openLadeIds, isFirstRender, subtitel = '', container = vriezerLijstenContainer) {
     const kolomDiv = document.createElement('div');
@@ -923,7 +918,7 @@ function initDragAndDrop() {
 
 
 // ---
-// STAP 5: Items CRUD (Onveranderd)
+// STAP 5: Items CRUD
 // ---
 form.addEventListener('submit', (e) => {
     e.preventDefault(); 
@@ -1050,7 +1045,7 @@ btnCancel.addEventListener('click', sluitItemModal);
 
 
 // ---
-// STAP 6: VRIEZER BEHEER LOGICA (Onveranderd)
+// STAP 6: VRIEZER BEHEER LOGICA
 // ---
 let vriezerBeheerListener = null; 
 let ladeBeheerListener = null; 
@@ -1238,7 +1233,7 @@ async function handleVerwijderLade(id, naam) {
 }
 
 // ---
-// STAP 7: ADMIN BEHEER LOGICA (Onveranderd)
+// STAP 7: ADMIN BEHEER LOGICA
 // ---
 adminBeheerKnop.addEventListener('click', () => { showModal(adminBeheerModal); });
 sluitAdminBeheerKnop.addEventListener('click', () => { hideModal(adminBeheerModal); });
@@ -1246,7 +1241,7 @@ adminTerugKnop.addEventListener('click', () => { schakelBeheer(eigenUserId, "Jez
 
 
 // ---
-// STAP 8: ZOEKBALK & FILTERS (Onveranderd)
+// STAP 8: ZOEKBALK & FILTERS
 // ---
 searchBar.addEventListener('input', updateItemVisibility);
 function updateItemVisibility() {
@@ -1288,7 +1283,7 @@ function updateItemVisibility() {
 
 
 // ---
-// STAP 9: ALLES OPENEN / SLUITEN (Onveranderd)
+// STAP 9: ALLES OPENEN / SLUITEN
 // ---
 btnToggleAlles.addEventListener('click', () => {
     const alleLades = vriezerLijstenContainer.querySelectorAll('.lade-group');
@@ -1304,7 +1299,7 @@ btnToggleAlles.addEventListener('click', () => {
 });
 
 // ---
-// STAP 10: NIEUWE FUNCTIES & LISTENERS (AANGEPAST)
+// STAP 10: NIEUWE FUNCTIES & LISTENERS
 // ---
 printBtn.addEventListener('click', () => { hideModal(profileModal); window.print(); });
 logoutBtn.addEventListener('click', () => {
@@ -1383,7 +1378,7 @@ function checkHoudbaarheidNotificaties() {
 }
 sluitNotificatieKnop.addEventListener('click', () => { hideModal(notificatieModal); });
 
-// Deel Modal (Onveranderd)
+// Deel Modal
 profileShareBtn.addEventListener('click', () => {
     hideModal(profileModal);
     if (beheerdeUserId !== eigenUserId) {
@@ -1526,7 +1521,7 @@ shareHuidigeLijst.addEventListener('click', async (e) => {
     }
 });
 
-// --- NIEUW: Listeners voor Invites Modal (Stap 3.3) ---
+// Invites Modal Listeners
 invitesBtn.addEventListener('click', () => {
     showModal(invitesModal);
 });
@@ -1539,7 +1534,7 @@ invitesLijst.addEventListener('click', (e) => {
     const acceptBtn = e.target.closest('.invite-accept-btn');
     if (acceptBtn) {
         const inviteId = acceptBtn.dataset.id;
-        acceptBtn.disabled = true; // Voorkom dubbelklik
+        acceptBtn.disabled = true;
         acceptBtn.textContent = '...';
         acceptInvite(inviteId);
         return;
@@ -1548,7 +1543,7 @@ invitesLijst.addEventListener('click', (e) => {
     const declineBtn = e.target.closest('.invite-decline-btn');
     if (declineBtn) {
         const inviteId = declineBtn.dataset.id;
-        declineBtn.disabled = true; // Voorkom dubbelklik
+        declineBtn.disabled = true;
         declineBtn.textContent = '...';
         declineInvite(inviteId);
         return;
