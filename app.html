@@ -27,9 +27,8 @@
 <body>
 
     <div class="container">
-        <!-- --- AANGEPAST: Header Bar --- -->
+        <!-- Header Bar (onveranderd) -->
         <div class="header-bar">
-            <!-- Titel & Admin Knop (Admin knop is verborgen tenzij admin) -->
             <div class="header-title-wrapper">
                 <h1>Vriezer Voorraad</h1>
                 <button id="admin-beheer-knop" class="btn-beheer btn-admin" style="display: none;">
@@ -38,7 +37,6 @@
                 </button>
             </div>
             
-            <!-- Overgebleven Knoppen -->
             <div class="header-buttons">
                 <button id="print-btn" class="btn-beheer btn-print">
                     <i class="fas fa-print"></i>
@@ -46,15 +44,11 @@
                 </button>
             </div>
             
-            <!-- NIEUW: Profiel Knop (Vervangt Vriezer Beheer & Uitloggen) -->
             <button id="profile-btn" class="profile-btn" title="Profiel & Instellingen">
-                <!-- Standaard icoon (als geen foto) -->
                 <i class="fas fa-user-circle"></i> 
-                <!-- Profiel foto (wordt gevuld door JS) -->
                 <img id="profile-img" src="" alt="Profiel" style="display: none;">
             </button>
         </div>
-        <!-- --- EINDE AANGEPAST --- -->
 
         <div id="feedback-message" class="feedback"></div>
 
@@ -75,7 +69,12 @@
             
             <datalist id="product-suggesties"></datalist>
 
-            <input type="number" id="item-aantal" placeholder="Aantal" value="1" step="0.25" min="0.25" required>
+            <!-- AANGEPAST: Aantal Knoppen (UX) -->
+            <div class="aantal-wrapper">
+                <button type="button" class="aantal-btn" data-action="minus" aria-label="Verminder aantal">-</button>
+                <input type="number" id="item-aantal" placeholder="Aantal" value="1" step="0.25" min="0.25" required>
+                <button type="button" class="aantal-btn" data-action="plus" aria-label="Verhoog aantal">+</button>
+            </div>
             
             <select id="item-eenheid" required>
                 <option value="stuks">Stuks (x)</option>
@@ -122,10 +121,10 @@
     </div>
     
     <!-- ---
-    MODALS (Onveranderd, behalve toevoeging van #profile-modal)
+    MODALS
     --- -->
 
-    <!-- Edit Item Modal (Onveranderd) -->
+    <!-- Edit Item Modal -->
     <div id="edit-modal" class="modal-overlay">
         <div class="modal-content">
             <h2>Item Bewerken</h2>
@@ -133,8 +132,15 @@
                 <input type="hidden" id="edit-item-id">
                 <label for="edit-item-naam">Naam:</label>
                 <input type="text" id="edit-item-naam" required>
+                
+                <!-- AANGEPAST: Aantal Knoppen (UX) -->
                 <label for="edit-item-aantal">Aantal:</label>
-                <input type="number" id="edit-item-aantal" step="0.25" min="0.25" required>
+                <div class="aantal-wrapper">
+                    <button type="button" class="aantal-btn" data-action="minus" aria-label="Verminder aantal">-</button>
+                    <input type="number" id="edit-item-aantal" step="0.25" min="0.25" required>
+                    <button type="button" class="aantal-btn" data-action="plus" aria-label="Verhoog aantal">+</button>
+                </div>
+
                 <label for="edit-item-eenheid">Eenheid:</label>
                 <select id="edit-item-eenheid" required>
                     <option value="stuks">Stuks (x)</option>
@@ -163,7 +169,7 @@
         </div>
     </div>
 
-    <!-- Vriezer Beheer Modal (Onveranderd, wordt nu geopend vanuit Profiel Modal) -->
+    <!-- Vriezer Beheer Modal (Onveranderd) -->
     <div id="vriezer-beheer-modal" class="modal-overlay">
         <div class="modal-content modal-groot"> 
             <div class="modal-header">
@@ -234,8 +240,7 @@
         </div> 
     </div>
 
-
-    <!-- --- NIEUW: Profiel Modal --- -->
+    <!-- Profiel Modal (AANGEPAST) -->
     <div id="profile-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
@@ -243,55 +248,117 @@
                 <button type="button" id="btn-sluit-profile" class="btn-cancel">Sluiten</button>
             </div>
             
-            <!-- Profiel Info -->
             <div class="profile-header">
                 <i class="fas fa-user-circle"></i>
                 <img id="profile-modal-img" src="" alt="Profiel">
                 <span id="profile-email">Laden...</span>
             </div>
 
-            <!-- Menu Opties -->
+            <!-- Menu Opties (Knoppen geactiveerd) -->
             <ul class="profile-menu-list">
-                <!-- 1. Vriezer Beheer (Verplaatst) -->
                 <li>
                     <button id="profile-vriezer-beheer-btn" class="profile-menu-btn">
                         <i class="fas fa-snowflake"></i>
                         <span>Mijn Vriezers Beheren</span>
                     </button>
                 </li>
-                <!-- 2. Boodschappenlijst (Placeholder) -->
+                <!-- NIEUW: Knop voor Delen -->
+                <li>
+                    <button id="profile-share-btn" class="profile-menu-btn">
+                        <i class="fas fa-users"></i>
+                        <span>Mijn Vriezers Delen</span>
+                    </button>
+                </li>
                 <li>
                     <button class="profile-menu-btn" disabled title="Binnenkort beschikbaar">
                         <i class="fas fa-shopping-cart"></i>
                         <span>Boodschappenlijst</span>
                     </button>
                 </li>
-                <!-- 3. Wat eten we? (Placeholder) -->
+                <!-- NIEUW: Knop voor Export -->
                 <li>
-                    <button class="profile-menu-btn" disabled title="Binnenkort beschikbaar">
-                        <i class="fas fa-utensils"></i>
-                        <span>Wat eten we vandaag?</span>
-                    </button>
-                </li>
-                <!-- 4. Exporteer Data (Placeholder) -->
-                <li>
-                    <button class="profile-menu-btn" disabled title="Binnenkort beschikbaar">
+                    <button id="export-data-btn" class="profile-menu-btn">
                         <i class="fas fa-file-export"></i>
                         <span>Exporteer Data</span>
+                    </button>
+                </li>
+                <li>
+                    <button class="profile-menu-btn" disabled title="Binnenkort beschikbaar">
+                        <i class="fas fa-file-import"></i>
+                        <span>Importeer Data</span>
                     </button>
                 </li>
             </ul>
 
             <hr>
             
-            <!-- Uitloggen Knop (Verplaatst) -->
             <button id="logout-btn" class="btn-beheer btn-logout" style="width: 100%;">
                 <i class="fas fa-sign-out-alt"></i> Uitloggen
             </button>
             
         </div>
     </div>
-    <!-- --- EINDE NIEUW --- -->
+    
+    <!-- --- NIEUW: Notificatie Modal --- -->
+    <div id="notificatie-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Houdbaarheid Waarschuwing</h2>
+                <button type="button" id="btn-sluit-notificatie" class="btn-cancel">Sluiten</button>
+            </div>
+            <p>De volgende items zijn al erg lang ingevroren. Overweeg om deze binnenkort te gebruiken!</p>
+            <ul id="notificatie-lijst" class="notificatie-lijst">
+                <!-- Dynamisch gevuld -->
+            </ul>
+        </div>
+    </div>
+    
+    <!-- --- NIEUW: Deel Modal (UI) --- -->
+    <div id="share-modal" class="modal-overlay">
+        <div class="modal-content modal-groot">
+            <div class="modal-header">
+                <h2>Mijn Vriezers Delen</h2>
+                <button type="button" id="btn-sluit-share" class="btn-cancel">Sluiten</button>
+            </div>
+            
+            <div class="beheer-container">
+                <!-- Kolom 1: Uitnodigen -->
+                <div class="beheer-kolom">
+                    <h3>Nieuwe Gebruiker Uitnodigen</h3>
+                    <p>Deel al je vriezers met iemand anders (ze hebben een account nodig).</p>
+                    <form id="share-invite-form">
+                        <label for="share-email">E-mailadres:</label>
+                        <input type="email" id="share-email" placeholder="naam@voorbeeld.com" required>
+                        <label for="share-role">Rol:</label>
+                        <select id="share-role" disabled>
+                            <option value="editor">Kan bewerken</option>
+                            <option value="viewer">Kan bekijken</option>
+                        </select>
+                        <button type="submit" id="share-invite-btn" class="btn-beheer" style="width: 100%; margin-top: 10px;">
+                            <i class="fas fa-paper-plane"></i> Verstuur Uitnodiging
+                        </button>
+                    </form>
+                </div>
+                <!-- Kolom 2: Huidige Delen -->
+                <div class="beheer-kolom">
+                    <h3>Huidige Gedeelde Toegang</h3>
+                    <p>Je deelt je vriezers momenteel met:</p>
+                    <ul id="share-huidige-lijst" class="share-huidige-lijst">
+                        <!-- Voorbeeld van hoe het eruit zou zien -->
+                        <!-- 
+                        <li>
+                            <span>partner@voorbeeld.com</span>
+                            <small>Kan bewerken</small>
+                            <button class="delete-btn" title="Stop delen"><i class="fas fa-trash"></i></button>
+                        </li>
+                        -->
+                         <li><i>Nog niet geïmplementeerd.</i></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
