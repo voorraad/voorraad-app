@@ -646,7 +646,6 @@ function renderDynamischeLijsten() {
                         <small style="display: block; color: #555;">Ingevroren op: ${formatDatum(item.ingevrorenOp)} (${diffDagen}d)</small>
                     </div>
                     <div class="item-buttons">
-                        <button class="consume-btn" title="Gebruik 1"><i class="fas fa-utensils"></i></button>
                         <button class="edit-btn" title="Bewerken"><i class="fas fa-pencil-alt"></i></button>
                         <button class="delete-btn" title="Verwijder"><i class="fas fa-trash-alt"></i></button>
                     </div>
@@ -793,14 +792,7 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
     const item = alleItems.find(i => i.id === id);
     if (!item) return;
 
-    // 1. Check voor Consume Knop
-    const consumeButton = e.target.closest('.consume-btn');
-    if (consumeButton) {
-        handleConsumeItem(item);
-        return;
-    }
-
-    // 2. Check voor Delete Knop
+    // 1. Check voor Delete Knop
     const deleteButton = e.target.closest('.delete-btn');
     if (deleteButton) {
         if (confirm(`Weet je zeker dat je '${item.naam}' wilt verwijderen?`)) {
@@ -811,7 +803,7 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
         return;
     }
     
-    // 3. Check voor Edit Knop
+    // 2. Check voor Edit Knop
     const editButton = e.target.closest('.edit-btn');
     if (editButton) {
         editId.value = id;
@@ -841,29 +833,6 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
         return;
     }
 });
-
-function handleConsumeItem(item) {
-    const huidigAantal = parseFloat(item.aantal);
-    const stap = 0.25; 
-    let nieuwAantal = huidigAantal - 1; 
-
-    if (nieuwAantal < 0.25 && nieuwAantal > -0.75) {
-        nieuwAantal = 0;
-    }
-
-    if (nieuwAantal <= 0) {
-        if (confirm(`Aantal is ${huidigAantal}. Wil je de laatste '${item.naam}' verwijderen?`)) {
-            itemsCollectieBasis.doc(item.id).delete()
-                .then(() => showFeedback(`'${item.naam}' verwijderd.`, 'success'))
-                .catch((err) => showFeedback(`Fout: ${err.message}`, 'error'));
-        }
-    } else {
-        itemsCollectieBasis.doc(item.id).update({ aantal: nieuwAantal })
-            .then(() => showFeedback(`'${item.naam}' verminderd naar ${nieuwAantal}.`, 'success'))
-            .catch((err) => showFeedback(`Fout: ${err.message}`, 'error'));
-    }
-}
-
 
 editVriezer.addEventListener('change', () => {
     updateLadeDropdown(editVriezer.value, editSchuif, true); 
@@ -1308,4 +1277,3 @@ shareInviteForm.addEventListener('submit', (e) => {
     e.preventDefault();
     showFeedback("Functie binnenkort beschikbaar.", "error");
 });
-
