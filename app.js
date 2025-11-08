@@ -54,6 +54,7 @@ let isEersteNotificatieCheck = true;
 const form = document.getElementById('add-item-form');
 const vriezerSelect = document.getElementById('item-vriezer'); 
 const schuifSelect = document.getElementById('item-schuif'); 
+const itemDatum = document.getElementById('item-datum'); // NIEUW
 const editModal = document.getElementById('edit-modal');
 const editForm = document.getElementById('edit-item-form');
 const editId = document.getElementById('edit-item-id');
@@ -301,6 +302,10 @@ auth.onAuthStateChanged((user) => {
             profileModalIcon.style.display = 'block';
         }
         profileEmailEl.textContent = userEmail;
+
+        // NIEUW: Zet datumveld op vandaag
+        const vandaag = new Date().toISOString().split('T')[0];
+        itemDatum.value = vandaag;
 
         // Start de data listeners
         startAlleDataListeners();
@@ -893,12 +898,13 @@ form.addEventListener('submit', (e) => {
     
     const geselecteerdeLadeNaam = schuifSelect.options[schuifSelect.selectedIndex].text;
     const itemNaam = document.getElementById('item-naam').value;
+    const ingevrorenOpDatum = new Date(itemDatum.value + "T00:00:00"); // NIEUW
 
     itemsCollectieBasis.add({
         naam: itemNaam,
         aantal: parseFloat(document.getElementById('item-aantal').value),
         eenheid: document.getElementById('item-eenheid').value,
-        ingevrorenOp: firebase.firestore.FieldValue.serverTimestamp(),
+        ingevrorenOp: ingevrorenOpDatum, // AANGEPAST
         userId: beheerdeUserId, // Belangrijk: item wordt toegevoegd aan het beheerde account
         vriezerId: geselecteerdeVriezerId,
         ladeId: geselecteerdeLadeId,
@@ -907,13 +913,16 @@ form.addEventListener('submit', (e) => {
     .then(() => {
         showFeedback(`'${itemNaam}' toegevoegd!`, 'success');
         const rememberCheck = document.getElementById('remember-drawer-check');
+        const vandaag = new Date().toISOString().split('T')[0]; // NIEUW
         if (rememberCheck.checked) {
             document.getElementById('item-naam').value = '';
             document.getElementById('item-aantal').value = 1;
             document.getElementById('item-eenheid').value = "stuks";
+            itemDatum.value = vandaag; // AANGEPAST
             document.getElementById('item-naam').focus();
         } else {
             form.reset();
+            itemDatum.value = vandaag; // AANGEPAST
             document.getElementById('item-eenheid').value = "stuks";
             document.getElementById('item-aantal').value = 1; 
             vriezerSelect.value = "";
