@@ -419,13 +419,19 @@ li .item-buttons {
 }
 .modal-content h2, .modal-content h3 { margin-top: 0; color: #66DDAA; }
 .modal-content h3 { color: #555; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px; margin-top: 20px; }
+
+/* AANGEPAST: Styling voor formulierlabels */
+#add-item-form .form-label, 
 #edit-item-form label {
     display: block;
-    margin-top: 15px;
     margin-bottom: 5px;
     font-weight: bold;
     color: #555;
 }
+#edit-item-form label {
+    margin-top: 15px;
+}
+
 .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
 .btn-save, .btn-cancel {
     border: none;
