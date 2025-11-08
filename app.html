@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     
-    <!-- Favicons (ongewijzigd) -->
+    <!-- Favicons (onveranderd) -->
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
@@ -27,33 +27,40 @@
 <body>
 
     <div class="container">
+        <!-- --- AANGEPAST: Header Bar --- -->
         <div class="header-bar">
-            <!-- AANGEPAST: Nieuwe wrapper voor titel en admin-knop -->
+            <!-- Titel & Admin Knop (Admin knop is verborgen tenzij admin) -->
             <div class="header-title-wrapper">
                 <h1>Vriezer Voorraad</h1>
-                <!-- AANGEPAST: Admin knop is hierheen verplaatst -->
                 <button id="admin-beheer-knop" class="btn-beheer btn-admin" style="display: none;">
                     <i class="fas fa-user-shield"></i>
-                    <!-- AANGEPAST: Tekst in een span gezet -->
-                    <span class="admin-knop-tekst">Admin Beheer</span>
+                    <span>Admin Beheer</span>
                 </button>
             </div>
             
-            <!-- AANGEPAST: Deze div bevat nu enkel de 3 knoppen -->
+            <!-- Overgebleven Knoppen -->
             <div class="header-buttons">
-                <button id="vriezer-beheer-knop" class="btn-beheer">Vriezer Beheer</button>
-                <button id="print-btn" class="btn-beheer" style="background-color: #777;">Print</button>
-                <button id="logout-btn" class="btn-beheer btn-logout">Uitloggen</button>
+                <button id="print-btn" class="btn-beheer btn-print">
+                    <i class="fas fa-print"></i>
+                    <span>Print</span>
+                </button>
             </div>
+            
+            <!-- NIEUW: Profiel Knop (Vervangt Vriezer Beheer & Uitloggen) -->
+            <button id="profile-btn" class="profile-btn" title="Profiel & Instellingen">
+                <!-- Standaard icoon (als geen foto) -->
+                <i class="fas fa-user-circle"></i> 
+                <!-- Profiel foto (wordt gevuld door JS) -->
+                <img id="profile-img" src="" alt="Profiel" style="display: none;">
+            </button>
         </div>
+        <!-- --- EINDE AANGEPAST --- -->
 
         <div id="feedback-message" class="feedback"></div>
 
         <div id="dashboard" class="dashboard-container">
-            <!-- Dashboard wordt gevuld door JS -->
-        </div>
+            </div>
 
-        <!-- Formulier (ongewijzigd) -->
         <form id="add-item-form">
             
             <div class="input-with-button" style="grid-column: 1 / 3;">
@@ -104,16 +111,21 @@
             <i class="fas fa-search"></i>
             <input type="text" id="search-bar" placeholder="Zoek een product...">
         </div>
+        
         <button id="btn-toggle-alles" class="btn-full-width-toggle">
             <i class="fas fa-plus-square"></i> Alles Openen
         </button>
         
         <div class="vriezer-container" id="vriezer-lijsten-container">
-            <!-- Vriezer kolommen worden gevuld door JS -->
+            <!-- Dynamisch gevuld -->
         </div>
     </div>
     
-    <!-- Edit Modal (ongewijzigd) -->
+    <!-- ---
+    MODALS (Onveranderd, behalve toevoeging van #profile-modal)
+    --- -->
+
+    <!-- Edit Item Modal (Onveranderd) -->
     <div id="edit-modal" class="modal-overlay">
         <div class="modal-content">
             <h2>Item Bewerken</h2>
@@ -151,7 +163,7 @@
         </div>
     </div>
 
-    <!-- Vriezer Beheer Modal (ongewijzigd) -->
+    <!-- Vriezer Beheer Modal (Onveranderd, wordt nu geopend vanuit Profiel Modal) -->
     <div id="vriezer-beheer-modal" class="modal-overlay">
         <div class="modal-content modal-groot"> 
             <div class="modal-header">
@@ -181,7 +193,7 @@
         </div> 
     </div>
 
-    <!-- Scan Modal (ongewijzigd) -->
+    <!-- Scan Modal (Onveranderd) -->
     <div id="scan-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
@@ -193,29 +205,95 @@
         </div>
     </div>
     
-    <!-- Admin Beheer Modal (ongewijzigd) -->
+    <!-- Admin Beheer Modal (Onveranderd) -->
     <div id="admin-beheer-modal" class="modal-overlay">
-        <div class="modal-content">
+        <div class="modal-content modal-groot"> 
             <div class="modal-header">
                 <h2>Admin Beheer</h2>
                 <button type="button" id="btn-sluit-admin-beheer" class="btn-cancel">Sluiten</button>
             </div>
             
-            <h3 id="admin-beheert-titel" style="color: #FF6B6B;"></h3>
+            <div class="admin-huidig-beheer">
+                <h3 id="admin-beheert-titel">Je beheert je eigen vriezers.</h3>
+                <button id="admin-terug-knop" class="btn-beheer" style="display: none; background-color: #4A90E2;">
+                    <i class="fas fa-arrow-left"></i> Terug naar mijn account
+                </button>
+            </div>
             
-            <button type="button" id="admin-terug-knop" class="btn-beheer" style="display: none; width: 100%; margin-bottom: 20px;">
-                <i class="fas fa-arrow-left"></i> Terug naar mijn eigen vriezers
-            </button>
+            <hr>
             
-            <h3>Beheer een andere gebruiker:</h3>
-            <p>Selecteer een gebruiker om diens vriezers in te zien en te beheren.</p>
-            <ul id="admin-user-lijst" class="admin-user-list">
-                <!-- Gebruikerslijst wordt gevuld door JS -->
-            </ul>
-        </div>
+            <div class="beheer-container">
+                <div class="beheer-kolom">
+                    <h3>Andere Gebruikers</h3>
+                    <p>Selecteer een gebruiker om hun vriezers te beheren.</p>
+                    <ul id="admin-user-lijst" class="admin-user-lijst">
+                        <!-- Dynamisch gevuld -->
+                    </ul>
+                </div>
+            </div>
+        </div> 
     </div>
 
-    <!-- Firebase Scripts (ongewijzigd) -->
+
+    <!-- --- NIEUW: Profiel Modal --- -->
+    <div id="profile-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Mijn Profiel</h2>
+                <button type="button" id="btn-sluit-profile" class="btn-cancel">Sluiten</button>
+            </div>
+            
+            <!-- Profiel Info -->
+            <div class="profile-header">
+                <i class="fas fa-user-circle"></i>
+                <img id="profile-modal-img" src="" alt="Profiel">
+                <span id="profile-email">Laden...</span>
+            </div>
+
+            <!-- Menu Opties -->
+            <ul class="profile-menu-list">
+                <!-- 1. Vriezer Beheer (Verplaatst) -->
+                <li>
+                    <button id="profile-vriezer-beheer-btn" class="profile-menu-btn">
+                        <i class="fas fa-snowflake"></i>
+                        <span>Mijn Vriezers Beheren</span>
+                    </button>
+                </li>
+                <!-- 2. Boodschappenlijst (Placeholder) -->
+                <li>
+                    <button class="profile-menu-btn" disabled title="Binnenkort beschikbaar">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span>Boodschappenlijst</span>
+                    </button>
+                </li>
+                <!-- 3. Wat eten we? (Placeholder) -->
+                <li>
+                    <button class="profile-menu-btn" disabled title="Binnenkort beschikbaar">
+                        <i class="fas fa-utensils"></i>
+                        <span>Wat eten we vandaag?</span>
+                    </button>
+                </li>
+                <!-- 4. Exporteer Data (Placeholder) -->
+                <li>
+                    <button class="profile-menu-btn" disabled title="Binnenkort beschikbaar">
+                        <i class="fas fa-file-export"></i>
+                        <span>Exporteer Data</span>
+                    </button>
+                </li>
+            </ul>
+
+            <hr>
+            
+            <!-- Uitloggen Knop (Verplaatst) -->
+            <button id="logout-btn" class="btn-beheer btn-logout" style="width: 100%;">
+                <i class="fas fa-sign-out-alt"></i> Uitloggen
+            </button>
+            
+        </div>
+    </div>
+    <!-- --- EINDE NIEUW --- -->
+
+    
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
