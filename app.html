@@ -219,10 +219,16 @@
         </div>
     </div>
 
-    <!-- AANGEPAST: Profiel Modal (Nieuwe layout) -->
+    <!-- AANGEPAST: Profiel Modal (Standaard Header) -->
     <div id="profile-modal" class="modal-overlay">
         <div class="modal-content">
-            <button type="button" id="btn-sluit-profile" class="btn-cancel" style="position: absolute; top: 15px; right: 15px; padding: 5px 10px; font-size: 14px;">Sluiten</button>
+            <!-- NIEUWE Standaard Header -->
+            <div class="modal-header">
+                <h2>Mijn Profiel</h2>
+                <button type="button" id="btn-sluit-profile" class="btn-cancel">Sluiten</button>
+            </div>
+
+            <!-- Oude "floating" knop is weg -->
             
             <div class="profile-header">
                 <i class="fas fa-user-circle"></i>
@@ -230,35 +236,17 @@
                 <span id="profile-email">email@lorem.com</span>
             </div>
             
-            <!-- Nieuwe Grid Layout -->
-            <div class="profile-grid">
-                <button id="profile-vriezer-beheer-btn" class="profile-grid-btn">
-                    <i class="fas fa-tasks"></i>
-                    <span>Vriezers Beheren</span>
-                </button>
-                <button id="profile-share-btn" class="profile-grid-btn">
-                    <i class="fas fa-share-alt"></i>
-                    <span>Delen</span>
-                </button>
-                <button id="print-btn" class="profile-grid-btn btn-print">
-                    <i class="fas fa-print"></i>
-                    <span>Print</span>
-                </button>
-                <button id="export-data-btn" class="profile-grid-btn">
-                    <i class="fas fa-file-export"></i>
-                    <span>Exporteer</span>
-                </button>
-                <button class="profile-grid-btn" disabled>
-                    <i class="fas fa-file-import"></i>
-                    <span>Importeer</span>
-                </button>
-                <button class="profile-grid-btn" disabled>
-                    <i class="fas fa-shopping-cart"></i>
-                    <span>Lijstje</span>
-                </button>
-            </div>
-            <!-- Einde Nieuwe Grid Layout -->
-
+            <ul class="profile-menu-list">
+                <li><button id="profile-vriezer-beheer-btn" class="profile-menu-btn"><i class="fas fa-tasks"></i> Mijn Vriezers Beheren</button></li>
+                <li><button id="profile-share-btn" class="profile-menu-btn"><i class="fas fa-share-alt"></i> Mijn Vriezers Delen</button></li>
+                <li><button id="print-btn" class="profile-menu-btn btn-print"><i class="fas fa-print"></i> Print Voorraad</button></li>
+            </ul>
+            <hr>
+            <ul class="profile-menu-list">
+                <li><button id="export-data-btn" class="profile-menu-btn"><i class="fas fa-file-export"></i> Exporteer Data</button></li>
+                <li><button class="profile-menu-btn" disabled><i class="fas fa-file-import"></i> Importeer Data (Binnenkort)</button></li>
+                <li><button class="profile-menu-btn" disabled><i class="fas fa-shopping-cart"></i> Boodschappenlijst (Binnenkort)</button></li>
+            </ul>
             <hr>
             <button id="logout-btn" class="btn-beheer btn-logout" style="width: 100%;">Uitloggen</button>
         </div>
