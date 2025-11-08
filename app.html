@@ -27,8 +27,9 @@
 <body>
 
     <div class="container">
-        <!-- Header Bar (onveranderd) -->
+        <!-- --- AANGEPAST: Header Bar --- -->
         <div class="header-bar">
+            <!-- Titel & Admin Knop (Admin knop is verborgen tenzij admin) -->
             <div class="header-title-wrapper">
                 <h1>Vriezer Voorraad</h1>
                 <button id="admin-beheer-knop" class="btn-beheer btn-admin" style="display: none;">
@@ -37,18 +38,19 @@
                 </button>
             </div>
             
+            <!-- Overgebleven Knoppen (LEEG) -->
             <div class="header-buttons">
-                <button id="print-btn" class="btn-beheer btn-print">
-                    <i class="fas fa-print"></i>
-                    <span>Print</span>
-                </button>
+                <!-- Print knop is verplaatst naar Profiel Modal -->
             </div>
             
+            <!-- Profiel Knop -->
             <button id="profile-btn" class="profile-btn" title="Profiel & Instellingen">
                 <i class="fas fa-user-circle"></i> 
                 <img id="profile-img" src="" alt="Profiel" style="display: none;">
             </button>
         </div>
+        <!-- --- EINDE AANGEPAST --- -->
+
 
         <div id="feedback-message" class="feedback"></div>
 
@@ -69,7 +71,6 @@
             
             <datalist id="product-suggesties"></datalist>
 
-            <!-- AANGEPAST: Aantal Knoppen (UX) -->
             <div class="aantal-wrapper">
                 <button type="button" class="aantal-btn" data-action="minus" aria-label="Verminder aantal">-</button>
                 <input type="number" id="item-aantal" placeholder="Aantal" value="1" step="0.25" min="0.25" required>
@@ -124,7 +125,7 @@
     MODALS
     --- -->
 
-    <!-- Edit Item Modal -->
+    <!-- Edit Item Modal (Onveranderd) -->
     <div id="edit-modal" class="modal-overlay">
         <div class="modal-content">
             <h2>Item Bewerken</h2>
@@ -133,7 +134,6 @@
                 <label for="edit-item-naam">Naam:</label>
                 <input type="text" id="edit-item-naam" required>
                 
-                <!-- AANGEPAST: Aantal Knoppen (UX) -->
                 <label for="edit-item-aantal">Aantal:</label>
                 <div class="aantal-wrapper">
                     <button type="button" class="aantal-btn" data-action="minus" aria-label="Verminder aantal">-</button>
@@ -254,7 +254,7 @@
                 <span id="profile-email">Laden...</span>
             </div>
 
-            <!-- Menu Opties (Knoppen geactiveerd) -->
+            <!-- Menu Opties (Print knop toegevoegd) -->
             <ul class="profile-menu-list">
                 <li>
                     <button id="profile-vriezer-beheer-btn" class="profile-menu-btn">
@@ -262,11 +262,17 @@
                         <span>Mijn Vriezers Beheren</span>
                     </button>
                 </li>
-                <!-- NIEUW: Knop voor Delen -->
                 <li>
                     <button id="profile-share-btn" class="profile-menu-btn">
                         <i class="fas fa-users"></i>
                         <span>Mijn Vriezers Delen</span>
+                    </button>
+                </li>
+                <!-- NIEUW: Print Knop Verplaatst -->
+                <li>
+                    <button id="print-btn" class="profile-menu-btn">
+                        <i class="fas fa-print"></i>
+                        <span>Print Voorraadlijst</span>
                     </button>
                 </li>
                 <li>
@@ -275,7 +281,6 @@
                         <span>Boodschappenlijst</span>
                     </button>
                 </li>
-                <!-- NIEUW: Knop voor Export -->
                 <li>
                     <button id="export-data-btn" class="profile-menu-btn">
                         <i class="fas fa-file-export"></i>
@@ -299,7 +304,7 @@
         </div>
     </div>
     
-    <!-- --- NIEUW: Notificatie Modal --- -->
+    <!-- Notificatie Modal (Onveranderd) -->
     <div id="notificatie-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
@@ -313,7 +318,7 @@
         </div>
     </div>
     
-    <!-- --- NIEUW: Deel Modal (UI) --- -->
+    <!-- Deel Modal (UI) (Onveranderd) -->
     <div id="share-modal" class="modal-overlay">
         <div class="modal-content modal-groot">
             <div class="modal-header">
@@ -322,7 +327,6 @@
             </div>
             
             <div class="beheer-container">
-                <!-- Kolom 1: Uitnodigen -->
                 <div class="beheer-kolom">
                     <h3>Nieuwe Gebruiker Uitnodigen</h3>
                     <p>Deel al je vriezers met iemand anders (ze hebben een account nodig).</p>
@@ -339,19 +343,10 @@
                         </button>
                     </form>
                 </div>
-                <!-- Kolom 2: Huidige Delen -->
                 <div class="beheer-kolom">
                     <h3>Huidige Gedeelde Toegang</h3>
                     <p>Je deelt je vriezers momenteel met:</p>
                     <ul id="share-huidige-lijst" class="share-huidige-lijst">
-                        <!-- Voorbeeld van hoe het eruit zou zien -->
-                        <!-- 
-                        <li>
-                            <span>partner@voorbeeld.com</span>
-                            <small>Kan bewerken</small>
-                            <button class="delete-btn" title="Stop delen"><i class="fas fa-trash"></i></button>
-                        </li>
-                        -->
                          <li><i>Nog niet geïmplementeerd.</i></li>
                     </ul>
                 </div>
