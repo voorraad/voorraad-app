@@ -42,7 +42,7 @@ let beheerdeUserId = null;
 let beheerdeUserEmail = null;
 let eigenUserId = null; 
 
-// NIEUW: Notificatie vlag
+// Notificatie vlag
 let isEersteNotificatieCheck = true;
 
 // --- Snelkoppelingen naar elementen ---
@@ -61,7 +61,7 @@ const editDatum = document.getElementById('edit-item-datum');
 const btnCancel = document.getElementById('btn-cancel');
 const logoutBtn = document.getElementById('logout-btn');
 const searchBar = document.getElementById('search-bar');
-const printBtn = document.getElementById('print-btn');
+const printBtn = document.getElementById('print-btn'); // ID is nu van knop in Profiel Modal
 const dashboard = document.getElementById('dashboard'); 
 const feedbackMessage = document.getElementById('feedback-message');
 const scanBtn = document.getElementById('scan-btn');
@@ -100,16 +100,16 @@ const profileModalIcon = profileModal.querySelector('.profile-header i');
 const profileEmailEl = document.getElementById('profile-email');
 const profileVriezerBeheerBtn = document.getElementById('profile-vriezer-beheer-btn');
 
-// --- NIEUW: Nieuwe Profiel Knoppen ---
+// Nieuwe Profiel Knoppen
 const exportDataBtn = document.getElementById('export-data-btn');
 const profileShareBtn = document.getElementById('profile-share-btn');
 
-// --- NIEUW: Notificatie Modal Elementen ---
+// Notificatie Modal Elementen
 const notificatieModal = document.getElementById('notificatie-modal');
 const notificatieLijst = document.getElementById('notificatie-lijst');
 const sluitNotificatieKnop = document.getElementById('btn-sluit-notificatie');
 
-// --- NIEUW: Deel Modal Elementen ---
+// Deel Modal Elementen
 const shareModal = document.getElementById('share-modal');
 const sluitShareKnop = document.getElementById('btn-sluit-share');
 const shareInviteForm = document.getElementById('share-invite-form');
@@ -118,16 +118,13 @@ const shareInviteForm = document.getElementById('share-invite-form');
 // ---
 // HELPER FUNCTIES (Modal & Aantal)
 // ---
-// Aangepaste modal show/hide functies
 function showModal(modalElement) {
     if (modalElement) {
-        // modalElement.style.display = 'flex'; // Oude manier
         modalElement.classList.add('show');
     }
 }
 function hideModal(modalElement) {
     if (modalElement) {
-        // modalElement.style.display = 'none'; // Oude manier
         modalElement.classList.remove('show');
     }
 }
@@ -158,7 +155,7 @@ function formatDatum(timestamp) {
     return timestamp.toDate().toLocaleDateString('nl-BE');
 }
 
-// --- NIEUW: Helper voor Aantal Knoppen (UX) ---
+// Helper voor Aantal Knoppen (UX)
 function handleAantalKlik(e) {
     const target = e.target.closest('.aantal-btn');
     if (!target) return;
@@ -186,7 +183,7 @@ function handleAantalKlik(e) {
 }
 
 
-// --- Scanner functies (onveranderd) ---
+// --- Scanner functies ---
 function startScanner() {
     html5QrCode = new Html5Qrcode(scannerContainerId);
     showModal(scanModal);
@@ -254,7 +251,7 @@ async function fetchProductFromOFF(ean) {
 
 
 // ---
-// STAP 2: AUTHENTICATIE & INITIALISATIE (AANGEPAST)
+// STAP 2: AUTHENTICATIE & INITIALISATIE
 // ---
 auth.onAuthStateChanged((user) => {
     if (user) {
@@ -264,7 +261,7 @@ auth.onAuthStateChanged((user) => {
         
         beheerdeUserId = user.uid;
         beheerdeUserEmail = user.email || "Jezelf";
-        isEersteNotificatieCheck = true; // Reset notificatie vlag bij inloggen
+        isEersteNotificatieCheck = true; 
 
         registreerGebruiker(user);
         checkAdminStatus(user.uid);
@@ -326,8 +323,6 @@ auth.onAuthStateChanged((user) => {
     }
 });
 
-// (Functies 'registreerGebruiker', 'checkAdminStatus', 'schakelBeheer', 'updateAdminUI' 
-// zijn onveranderd)
 async function registreerGebruiker(user) {
     try {
         await usersCollectie.doc(user.uid).set({
@@ -367,7 +362,7 @@ function schakelBeheer(naarUserId, naarUserEmail) {
     console.log(`Schakelen van beheer... Naar: ${naarUserId}`);
     beheerdeUserId = naarUserId;
     beheerdeUserEmail = naarUserEmail || 'Onbekende Gebruiker';
-    isEersteNotificatieCheck = true; // Reset notificatie vlag bij schakelen
+    isEersteNotificatieCheck = true; 
 
     stopAlleDataListeners();
 
@@ -398,7 +393,7 @@ function updateAdminUI() {
 }
 
 // ---
-// STAP 3: DATA LISTENERS (AANGEPAST)
+// STAP 3: DATA LISTENERS
 // ---
 function startAlleDataListeners() {
     if (!beheerdeUserId) return; 
@@ -428,7 +423,7 @@ function startAlleDataListeners() {
             renderDynamischeLijsten(); 
         }, (err) => console.error("Fout bij lades listener:", err.message));
 
-    // 3. Items Listener (AANGEPAST: triggert notificatie check)
+    // 3. Items Listener
     if (itemsListener) itemsListener(); 
     itemsListener = itemsCollectieBasis
         .where("userId", "==", beheerdeUserId)
@@ -438,10 +433,9 @@ function startAlleDataListeners() {
             renderDynamischeLijsten(); 
             updateDashboard(); 
             
-            // NIEUW: Notificatie check
             if (isEersteNotificatieCheck && alleItems.length > 0) {
                 checkHoudbaarheidNotificaties();
-                isEersteNotificatieCheck = false; // Zorg dat dit maar 1x runt
+                isEersteNotificatieCheck = false; 
             }
         }, (error) => {
             console.error("Fout bij ophalen items: ", error);
@@ -494,7 +488,7 @@ function startAdminUserListener() {
 }
 
 // ---
-// STAP 4: UI RENDERING (Dropdowns & Lijsten) (AANGEPAST)
+// STAP 4: UI RENDERING (Dropdowns & Lijsten)
 // ---
 function vulToevoegVriezerDropdown() {
     const geselecteerdeId = vriezerSelect.value;
@@ -545,7 +539,6 @@ function updateLadeDropdown(vriezerId, ladeSelectElement, resetSelectie) {
     }
 }
 
-// AANGEPAST: Voegt 'consume-btn' toe
 function renderDynamischeLijsten() {
     
     const openLadeIds = new Set();
@@ -645,7 +638,7 @@ function renderDynamischeLijsten() {
                     else { li.classList.add('item-fresh'); }
                 }
                 
-                li.dataset.dagen = diffDagen; // Sla dagen op voor notificaties
+                li.dataset.dagen = diffDagen; 
 
                 li.innerHTML = `
                     <div class="item-text">
@@ -653,7 +646,6 @@ function renderDynamischeLijsten() {
                         <small style="display: block; color: #555;">Ingevroren op: ${formatDatum(item.ingevrorenOp)} (${diffDagen}d)</small>
                     </div>
                     <div class="item-buttons">
-                        <!-- NIEUW: Consume Knop -->
                         <button class="consume-btn" title="Gebruik 1"><i class="fas fa-utensils"></i></button>
                         <button class="edit-btn" title="Bewerken"><i class="fas fa-pencil-alt"></i></button>
                         <button class="delete-btn" title="Verwijder"><i class="fas fa-trash-alt"></i></button>
@@ -734,7 +726,7 @@ function initDragAndDrop() {
 
 
 // ---
-// STAP 5: Items CRUD (AANGEPAST)
+// STAP 5: Items CRUD
 // ---
 form.addEventListener('submit', (e) => {
     e.preventDefault(); 
@@ -774,7 +766,7 @@ form.addEventListener('submit', (e) => {
         } else {
             form.reset();
             document.getElementById('item-eenheid').value = "stuks";
-            document.getElementById('item-aantal').value = 1; // Reset aantal ook
+            document.getElementById('item-aantal').value = 1; 
             vriezerSelect.value = "";
             schuifSelect.innerHTML = '<option value="" disabled selected>Kies eerst een vriezer...</option>';
         }
@@ -785,7 +777,6 @@ form.addEventListener('submit', (e) => {
     });
 });
 
-// AANGEPAST: Luistert nu ook naar 'consume-btn'
 vriezerLijstenContainer.addEventListener('click', (e) => {
     
     const ladeHeader = e.target.closest('.lade-header');
@@ -851,13 +842,11 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
     }
 });
 
-// --- NIEUW: Functie voor Snel Gebruiken (UX) ---
 function handleConsumeItem(item) {
     const huidigAantal = parseFloat(item.aantal);
-    const stap = 0.25; // Gebruik de kleinste stap
-    let nieuwAantal = huidigAantal - 1; // Verminder altijd met 1 (of pas logica aan indien gewenst)
+    const stap = 0.25; 
+    let nieuwAantal = huidigAantal - 1; 
 
-    // Als de stap 0.25 is, en we hebben 0.5, wordt het -0.5, wat we als 0 willen
     if (nieuwAantal < 0.25 && nieuwAantal > -0.75) {
         nieuwAantal = 0;
     }
@@ -909,7 +898,7 @@ btnCancel.addEventListener('click', sluitItemModal);
 
 
 // ---
-// STAP 6: VRIEZER BEHEER LOGICA (Onveranderd)
+// STAP 6: VRIEZER BEHEER LOGICA
 // ---
 let vriezerBeheerListener = null; 
 let ladeBeheerListener = null; 
@@ -1111,7 +1100,7 @@ async function handleVerwijderLade(id, naam) {
 }
 
 // ---
-// STAP 7: ADMIN BEHEER LOGICA (Onveranderd)
+// STAP 7: ADMIN BEHEER LOGICA
 // ---
 adminBeheerKnop.addEventListener('click', () => {
     showModal(adminBeheerModal);
@@ -1125,7 +1114,7 @@ adminTerugKnop.addEventListener('click', () => {
 
 
 // ---
-// STAP 8: ZOEKBALK & FILTERS (Onveranderd)
+// STAP 8: ZOEKBALK & FILTERS
 // ---
 searchBar.addEventListener('input', updateItemVisibility);
 function updateItemVisibility() {
@@ -1179,7 +1168,7 @@ function updateItemVisibility() {
 
 
 // ---
-// STAP 9: ALLES OPENEN / SLUITEN (Onveranderd)
+// STAP 9: ALLES OPENEN / SLUITEN
 // ---
 btnToggleAlles.addEventListener('click', () => {
     const alleLades = vriezerLijstenContainer.querySelectorAll('.lade-group');
@@ -1200,8 +1189,11 @@ btnToggleAlles.addEventListener('click', () => {
 // STAP 10: NIEUWE FUNCTIES & LISTENERS
 // ---
 
-// Print
-printBtn.addEventListener('click', () => window.print());
+// AANGEPAST: Print knop (zit nu in profiel modal)
+printBtn.addEventListener('click', () => {
+    hideModal(profileModal); // Sluit eerst de profiel modal
+    window.print();
+});
 
 // Logout
 logoutBtn.addEventListener('click', () => {
@@ -1236,20 +1228,18 @@ profileVriezerBeheerBtn.addEventListener('click', () => {
     laadVriezersBeheer(); 
 });
 
-// --- NIEUW: Export ---
+// Export
 exportDataBtn.addEventListener('click', () => {
     if (alleItems.length === 0 && alleVriezers.length === 0) {
         showFeedback("Er is geen data om te exporteren.", "error");
         return;
     }
     
-    // Verpak alle data in een JSON
     const backupData = {
         exportDatum: new Date().toISOString(),
         vriezers: alleVriezers,
         lades: alleLades,
         items: alleItems.map(item => {
-            // Converteer Firestore Timestamps naar ISO strings
             return {
                 ...item,
                 ingevrorenOp: item.ingevrorenOp ? item.ingevrorenOp.toDate().toISOString() : null
@@ -1257,7 +1247,7 @@ exportDataBtn.addEventListener('click', () => {
         })
     };
     
-    const jsonData = JSON.stringify(backupData, null, 2); // 'null, 2' voor mooie opmaak
+    const jsonData = JSON.stringify(backupData, null, 2); 
     const blob = new Blob([jsonData], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     
@@ -1273,17 +1263,15 @@ exportDataBtn.addEventListener('click', () => {
     hideModal(profileModal);
 });
 
-// --- NIEUW: Notificatie Modal ---
+// Notificatie Modal
 function checkHoudbaarheidNotificaties() {
-    const DAGEN_OUD = 180; // 'Rood'
+    const DAGEN_OUD = 180; 
     const oudeItems = alleItems
         .filter(item => {
             if (!item.ingevrorenOp) return false;
             const diffDagen = Math.ceil(Math.abs(new Date() - item.ingevrorenOp.toDate()) / (1000 * 60 * 60 * 24));
             return diffDagen > DAGEN_OUD;
         })
-        .sort((a, b) => b.ingevrorenOp.toDate() - a.ingevrorenOp.toDate()); // Oudste eerst? Nee, andersom.
-        // .sort((a, b) => a.ingevrorenOp.toDate() - b.ingevrorenOp.toDate()); // Oudste eerst
 
     // Sorteer op dagen, oudste eerst
     oudeItems.sort((a, b) => {
@@ -1294,8 +1282,8 @@ function checkHoudbaarheidNotificaties() {
 
 
     if (oudeItems.length > 0) {
-        notificatieLijst.innerHTML = ''; // Leegmaken
-        oudeItems.slice(0, 5).forEach(item => { // Toon max 5
+        notificatieLijst.innerHTML = ''; 
+        oudeItems.slice(0, 5).forEach(item => { 
             const li = document.createElement('li');
             const dagen = Math.ceil(Math.abs(new Date() - item.ingevrorenOp.toDate()) / (1000 * 60 * 60 * 24));
             li.textContent = `${item.naam} (${item.ladeNaam}) - ${dagen} dagen oud`;
@@ -1308,21 +1296,17 @@ sluitNotificatieKnop.addEventListener('click', () => {
     hideModal(notificatieModal);
 });
 
-// --- NIEUW: Deel Modal (UI) ---
+// Deel Modal (UI)
 profileShareBtn.addEventListener('click', () => {
     hideModal(profileModal);
     showModal(shareModal);
-    // Toekomst: laadVriezerDelen();
 });
 sluitShareKnop.addEventListener('click', () => {
     hideModal(shareModal);
 });
 shareInviteForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    // Dit is de placeholder. De echte logica is zeer complex.
     showFeedback("Functie binnenkort beschikbaar.", "error");
-    // const email = document.getElementById('share-email').value;
-    // console.log(`Wil uitnodigen: ${email}`);
 });
 
 
