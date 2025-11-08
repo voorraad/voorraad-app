@@ -98,16 +98,16 @@ h1 {
 }
 .btn-beheer:hover { background-color: #63a4f0; }
 
-/* Admin knop specifiek */
+/* AANGEPAST: Admin knop (nu Wissel Account) */
 .btn-admin {
-    background-color: #d9534f;
+    background-color: #f0ad4e; /* Oranje gemaakt ipv rood */
     padding: 0; 
     width: 44px; 
     height: 44px;
     border-radius: 50%; 
     font-size: 18px; 
 }
-.btn-admin:hover { background-color: #e06c69; }
+.btn-admin:hover { background-color: #f3bd73; }
 .btn-admin span { display: none; } 
 
 /* Print knop (verplaatst naar profiel) */
@@ -525,7 +525,7 @@ li .item-buttons {
     display: block;
 }
 
-/* --- ADMIN BEHEER MODAL --- */
+/* --- AANGEPAST: Wissel Account Modal (voorheen Admin) --- */
 .admin-huidig-beheer {
     padding: 10px;
     background-color: #f5f5f5;
@@ -538,32 +538,55 @@ li .item-buttons {
     padding: 0;
     font-size: 1.1em;
 }
-.admin-user-lijst {
+
+/* NIEUW: Generieke lijst voor 'Wissel Account' en 'Deel' modals */
+.shared-list {
     list-style: none;
     padding: 0;
     max-height: 300px;
     overflow-y: auto;
 }
-.admin-user-lijst li {
+.shared-list li {
     background-color: #f9f9f9;
     padding: 12px 15px;
     border-radius: 5px;
     border: 1px solid #eee;
     margin-bottom: 8px;
-    cursor: pointer;
     transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
 }
-.admin-user-lijst li:hover {
+.shared-list li:hover {
     background-color: #e0f7fa;
 }
-.admin-user-lijst li span {
+/* Alleen de 'wissel' lijsten zijn klikbaar */
+#admin-user-lijst li, #user-shared-lijst li {
+    cursor: pointer;
+}
+.shared-list li .user-info {
+    flex-grow: 1;
+}
+.shared-list li .user-info span {
     display: block;
     font-weight: bold;
     color: #333;
 }
-.admin-user-lijst li small {
+.shared-list li .user-info small {
     color: #777;
     font-size: 0.9em;
+}
+.shared-list li .item-buttons {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+/* Specifieke delete knop voor 'share-huidige-lijst' */
+#share-huidige-lijst .delete-btn {
+    width: 35px;
+    height: 35px;
+    font-size: 14px;
 }
 
 
@@ -672,34 +695,63 @@ li .item-buttons {
     color: #66512c;
 }
 
-/* --- Share Modal --- */
-.share-huidige-lijst {
+/* --- AANGEPAST: Share Modal --- */
+/* Gebruikt nu .shared-list styling */
+
+
+/* --- NIEUW: Accept Share Modal --- */
+.accept-share-list {
     list-style: none;
     padding: 0;
+    margin-top: 20px;
+    max-height: 250px;
+    overflow-y: auto;
 }
-.share-huidige-lijst li {
+.accept-share-list li {
+    background-color: #f0f8ff;
+    border-left: 4px solid #4A90E2;
+    padding: 10px 15px;
+    margin-bottom: 10px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
     gap: 10px;
-    background-color: #f9f9f9;
-    padding: 12px 15px;
-    border-radius: 5px;
-    border: 1px solid #eee;
-    margin-bottom: 8px;
 }
-.share-huidige-lijst li span {
+.accept-share-list li .invite-info {
     flex-grow: 1;
-    font-weight: bold;
 }
-.share-huidige-lijst li small {
-    color: #777;
+.accept-share-list li .invite-info strong {
+    color: #333;
+    display: block;
 }
-.share-huidige-lijst li .delete-btn {
-    width: 35px;
-    height: 35px;
+.accept-share-list li .invite-info small {
+    color: #555;
+}
+.accept-share-list li .invite-buttons {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.btn-accept {
+    background-color: #66DDAA;
+    color: #1a1a1a;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 12px;
     font-size: 14px;
-    margin-left: auto;
+    font-weight: bold;
+    cursor: pointer;
+}
+.btn-decline {
+    background-color: #FF6B6B;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
 }
 
 
@@ -709,12 +761,12 @@ li .item-buttons {
     body { padding: 20px; }
     .container { padding: 25px; }
 
-    /* Toon tekst in admin knop */
+    /* Toon tekst in 'Wissel Account' knop */
     .btn-admin span {
         display: inline-block;
     }
     
-    /* Maak admin knop weer rechthoekig op desktop */
+    /* Maak 'Wissel Account' knop weer rechthoekig op desktop */
     .btn-admin {
         padding: 10px 15px;
         font-size: 15px;
@@ -1001,4 +1053,3 @@ li.sortable-ghost {
         color: #000000 !important;
     }
 }
-
