@@ -34,9 +34,10 @@
             
             <!-- Nieuwe wrapper voor alle iconen rechts -->
             <div class="header-icons-wrapper">
-                <button id="admin-beheer-knop" class="btn-beheer btn-admin" style="display: none;" title="Admin Beheer">
-                    <i class="fas fa-user-shield"></i>
-                    <span>Admin Beheer</span>
+                <!-- Deze knop heet nu 'Wissel Account' en is voor Admins EN Gedeelde Users -->
+                <button id="switch-account-knop" class="btn-beheer btn-admin" style="display: none;" title="Wissel Account">
+                    <i class="fas fa-users-cog"></i>
+                    <span>Wissel Account</span>
                 </button>
                 
                 <button id="profile-btn" class="profile-btn" title="Profiel & Instellingen">
@@ -118,7 +119,7 @@
     </div>
     
     <!-- ---
-    MODALS (Allemaal onveranderd, behalve Profiel Modal)
+    MODALS
     --- -->
 
     <!-- Edit Item Modal (Onveranderd) -->
@@ -207,17 +208,17 @@
         </div>
     </div>
     
-    <!-- Admin Beheer Modal (Onveranderd) -->
-    <div id="admin-beheer-modal" class="modal-overlay">
+    <!-- AANGEPAST: Wissel Account Modal (voorheen Admin Modal) -->
+    <div id="switch-account-modal" class="modal-overlay">
         <div class="modal-content modal-groot"> 
             <div class="modal-header">
-                <h2>Admin Beheer</h2>
-                <button type="button" id="btn-sluit-admin-beheer" class="btn-cancel">Sluiten</button>
+                <h2>Wissel Account</h2>
+                <button type="button" id="btn-sluit-switch-account" class="btn-cancel">Sluiten</button>
             </div>
             
             <div class="admin-huidig-beheer">
-                <h3 id="admin-beheert-titel">Je beheert je eigen vriezers.</h3>
-                <button id="admin-terug-knop" class="btn-beheer" style="display: none; background-color: #4A90E2;">
+                <h3 id="switch-account-titel">Je beheert je eigen vriezers.</h3>
+                <button id="switch-terug-knop" class="btn-beheer" style="display: none; background-color: #4A90E2;">
                     <i class="fas fa-arrow-left"></i> Terug naar mijn account
                 </button>
             </div>
@@ -225,10 +226,20 @@
             <hr>
             
             <div class="beheer-container">
-                <div class="beheer-kolom">
-                    <h3>Andere Gebruikers</h3>
+                <!-- Sectie voor Gedeelde Accounts (voor gewone users) -->
+                <div class="beheer-kolom" id="user-switch-section" style="display: none;">
+                    <h3 class="user-only">Gedeeld met mij</h3>
+                    <p>Selecteer een account om hun vriezers te bekijken/beheren.</p>
+                    <ul id="user-shared-lijst" class="shared-list">
+                        <!-- Dynamisch gevuld -->
+                    </ul>
+                </div>
+                
+                <!-- Sectie voor Alle Accounts (Admin only) -->
+                <div class="beheer-kolom" id="admin-switch-section" style="display: none;">
+                    <h3 class="admin-only">Alle Gebruikers (Admin)</h3>
                     <p>Selecteer een gebruiker om hun vriezers te beheren.</p>
-                    <ul id="admin-user-lijst" class="admin-user-lijst">
+                    <ul id="admin-user-lijst" class="shared-list">
                         <!-- Dynamisch gevuld -->
                     </ul>
                 </div>
@@ -313,7 +324,7 @@
         </div>
     </div>
     
-    <!-- Deel Modal (UI) (Onveranderd) -->
+    <!-- AANGEPAST: Deel Modal (UI) -->
     <div id="share-modal" class="modal-overlay">
         <div class="modal-content modal-groot">
             <div class="modal-header">
@@ -329,9 +340,10 @@
                         <label for="share-email">E-mailadres:</label>
                         <input type="email" id="share-email" placeholder="naam@voorbeeld.com" required>
                         <label for="share-role">Rol:</label>
-                        <select id="share-role" disabled>
+                        <!-- 'disabled' verwijderd -->
+                        <select id="share-role">
                             <option value="editor">Kan bewerken</option>
-                            <option value="viewer">Kan bekijken</option>
+                            <option value="viewer">Kan bekijken (Binnenkort)</option>
                         </select>
                         <button type="submit" id="share-invite-btn" class="btn-beheer" style="width: 100%; margin-top: 10px;">
                             <i class="fas fa-paper-plane"></i> Verstuur Uitnodiging
@@ -341,11 +353,25 @@
                 <div class="beheer-kolom">
                     <h3>Huidige Gedeelde Toegang</h3>
                     <p>Je deelt je vriezers momenteel met:</p>
-                    <ul id="share-huidige-lijst" class="share-huidige-lijst">
-                         <li><i>Nog niet geïmplementeerd.</i></li>
+                    <ul id="share-huidige-lijst" class="shared-list">
+                         <li><i>Laden...</i></li>
                     </ul>
                 </div>
             </div>
+        </div>
+    </div>
+    
+    <!-- NIEUW: Uitnodiging Accepteren Modal -->
+    <div id="accept-share-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Openstaande Uitnodigingen</h2>
+                <button type="button" id="btn-sluit-accept-share" class="btn-cancel">Later</button>
+            </div>
+            <p>Je bent uitgenodigd om vriezers te beheren. Accepteer of weiger de uitnodigingen.</p>
+            <ul id="accept-share-lijst" class="accept-share-list">
+                <!-- Dynamisch gevuld -->
+            </ul>
         </div>
     </div>
 
@@ -359,4 +385,3 @@
 
 </body>
 </html>
-
