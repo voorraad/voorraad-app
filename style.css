@@ -28,7 +28,6 @@ body {
     flex-wrap: nowrap; /* Zorg dat het op één lijn blijft */
     gap: 10px;
 }
-/* Verwijderd: .header-title-wrapper */
 h1 { 
     color: #66DDAA; 
     margin: 0; 
@@ -36,20 +35,16 @@ h1 {
     border: none;
     font-size: 1.8rem; 
     flex-grow: 1; /* H1 neemt de beschikbare ruimte */
-    /* Zorg dat H1 niet te groot wordt en iconen wegdrukt */
     min-width: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* Verwijderd: .header-buttons */
-
-/* NIEUW: Wrapper voor iconen rechts */
 .header-icons-wrapper {
     display: flex;
     align-items: center;
     gap: 10px;
-    flex-shrink: 0; /* Zorgt dat iconen niet krimpen */
+    flex-shrink: 0; 
 }
 
 
@@ -103,24 +98,23 @@ h1 {
 }
 .btn-beheer:hover { background-color: #63a4f0; }
 
-/* Admin knop specifiek (AANGEPAST) */
+/* Admin knop specifiek */
 .btn-admin {
     background-color: #d9534f;
-    padding: 0; /* Reset padding */
-    width: 44px; /* Maak vierkant/rond */
+    padding: 0; 
+    width: 44px; 
     height: 44px;
-    border-radius: 50%; /* Maak rond */
-    font-size: 18px; /* Iets groter icoon */
+    border-radius: 50%; 
+    font-size: 18px; 
 }
 .btn-admin:hover { background-color: #e06c69; }
-.btn-admin span { display: none; } /* Verberg tekst altijd */
+.btn-admin span { display: none; } 
 
 /* Print knop (verplaatst naar profiel) */
 .btn-print {
     background-color: #777;
 }
 .btn-print:hover { background-color: #888; }
-/* .btn-print span { display: none; } */ /* Niet meer nodig in header */
 
 /* Logout knop */
 .btn-logout {
@@ -361,8 +355,8 @@ li .item-buttons {
     flex-shrink: 0;
 }
 
-/* Icoon-knoppen (Bewerken, Verwijder, Opslaan) */
-.edit-btn, .delete-btn, .save-btn, .consume-btn {
+/* AANGEPAST: .consume-btn verwijderd */
+.edit-btn, .delete-btn, .save-btn {
     color: white;
     border: none;
     border-radius: 5px;
@@ -382,8 +376,6 @@ li .item-buttons {
 .delete-btn:hover { background-color: #FF8F8F; }
 .save-btn { background-color: #66DDAA; color: #1a1a1a; }
 .save-btn:hover { background-color: #88FFCC; }
-.consume-btn { background-color: #66DDAA; color: #1a1a1a; }
-.consume-btn:hover { background-color: #88FFCC; }
 
 
 /* --- STIJLEN VOOR ALLE MODALS --- */
