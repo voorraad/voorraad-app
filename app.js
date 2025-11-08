@@ -19,6 +19,7 @@ const ladesCollectieBasis = db.collection('lades');
 const vriezersCollectieBasis = db.collection('vriezers');
 const usersCollectie = db.collection('users');
 const adminsCollectie = db.collection('admins');
+const sharesCollectie = db.collection('shares'); // NIEUWE COLLECTIE
 
 // ---
 // GLOBALE VARIABELEN
@@ -35,12 +36,16 @@ let vriezersListener = null;
 let ladesListener = null;
 let itemsListener = null; 
 let userListListener = null;
+let sharesOwnerListener = null; // NIEUW
+let pendingSharesListener = null; // NIEUW
+let acceptedSharesListener = null; // NIEUW
 
 // Admin & Data Scheiding
 let isAdmin = false;
 let beheerdeUserId = null; 
 let beheerdeUserEmail = null;
 let eigenUserId = null; 
+let alleAcceptedShares = []; // NIEUW
 
 // Notificatie vlag
 let isEersteNotificatieCheck = true;
@@ -61,7 +66,7 @@ const editDatum = document.getElementById('edit-item-datum');
 const btnCancel = document.getElementById('btn-cancel');
 const logoutBtn = document.getElementById('logout-btn');
 const searchBar = document.getElementById('search-bar');
-const printBtn = document.getElementById('print-btn'); // ID is nu van knop in Profiel Modal
+const printBtn = document.getElementById('print-btn'); 
 const dashboard = document.getElementById('dashboard'); 
 const feedbackMessage = document.getElementById('feedback-message');
 const scanBtn = document.getElementById('scan-btn');
@@ -81,13 +86,16 @@ const ladesBeheerHr = document.getElementById('lades-beheer-hr');
 const ladeBeheerLijst = document.getElementById('lade-beheer-lijst');
 const btnToggleAlles = document.getElementById('btn-toggle-alles');
 
-// Admin Modal Elementen
-const adminBeheerKnop = document.getElementById('admin-beheer-knop');
-const adminBeheerModal = document.getElementById('admin-beheer-modal');
-const sluitAdminBeheerKnop = document.getElementById('btn-sluit-admin-beheer');
+// AANGEPAST: Wissel Account Modal Elementen (voorheen Admin)
+const switchAccountKnop = document.getElementById('switch-account-knop');
+const switchAccountModal = document.getElementById('switch-account-modal');
+const sluitSwitchAccountKnop = document.getElementById('btn-sluit-switch-account');
 const adminUserLijst = document.getElementById('admin-user-lijst');
-const adminBeheertTitel = document.getElementById('admin-beheert-titel');
-const adminTerugKnop = document.getElementById('admin-terug-knop');
+const userSharedLijst = document.getElementById('user-shared-lijst'); // NIEUW
+const adminSwitchSection = document.getElementById('admin-switch-section'); // NIEUW
+const userSwitchSection = document.getElementById('user-switch-section'); // NIEUW
+const switchAccountTitel = document.getElementById('switch-account-titel');
+const switchTerugKnop = document.getElementById('switch-terug-knop');
 
 // Profiel Modal Elementen
 const profileBtn = document.getElementById('profile-btn');
@@ -113,6 +121,12 @@ const sluitNotificatieKnop = document.getElementById('btn-sluit-notificatie');
 const shareModal = document.getElementById('share-modal');
 const sluitShareKnop = document.getElementById('btn-sluit-share');
 const shareInviteForm = document.getElementById('share-invite-form');
+const shareHuidigeLijst = document.getElementById('share-huidige-lijst'); // NIEUW
+
+// NIEUW: Acceptatie Modal Elementen
+const acceptShareModal = document.getElementById('accept-share-modal');
+const acceptShareLijst = document.getElementById('accept-share-lijst');
+const sluitAcceptShareKnop = document.getElementById('btn-sluit-accept-share');
 
 
 // ---
@@ -262,9 +276,10 @@ auth.onAuthStateChanged((user) => {
         beheerdeUserId = user.uid;
         beheerdeUserEmail = user.email || "Jezelf";
         isEersteNotificatieCheck = true; 
+        alleAcceptedShares = []; // Reset
 
         registreerGebruiker(user);
-        checkAdminStatus(user.uid);
+        checkAdminStatus(user.uid); // Deze start nu ook de share listeners
         
         // Profiel Knop & Modal Info Instellen
         const userPhoto = user.photoURL;
@@ -289,6 +304,7 @@ auth.onAuthStateChanged((user) => {
 
         // Start de data listeners
         startAlleDataListeners();
+        startPendingSharesListener(); // Check op openstaande uitnodigingen
         
     } else {
         // --- UITLOGGEN ---
@@ -307,8 +323,8 @@ auth.onAuthStateChanged((user) => {
         schuifSelect.innerHTML = '<option value="" disabled selected>Kies eerst een vriezer...</option>';
         
         // Knoppen resetten/verbergen
-        adminBeheerKnop.style.display = 'none';
-        hideModal(adminBeheerModal);
+        switchAccountKnop.style.display = 'none';
+        hideModal(switchAccountModal);
         
         // Profiel Knop Resetten
         profileImg.src = '';
@@ -335,27 +351,40 @@ async function registreerGebruiker(user) {
     }
 }
 
+// AANGEPAST: Checkt admin status en stelt 'Wissel Account' modal in
 async function checkAdminStatus(uid) {
     try {
         const adminDoc = await adminsCollectie.doc(uid).get();
         if (adminDoc.exists) {
             console.log("ADMIN STATUS: Ja");
             isAdmin = true;
-            adminBeheerKnop.style.display = 'inline-flex';
-            startAdminUserListener(); 
+            
+            // Stel 'Wissel Account' modal in voor ADMIN
+            switchAccountKnop.style.display = 'inline-flex';
+            adminSwitchSection.style.display = 'block';
+            userSwitchSection.style.display = 'none';
+            
+            startAdminUserListener(); // Start listener voor ALLE users
+            
         } else {
             console.log("ADMIN STATUS: Nee");
             isAdmin = false;
-            adminBeheerKnop.style.display = 'none';
+            
+            // Stel 'Wissel Account' modal in voor GEWONE USER
+            adminSwitchSection.style.display = 'none';
+            userSwitchSection.style.display = 'block';
+            
+            startAcceptedSharesListener(); // Start listener voor GEDEELDE users
         }
     } catch (err) {
         console.error("Fout bij checken admin status:", err);
         isAdmin = false;
-        adminBeheerKnop.style.display = 'none';
+        switchAccountKnop.style.display = 'none';
     }
-    updateAdminUI();
+    updateAdminUI(); // Deze heet nu updateSwitchAccountUI
 }
 
+// AANGEPAST: Hernoemd en aangepast voor beide rollen
 function schakelBeheer(naarUserId, naarUserEmail) {
     if (beheerdeUserId === naarUserId) return; 
 
@@ -372,23 +401,22 @@ function schakelBeheer(naarUserId, naarUserEmail) {
     schuifSelect.innerHTML = '<option value="" disabled selected>Kies eerst een vriezer...</option>';
     
     startAlleDataListeners();
-    updateAdminUI();
+    updateSwitchAccountUI(); // Hernoemd
     
-    hideModal(adminBeheerModal);
+    hideModal(switchAccountModal);
     showFeedback(`Je beheert nu de vriezers van: ${beheerdeUserEmail}`, 'success');
 }
 
-function updateAdminUI() {
-    if (isAdmin) {
-        if (beheerdeUserId === eigenUserId) {
-            adminBeheertTitel.textContent = 'Je beheert je eigen vriezers.';
-            adminBeheertTitel.style.color = '#555';
-            adminTerugKnop.style.display = 'none';
-        } else {
-            adminBeheertTitel.textContent = `LET OP: Je beheert nu de vriezers van ${beheerdeUserEmail}!`;
-            adminBeheertTitel.style.color = '#FF6B6B';
-            adminTerugKnop.style.display = 'block';
-        }
+// AANGEPAST: Hernoemd van updateAdminUI
+function updateSwitchAccountUI() {
+    if (beheerdeUserId === eigenUserId) {
+        switchAccountTitel.textContent = 'Je beheert je eigen vriezers.';
+        switchAccountTitel.style.color = '#555';
+        switchTerugKnop.style.display = 'none';
+    } else {
+        switchAccountTitel.textContent = `LET OP: Je beheert nu de vriezers van ${beheerdeUserEmail}!`;
+        switchAccountTitel.style.color = '#FF6B6B';
+        switchTerugKnop.style.display = 'block';
     }
 }
 
@@ -399,8 +427,10 @@ function startAlleDataListeners() {
     if (!beheerdeUserId) return; 
     console.log(`Start listeners voor: ${beheerdeUserId}`);
     
+    // Stop eventuele oude listeners
+    stopAlleDataListeners();
+    
     // 1. Vriezers Listener
-    if (vriezersListener) vriezersListener(); 
     vriezersListener = vriezersCollectieBasis
         .where('userId', '==', beheerdeUserId)
         .orderBy('naam')
@@ -412,7 +442,6 @@ function startAlleDataListeners() {
         }, (err) => console.error("Fout bij vriezers listener:", err.message));
 
     // 2. Lades Listener
-    if (ladesListener) ladesListener(); 
     ladesListener = ladesCollectieBasis
         .where('userId', '==', beheerdeUserId)
         .orderBy('naam')
@@ -424,7 +453,6 @@ function startAlleDataListeners() {
         }, (err) => console.error("Fout bij lades listener:", err.message));
 
     // 3. Items Listener
-    if (itemsListener) itemsListener(); 
     itemsListener = itemsCollectieBasis
         .where("userId", "==", beheerdeUserId)
         .onSnapshot((snapshot) => {
@@ -433,7 +461,7 @@ function startAlleDataListeners() {
             renderDynamischeLijsten(); 
             updateDashboard(); 
             
-            if (isEersteNotificatieCheck && alleItems.length > 0) {
+            if (isEersteNotificatieCheck && alleItems.length > 0 && beheerdeUserId === eigenUserId) {
                 checkHoudbaarheidNotificaties();
                 isEersteNotificatieCheck = false; 
             }
@@ -445,20 +473,16 @@ function startAlleDataListeners() {
 
 function stopAlleDataListeners() {
     console.log("Stoppen alle data listeners...");
-    if (vriezersListener) {
-        vriezersListener();
-        vriezersListener = null;
-    }
-    if (ladesListener) {
-        ladesListener();
-        ladesListener = null;
-    }
-    if (itemsListener) {
-        itemsListener();
-        itemsListener = null;
-    }
+    if (vriezersListener) { vriezersListener(); vriezersListener = null; }
+    if (ladesListener) { ladesListener(); ladesListener = null; }
+    if (itemsListener) { itemsListener(); itemsListener = null; }
+    if (userListListener) { userListListener(); userListListener = null; } // Admin
+    if (sharesOwnerListener) { sharesOwnerListener(); sharesOwnerListener = null; } // Deel modal
+    if (pendingSharesListener) { pendingSharesListener(); pendingSharesListener = null; } // Acceptatie modal
+    if (acceptedSharesListener) { acceptedSharesListener(); acceptedSharesListener = null; } // Wissel account
 }
 
+// AANGEPAST: Vult de admin-lijst in de 'Wissel Account' modal
 function startAdminUserListener() {
     if (userListListener) userListListener(); 
     
@@ -474,8 +498,10 @@ function startAdminUserListener() {
                 li.dataset.email = user.email || user.displayName;
                 
                 li.innerHTML = `
-                    <span>${user.displayName || user.email}</span>
-                    <small>${user.email}</small>
+                    <div class="user-info">
+                        <span>${user.displayName || user.email}</span>
+                        <small>${user.email}</small>
+                    </div>
                 `;
                 
                 li.addEventListener('click', () => {
@@ -486,6 +512,115 @@ function startAdminUserListener() {
             });
         }, (err) => console.error("Fout bij laden gebruikerslijst:", err.message));
 }
+
+// NIEUW: Vult de user-lijst in de 'Wissel Account' modal
+function startAcceptedSharesListener() {
+    if (acceptedSharesListener) acceptedSharesListener();
+    
+    acceptedSharesListener = sharesCollectie
+        .where("sharedWithId", "==", eigenUserId)
+        .where("status", "==", "accepted")
+        .onSnapshot((snapshot) => {
+            alleAcceptedShares = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            console.log("Geaccepteerde shares:", alleAcceptedShares.length);
+            
+            userSharedLijst.innerHTML = '';
+            if (alleAcceptedShares.length > 0) {
+                if (!isAdmin) {
+                    switchAccountKnop.style.display = 'inline-flex';
+                }
+                alleAcceptedShares.forEach(share => {
+                    const li = document.createElement('li');
+                    li.dataset.id = share.ownerId; // We willen wisselen naar de EIGENAAR
+                    li.dataset.email = share.ownerEmail;
+                    
+                    li.innerHTML = `
+                        <div class="user-info">
+                            <span>${share.ownerEmail}</span>
+                            <small>Rol: ${share.role}</small>
+                        </div>
+                    `;
+                    li.addEventListener('click', () => {
+                        schakelBeheer(li.dataset.id, li.dataset.email);
+                    });
+                    userSharedLijst.appendChild(li);
+                });
+            } else {
+                if (!isAdmin) {
+                    switchAccountKnop.style.display = 'none';
+                }
+                userSharedLijst.innerHTML = '<li><i>Niemand heeft vriezers met jou gedeeld.</i></li>';
+            }
+        }, (err) => console.error("Fout bij laden accepted shares:", err.message));
+}
+
+// NIEUW: Checkt op openstaande uitnodigingen
+function startPendingSharesListener() {
+    if (pendingSharesListener) pendingSharesListener();
+    
+    pendingSharesListener = sharesCollectie
+        .where("sharedWithEmail", "==", currentUser.email)
+        .where("status", "==", "pending")
+        .onSnapshot((snapshot) => {
+            const pendingShares = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            console.log("Pending shares:", pendingShares.length);
+            
+            acceptShareLijst.innerHTML = '';
+            if (pendingShares.length > 0) {
+                pendingShares.forEach(share => {
+                    const li = document.createElement('li');
+                    li.dataset.id = share.id;
+                    li.innerHTML = `
+                        <div class="invite-info">
+                            <strong>${share.ownerEmail}</strong>
+                            <small>wil vriezers met je delen (Rol: ${share.role}).</small>
+                        </div>
+                        <div class="invite-buttons">
+                            <button class="btn-accept" data-action="accept">Accepteren</button>
+                            <button class="btn-decline" data-action="decline">Weigeren</button>
+                        </div>
+                    `;
+                    acceptShareLijst.appendChild(li);
+                });
+                showModal(acceptShareModal);
+            } else {
+                hideModal(acceptShareModal);
+            }
+        }, (err) => console.error("Fout bij laden pending shares:", err.message));
+}
+
+// NIEUW: Vult de lijst in de 'Deel' modal
+function startSharesOwnerListener() {
+    if (sharesOwnerListener) sharesOwnerListener();
+    
+    shareHuidigeLijst.innerHTML = '<li><i>Laden...</i></li>';
+    sharesOwnerListener = sharesCollectie
+        .where("ownerId", "==", eigenUserId)
+        .onSnapshot((snapshot) => {
+            const ownerShares = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            shareHuidigeLijst.innerHTML = '';
+            
+            if (ownerShares.length > 0) {
+                ownerShares.forEach(share => {
+                    const li = document.createElement('li');
+                    li.dataset.id = share.id;
+                    li.innerHTML = `
+                        <div class="user-info">
+                            <span>${share.sharedWithEmail}</span>
+                            <small>Status: ${share.status} (Rol: ${share.role})</small>
+                        </div>
+                        <div class="item-buttons">
+                            <button class="delete-btn" title="Delen stoppen"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                    `;
+                    shareHuidigeLijst.appendChild(li);
+                });
+            } else {
+                shareHuidigeLijst.innerHTML = '<li><i>Je deelt je vriezers nog met niemand.</i></li>';
+            }
+        }, (err) => console.error("Fout bij laden owner shares:", err.message));
+}
+
 
 // ---
 // STAP 4: UI RENDERING (Dropdowns & Lijsten)
@@ -640,6 +775,7 @@ function renderDynamischeLijsten() {
                 
                 li.dataset.dagen = diffDagen; 
 
+                // AANGEPAST: consume-btn verwijderd
                 li.innerHTML = `
                     <div class="item-text">
                         <strong>${item.naam} (${formatAantal(item.aantal, item.eenheid)})</strong>
@@ -663,7 +799,10 @@ function renderDynamischeLijsten() {
         vriezerLijstenContainer.appendChild(kolomDiv);
     });
     
-    initDragAndDrop();
+    // Alleen drag-and-drop toestaan als we ons EIGEN account beheren
+    if (beheerdeUserId === eigenUserId) {
+        initDragAndDrop();
+    }
     updateItemVisibility(); 
 }
 
@@ -729,13 +868,15 @@ function initDragAndDrop() {
 // ---
 form.addEventListener('submit', (e) => {
     e.preventDefault(); 
+    
+    if (beheerdeUserId !== eigenUserId) {
+        showFeedback("Je kunt geen items toevoegen aan een gedeeld account.", "error");
+        return;
+    }
+    
     const geselecteerdeVriezerId = vriezerSelect.value;
     const geselecteerdeLadeId = schuifSelect.value;
     
-    if (!beheerdeUserId) {
-        showFeedback("Fout: Geen gebruiker geselecteerd.", "error");
-        return;
-    }
     if (!geselecteerdeVriezerId || !geselecteerdeLadeId) {
         showFeedback("Selecteer a.u.b. een vriezer én een lade.", "error");
         return;
@@ -783,6 +924,15 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
         const ladeGroup = ladeHeader.parentElement;
         ladeGroup.classList.toggle('collapsed');
         return; 
+    }
+
+    // Check of we rechten hebben om te wijzigen
+    const kanBewerken = (beheerdeUserId === eigenUserId) || 
+                       (alleAcceptedShares.find(s => s.ownerId === beheerdeUserId && s.role === 'editor'));
+
+    if (!kanBewerken) {
+        // Indien geen rechten, negeer alle knop-kliks behalve lade-toggle
+        return;
     }
 
     const li = e.target.closest('li');
@@ -833,6 +983,8 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
         return;
     }
 });
+
+// AANGEPAST: consume-btn logica verwijderd
 
 editVriezer.addEventListener('change', () => {
     updateLadeDropdown(editVriezer.value, editSchuif, true); 
@@ -893,7 +1045,7 @@ sluitBeheerKnop.addEventListener('click', () => {
 addVriezerForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const naam = document.getElementById('vriezer-naam').value;
-    if (!beheerdeUserId) return showFeedback("Geen gebruiker geselecteerd", "error");
+    if (beheerdeUserId !== eigenUserId) return showFeedback("Je kunt dit niet doen op een gedeeld account", "error");
     
     vriezersCollectieBasis.add({ 
         naam: naam, 
@@ -907,7 +1059,11 @@ addVriezerForm.addEventListener('submit', (e) => {
 });
 
 function laadVriezersBeheer() {
-    if (!beheerdeUserId) return;
+    if (beheerdeUserId !== eigenUserId) {
+        showFeedback("Je kunt alleen je eigen vriezers beheren.", "error");
+        hideModal(vriezerBeheerModal);
+        return;
+    }
     if (vriezerBeheerListener) vriezerBeheerListener(); 
     
     vriezerBeheerListener = vriezersCollectieBasis.where("userId", "==", beheerdeUserId).orderBy("naam")
@@ -936,6 +1092,7 @@ addLadeForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const naam = document.getElementById('lade-naam').value;
     if (!geselecteerdeVriezerId) return showFeedback("Selecteer eerst een vriezer", "error");
+    if (beheerdeUserId !== eigenUserId) return showFeedback("Je kunt dit niet doen op een gedeeld account", "error");
     
     ladesCollectieBasis.add({
         naam: naam,
@@ -1069,16 +1226,22 @@ async function handleVerwijderLade(id, naam) {
 }
 
 // ---
-// STAP 7: ADMIN BEHEER LOGICA
+// STAP 7: WISSEL ACCOUNT LOGICA (voorheen Admin)
 // ---
-adminBeheerKnop.addEventListener('click', () => {
-    showModal(adminBeheerModal);
+switchAccountKnop.addEventListener('click', () => {
+    showModal(switchAccountModal);
 });
-sluitAdminBeheerKnop.addEventListener('click', () => {
-    hideModal(adminBeheerModal);
+sluitSwitchAccountKnop.addEventListener('click', () => {
+    hideModal(switchAccountModal);
 });
-adminTerugKnop.addEventListener('click', () => {
+switchTerugKnop.addEventListener('click', () => {
     schakelBeheer(eigenUserId, "Jezelf");
+});
+// NIEUW: Listener voor de user-lijst (gedeelde accounts)
+userSharedLijst.addEventListener('click', (e) => {
+    const li = e.target.closest('li');
+    if (!li) return;
+    schakelBeheer(li.dataset.id, li.dataset.email);
 });
 
 
@@ -1158,9 +1321,9 @@ btnToggleAlles.addEventListener('click', () => {
 // STAP 10: NIEUWE FUNCTIES & LISTENERS
 // ---
 
-// AANGEPAST: Print knop (zit nu in profiel modal)
+// Print knop
 printBtn.addEventListener('click', () => {
-    hideModal(profileModal); // Sluit eerst de profiel modal
+    hideModal(profileModal); 
     window.print();
 });
 
@@ -1192,6 +1355,10 @@ sluitProfileModalKnop.addEventListener('click', () => {
     hideModal(profileModal);
 });
 profileVriezerBeheerBtn.addEventListener('click', () => {
+    if (beheerdeUserId !== eigenUserId) {
+        showFeedback("Je kunt alleen je eigen vriezers beheren.", "error");
+        return;
+    }
     hideModal(profileModal); 
     showModal(vriezerBeheerModal); 
     laadVriezersBeheer(); 
@@ -1265,15 +1432,109 @@ sluitNotificatieKnop.addEventListener('click', () => {
     hideModal(notificatieModal);
 });
 
-// Deel Modal (UI)
+// --- NIEUW: DEEL LOGICA ---
 profileShareBtn.addEventListener('click', () => {
     hideModal(profileModal);
     showModal(shareModal);
+    startSharesOwnerListener(); // Start de listener die de 'huidige shares' laadt
 });
+
 sluitShareKnop.addEventListener('click', () => {
     hideModal(shareModal);
+    if (sharesOwnerListener) sharesOwnerListener(); // Stop listener bij sluiten
 });
-shareInviteForm.addEventListener('submit', (e) => {
+
+shareInviteForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    showFeedback("Functie binnenkort beschikbaar.", "error");
+    const email = document.getElementById('share-email').value;
+    const role = document.getElementById('share-role').value;
+    
+    if (email === currentUser.email) {
+        showFeedback("Je kunt niet met jezelf delen.", "error");
+        return;
+    }
+    
+    try {
+        // 1. Zoek de gebruiker op e-mail
+        const userQuery = await usersCollectie.where("email", "==", email).limit(1).get();
+        
+        if (userQuery.empty) {
+            showFeedback("Fout: Geen gebruiker gevonden met dit e-mailadres.", "error");
+            return;
+        }
+        
+        // 2. Check of er al een uitnodiging is
+        const existingShareQuery = await sharesCollectie
+            .where("ownerId", "==", eigenUserId)
+            .where("sharedWithEmail", "==", email)
+            .limit(1).get();
+            
+        if (!existingShareQuery.empty) {
+            showFeedback("Je deelt al met deze gebruiker of hebt een uitnodiging gestuurd.", "error");
+            return;
+        }
+
+        // 3. Maak de share aan
+        await sharesCollectie.add({
+            ownerId: eigenUserId,
+            ownerEmail: currentUser.email,
+            sharedWithEmail: email,
+            sharedWithId: null, // Wordt gevuld na acceptatie
+            role: role,
+            status: "pending",
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        showFeedback("Uitnodiging succesvol verzonden!", "success");
+        shareInviteForm.reset();
+        
+    } catch (err) {
+        showFeedback(`Fout: ${err.message}`, "error");
+        console.error("Fout bij uitnodigen:", err);
+    }
+});
+
+// Stopzetten van delen
+shareHuidigeLijst.addEventListener('click', (e) => {
+    const deleteButton = e.target.closest('.delete-btn');
+    if (!deleteButton) return;
+    
+    const li = deleteButton.closest('li');
+    const shareId = li.dataset.id;
+    
+    if (confirm("Weet je zeker dat je het delen met deze gebruiker wilt stoppen?")) {
+        sharesCollectie.doc(shareId).delete()
+            .then(() => showFeedback("Delen gestopt.", "success"))
+            .catch(err => showFeedback(`Fout: ${err.message}`, "error"));
+    }
+});
+
+
+// --- NIEUW: ACCEPTATIE LOGICA ---
+sluitAcceptShareKnop.addEventListener('click', () => {
+    hideModal(acceptShareModal);
+});
+
+acceptShareLijst.addEventListener('click', (e) => {
+    const button = e.target.closest('button');
+    if (!button) return;
+    
+    const li = button.closest('li');
+    const shareId = li.dataset.id;
+    const action = button.dataset.action;
+    
+    if (action === 'accept') {
+        sharesCollectie.doc(shareId).update({
+            status: "accepted",
+            sharedWithId: eigenUserId // Koppel ons ID aan de share
+        })
+        .then(() => showFeedback("Uitnodiging geaccepteerd!", "success"))
+        .catch(err => showFeedback(`Fout: ${err.message}`, "error"));
+    }
+    
+    if (action === 'decline') {
+        sharesCollectie.doc(shareId).delete()
+        .then(() => showFeedback("Uitnodiging geweigerd.", "success"))
+        .catch(err => showFeedback(`Fout: ${err.message}`, "error"));
+    }
 });
