@@ -19,7 +19,8 @@ const ladesCollectieBasis = db.collection('lades');
 const vriezersCollectieBasis = db.collection('vriezers');
 const usersCollectie = db.collection('users');
 const adminsCollectie = db.collection('admins');
-const sharesCollectie = db.collection('shares'); // NIEUWE COLLECTIE
+const sharesCollectie = db.collection('shares'); 
+const shoppingListCollectieBasis = db.collection('shoppingList'); // *** NIEUW ***
 
 // ---
 // GLOBALE VARIABELEN
@@ -27,6 +28,7 @@ const sharesCollectie = db.collection('shares'); // NIEUWE COLLECTIE
 let alleVriezers = [];
 let alleLades = [];
 let alleItems = []; 
+let alleShoppingListItems = []; // *** NIEUW ***
 let currentUser = null; 
 let geselecteerdeVriezerId = null;
 let geselecteerdeVriezerNaam = null;
@@ -36,16 +38,17 @@ let vriezersListener = null;
 let ladesListener = null;
 let itemsListener = null; 
 let userListListener = null;
-let sharesOwnerListener = null; // NIEUW
-let pendingSharesListener = null; // NIEUW
-let acceptedSharesListener = null; // NIEUW
+let sharesOwnerListener = null; 
+let pendingSharesListener = null; 
+let acceptedSharesListener = null; 
+let shoppingListListener = null; // *** NIEUW ***
 
 // Admin & Data Scheiding
 let isAdmin = false;
 let beheerdeUserId = null; 
 let beheerdeUserEmail = null;
 let eigenUserId = null; 
-let alleAcceptedShares = []; // NIEUW
+let alleAcceptedShares = []; 
 
 // Notificatie vlag
 let isEersteNotificatieCheck = true;
@@ -54,7 +57,7 @@ let isEersteNotificatieCheck = true;
 const form = document.getElementById('add-item-form');
 const vriezerSelect = document.getElementById('item-vriezer'); 
 const schuifSelect = document.getElementById('item-schuif'); 
-const itemDatum = document.getElementById('item-datum'); // NIEUW
+const itemDatum = document.getElementById('item-datum'); 
 const editModal = document.getElementById('edit-modal');
 const editForm = document.getElementById('edit-item-form');
 const editId = document.getElementById('edit-item-id');
@@ -87,14 +90,14 @@ const ladesBeheerHr = document.getElementById('lades-beheer-hr');
 const ladeBeheerLijst = document.getElementById('lade-beheer-lijst');
 const btnToggleAlles = document.getElementById('btn-toggle-alles');
 
-// AANGEPAST: Wissel Account Modal Elementen (voorheen Admin)
+// Wissel Account Modal Elementen
 const switchAccountKnop = document.getElementById('switch-account-knop');
 const switchAccountModal = document.getElementById('switch-account-modal');
 const sluitSwitchAccountKnop = document.getElementById('btn-sluit-switch-account');
 const adminUserLijst = document.getElementById('admin-user-lijst');
-const userSharedLijst = document.getElementById('user-shared-lijst'); // NIEUW
-const adminSwitchSection = document.getElementById('admin-switch-section'); // NIEUW
-const userSwitchSection = document.getElementById('user-switch-section'); // NIEUW
+const userSharedLijst = document.getElementById('user-shared-lijst'); 
+const adminSwitchSection = document.getElementById('admin-switch-section'); 
+const userSwitchSection = document.getElementById('user-switch-section'); 
 const switchAccountTitel = document.getElementById('switch-account-titel');
 const switchTerugKnop = document.getElementById('switch-terug-knop');
 
@@ -109,9 +112,10 @@ const profileModalIcon = profileModal.querySelector('.profile-header i');
 const profileEmailEl = document.getElementById('profile-email');
 const profileVriezerBeheerBtn = document.getElementById('profile-vriezer-beheer-btn');
 
-// Nieuwe Profiel Knoppen
+// Profiel Knoppen
 const exportDataBtn = document.getElementById('export-data-btn');
 const profileShareBtn = document.getElementById('profile-share-btn');
+const profileShoppingListBtn = document.getElementById('profile-shopping-list-btn'); // *** NIEUW ***
 
 // Notificatie Modal Elementen
 const notificatieModal = document.getElementById('notificatie-modal');
@@ -122,12 +126,19 @@ const sluitNotificatieKnop = document.getElementById('btn-sluit-notificatie');
 const shareModal = document.getElementById('share-modal');
 const sluitShareKnop = document.getElementById('btn-sluit-share');
 const shareInviteForm = document.getElementById('share-invite-form');
-const shareHuidigeLijst = document.getElementById('share-huidige-lijst'); // NIEUW
+const shareHuidigeLijst = document.getElementById('share-huidige-lijst'); 
 
-// NIEUW: Acceptatie Modal Elementen
+// Acceptatie Modal Elementen
 const acceptShareModal = document.getElementById('accept-share-modal');
 const acceptShareLijst = document.getElementById('accept-share-lijst');
 const sluitAcceptShareKnop = document.getElementById('btn-sluit-accept-share');
+
+// *** NIEUW: Boodschappenlijst Modal Elementen ***
+const shoppingListModal = document.getElementById('shopping-list-modal');
+const sluitShoppingListKnop = document.getElementById('btn-sluit-shopping-list');
+const addShoppingItemForm = document.getElementById('add-shopping-item-form');
+const shoppingList = document.getElementById('shopping-list');
+const btnClearCheckedShoppingItems = document.getElementById('btn-clear-checked-shopping-items');
 
 
 // ---
@@ -303,13 +314,14 @@ auth.onAuthStateChanged((user) => {
         }
         profileEmailEl.textContent = userEmail;
 
-        // NIEUW: Zet datumveld op vandaag
+        // Zet datumveld op vandaag
         const vandaag = new Date().toISOString().split('T')[0];
         itemDatum.value = vandaag;
 
         // Start de data listeners
         startAlleDataListeners();
         startPendingSharesListener(); // Check op openstaande uitnodigingen
+        startShoppingListListener(); // *** NIEUW ***
         
     } else {
         // --- UITLOGGEN ---
@@ -356,7 +368,7 @@ async function registreerGebruiker(user) {
     }
 }
 
-// AANGEPAST: Checkt admin status en stelt 'Wissel Account' modal in
+// Checkt admin status en stelt 'Wissel Account' modal in
 async function checkAdminStatus(uid) {
     try {
         const adminDoc = await adminsCollectie.doc(uid).get();
@@ -386,11 +398,10 @@ async function checkAdminStatus(uid) {
         isAdmin = false;
         switchAccountKnop.style.display = 'none';
     }
-    // **** DE FIX IS HIER ****
     updateSwitchAccountUI(); // Hernoemd
 }
 
-// AANGEPAST: Hernoemd en aangepast voor beide rollen
+// Hernoemd en aangepast voor beide rollen
 function schakelBeheer(naarUserId, naarUserEmail) {
     if (beheerdeUserId === naarUserId) return; 
 
@@ -399,21 +410,23 @@ function schakelBeheer(naarUserId, naarUserEmail) {
     beheerdeUserEmail = naarUserEmail || 'Onbekende Gebruiker';
     isEersteNotificatieCheck = true; 
 
-    stopAlleDataListeners();
+    stopAlleDataListeners(); // Stopt alle vriezer/lade/item listeners
 
     vriezerLijstenContainer.innerHTML = '';
     dashboard.innerHTML = '';
     vriezerSelect.innerHTML = '<option value="" disabled selected>Kies een vriezer...</option>';
     schuifSelect.innerHTML = '<option value="" disabled selected>Kies eerst een vriezer...</option>';
     
-    startAlleDataListeners();
+    startAlleDataListeners(); // Herstart vriezer/lade/item listeners voor de NIEUWE beheerdeUserId
+    // De shopping list listener (die op eigenUserId draait) hoeft niet herstart te worden.
+    
     updateSwitchAccountUI(); // Hernoemd
     
     hideModal(switchAccountModal);
     showFeedback(`Je beheert nu de vriezers van: ${beheerdeUserEmail}`, 'success');
 }
 
-// AANGEPAST: Hernoemd van updateAdminUI
+// Hernoemd van updateAdminUI
 function updateSwitchAccountUI() {
     if (beheerdeUserId === eigenUserId) {
         switchAccountTitel.textContent = 'Je beheert je eigen vriezers.';
@@ -478,17 +491,22 @@ function startAlleDataListeners() {
 }
 
 function stopAlleDataListeners() {
-    console.log("Stoppen alle data listeners...");
+    console.log("Stoppen alle vriezer-data listeners...");
     if (vriezersListener) { vriezersListener(); vriezersListener = null; }
     if (ladesListener) { ladesListener(); ladesListener = null; }
     if (itemsListener) { itemsListener(); itemsListener = null; }
-    if (userListListener) { userListListener(); userListListener = null; } // Admin
-    if (sharesOwnerListener) { sharesOwnerListener(); sharesOwnerListener = null; } // Deel modal
-    if (pendingSharesListener) { pendingSharesListener(); pendingSharesListener = null; } // Acceptatie modal
-    if (acceptedSharesListener) { acceptedSharesListener(); acceptedSharesListener = null; } // Wissel account
+    
+    // Admin/Share listeners blijven actief, behalve bij uitloggen
+    if (currentUser === null) {
+        if (userListListener) { userListListener(); userListListener = null; } // Admin
+        if (sharesOwnerListener) { sharesOwnerListener(); sharesOwnerListener = null; } // Deel modal
+        if (pendingSharesListener) { pendingSharesListener(); pendingSharesListener = null; } // Acceptatie modal
+        if (acceptedSharesListener) { acceptedSharesListener(); acceptedSharesListener = null; } // Wissel account
+        if (shoppingListListener) { shoppingListListener(); shoppingListListener = null; } // *** NIEUW ***
+    }
 }
 
-// AANGEPAST: Vult de admin-lijst in de 'Wissel Account' modal
+// Vult de admin-lijst in de 'Wissel Account' modal
 function startAdminUserListener() {
     if (userListListener) userListListener(); 
     
@@ -519,7 +537,7 @@ function startAdminUserListener() {
         }, (err) => console.error("Fout bij laden gebruikerslijst:", err.message));
 }
 
-// NIEUW: Vult de user-lijst in de 'Wissel Account' modal
+// Vult de user-lijst in de 'Wissel Account' modal
 function startAcceptedSharesListener() {
     if (acceptedSharesListener) acceptedSharesListener();
     
@@ -560,7 +578,7 @@ function startAcceptedSharesListener() {
         }, (err) => console.error("Fout bij laden accepted shares:", err.message));
 }
 
-// NIEUW: Checkt op openstaande uitnodigingen
+// Checkt op openstaande uitnodigingen
 function startPendingSharesListener() {
     if (pendingSharesListener) pendingSharesListener();
     
@@ -595,7 +613,7 @@ function startPendingSharesListener() {
         }, (err) => console.error("Fout bij laden pending shares:", err.message));
 }
 
-// NIEUW: Vult de lijst in de 'Deel' modal
+// Vult de lijst in de 'Deel' modal
 function startSharesOwnerListener() {
     if (sharesOwnerListener) sharesOwnerListener();
     
@@ -625,6 +643,21 @@ function startSharesOwnerListener() {
                 shareHuidigeLijst.innerHTML = '<li><i>Je deelt je vriezers nog met niemand.</i></li>';
             }
         }, (err) => console.error("Fout bij laden owner shares:", err.message));
+}
+
+// *** NIEUW: BOODSCHAPPENLIJST LISTENER ***
+function startShoppingListListener() {
+    if (shoppingListListener) shoppingListListener();
+    
+    // Boodschappenlijst is ALTIJD persoonlijk (eigenUserId)
+    shoppingListListener = shoppingListCollectieBasis
+        .where("userId", "==", eigenUserId)
+        .orderBy("createdAt", "desc")
+        .onSnapshot((snapshot) => {
+            alleShoppingListItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            console.log("Boodschappenlijst geladen:", alleShoppingListItems.length);
+            renderShoppingList();
+        }, (err) => console.error("Fout bij laden boodschappenlijst:", err.message));
 }
 
 
@@ -872,6 +905,35 @@ function initDragAndDrop() {
     });
 }
 
+// *** NIEUW: RENDER BOODSCHAPPENLIJST ***
+function renderShoppingList() {
+    shoppingList.innerHTML = '';
+    if (alleShoppingListItems.length === 0) {
+        shoppingList.innerHTML = '<li><i>Je boodschappenlijst is leeg.</i></li>';
+        return;
+    }
+    
+    alleShoppingListItems.forEach(item => {
+        const li = document.createElement('li');
+        li.dataset.id = item.id;
+        if (item.checked) li.classList.add('checked');
+        
+        li.innerHTML = `
+            <input type="checkbox" class="shopping-item-checkbox" ${item.checked ? 'checked' : ''}>
+            <span class="shopping-item-name">${item.naam}</span>
+            <div class="item-buttons">
+                <button class="btn-purchased" title="Gekocht & Toevoegen aan Vriezer">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button class="delete-btn" title="Verwijder van lijst">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+        `;
+        shoppingList.appendChild(li);
+    });
+}
+
 
 // ---
 // STAP 5: Items CRUD
@@ -898,14 +960,14 @@ form.addEventListener('submit', (e) => {
     
     const geselecteerdeLadeNaam = schuifSelect.options[schuifSelect.selectedIndex].text;
     const itemNaam = document.getElementById('item-naam').value;
-    const ingevrorenOpDatum = new Date(itemDatum.value + "T00:00:00"); // NIEUW
+    const ingevrorenOpDatum = new Date(itemDatum.value + "T00:00:00"); 
 
     itemsCollectieBasis.add({
         naam: itemNaam,
         aantal: parseFloat(document.getElementById('item-aantal').value),
         eenheid: document.getElementById('item-eenheid').value,
-        ingevrorenOp: ingevrorenOpDatum, // AANGEPAST
-        userId: beheerdeUserId, // Belangrijk: item wordt toegevoegd aan het beheerde account
+        ingevrorenOp: ingevrorenOpDatum, 
+        userId: beheerdeUserId, 
         vriezerId: geselecteerdeVriezerId,
         ladeId: geselecteerdeLadeId,
         ladeNaam: geselecteerdeLadeNaam 
@@ -913,16 +975,16 @@ form.addEventListener('submit', (e) => {
     .then(() => {
         showFeedback(`'${itemNaam}' toegevoegd!`, 'success');
         const rememberCheck = document.getElementById('remember-drawer-check');
-        const vandaag = new Date().toISOString().split('T')[0]; // NIEUW
+        const vandaag = new Date().toISOString().split('T')[0]; 
         if (rememberCheck.checked) {
             document.getElementById('item-naam').value = '';
             document.getElementById('item-aantal').value = 1;
             document.getElementById('item-eenheid').value = "stuks";
-            itemDatum.value = vandaag; // AANGEPAST
+            itemDatum.value = vandaag; 
             document.getElementById('item-naam').focus();
         } else {
             form.reset();
-            itemDatum.value = vandaag; // AANGEPAST
+            itemDatum.value = vandaag; 
             document.getElementById('item-eenheid').value = "stuks";
             document.getElementById('item-aantal').value = 1; 
             vriezerSelect.value = "";
@@ -949,7 +1011,6 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
                        (alleAcceptedShares.find(s => s.ownerId === beheerdeUserId && s.role === 'editor'));
 
     if (!kanBewerken) {
-        // Indien geen rechten, negeer alle knop-kliks behalve lade-toggle
         return;
     }
 
@@ -963,10 +1024,24 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
     // 1. Check voor Delete Knop
     const deleteButton = e.target.closest('.delete-btn');
     if (deleteButton) {
-        if (confirm(`Weet je zeker dat je '${item.naam}' wilt verwijderen?`)) {
-            itemsCollectieBasis.doc(id).delete()
-                .then(() => showFeedback('Item verwijderd.', 'success'))
-                .catch((err) => showFeedback(`Fout bij verwijderen: ${err.message}`, 'error'));
+        // *** NIEUW: CHECK BOODSCHAPPENLIJST ***
+        // Vraag alleen als het item (bijna) op is én we ons eigen account beheren
+        if (item.aantal <= 1 && beheerdeUserId === eigenUserId) {
+            if (confirm(`Weet je zeker dat je '${item.naam}' wilt verwijderen?\n\nWil je '${item.naam}' ook toevoegen aan je boodschappenlijst?`)) {
+                // Ja, verwijder EN voeg toe
+                addItemToShoppingList(item.naam); // Voegt toe aan persoonlijke lijst
+                itemsCollectieBasis.doc(id).delete()
+                    .then(() => showFeedback('Item verwijderd en toegevoegd aan boodschappenlijst.', 'success'))
+                    .catch((err) => showFeedback(`Fout: ${err.message}`, 'error'));
+            }
+            // Als gebruiker op "Annuleren" klikt, gebeurt er niets.
+        } else {
+            // Normale verwijdering (meer dan 1 item, of op andermans lijst)
+            if (confirm(`Weet je zeker dat je '${item.naam}' wilt verwijderen?`)) {
+                itemsCollectieBasis.doc(id).delete()
+                    .then(() => showFeedback('Item verwijderd.', 'success'))
+                    .catch((err) => showFeedback(`Fout bij verwijderen: ${err.message}`, 'error'));
+            }
         }
         return;
     }
@@ -1002,7 +1077,6 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
     }
 });
 
-// AANGEPAST: consume-btn logica verwijderd
 
 editVriezer.addEventListener('change', () => {
     updateLadeDropdown(editVriezer.value, editSchuif, true); 
@@ -1255,7 +1329,7 @@ sluitSwitchAccountKnop.addEventListener('click', () => {
 switchTerugKnop.addEventListener('click', () => {
     schakelBeheer(eigenUserId, "Jezelf");
 });
-// NIEUW: Listener voor de user-lijst (gedeelde accounts)
+// Listener voor de user-lijst (gedeelde accounts)
 userSharedLijst.addEventListener('click', (e) => {
     const li = e.target.closest('li');
     if (!li) return;
@@ -1450,16 +1524,16 @@ sluitNotificatieKnop.addEventListener('click', () => {
     hideModal(notificatieModal);
 });
 
-// --- NIEUW: DEEL LOGICA ---
+// --- DEEL LOGICA ---
 profileShareBtn.addEventListener('click', () => {
     hideModal(profileModal);
     showModal(shareModal);
-    startSharesOwnerListener(); // Start de listener die de 'huidige shares' laadt
+    startSharesOwnerListener(); 
 });
 
 sluitShareKnop.addEventListener('click', () => {
     hideModal(shareModal);
-    if (sharesOwnerListener) sharesOwnerListener(); // Stop listener bij sluiten
+    if (sharesOwnerListener) sharesOwnerListener(); 
 });
 
 shareInviteForm.addEventListener('submit', async (e) => {
@@ -1473,15 +1547,12 @@ shareInviteForm.addEventListener('submit', async (e) => {
     }
     
     try {
-        // 1. Zoek de gebruiker op e-mail
         const userQuery = await usersCollectie.where("email", "==", email).limit(1).get();
-        
         if (userQuery.empty) {
             showFeedback("Fout: Geen gebruiker gevonden met dit e-mailadres.", "error");
             return;
         }
         
-        // 2. Check of er al een uitnodiging is
         const existingShareQuery = await sharesCollectie
             .where("ownerId", "==", eigenUserId)
             .where("sharedWithEmail", "==", email)
@@ -1492,12 +1563,11 @@ shareInviteForm.addEventListener('submit', async (e) => {
             return;
         }
 
-        // 3. Maak de share aan
         await sharesCollectie.add({
             ownerId: eigenUserId,
             ownerEmail: currentUser.email,
             sharedWithEmail: email,
-            sharedWithId: null, // Wordt gevuld na acceptatie
+            sharedWithId: null, 
             role: role,
             status: "pending",
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -1512,7 +1582,6 @@ shareInviteForm.addEventListener('submit', async (e) => {
     }
 });
 
-// Stopzetten van delen
 shareHuidigeLijst.addEventListener('click', (e) => {
     const deleteButton = e.target.closest('.delete-btn');
     if (!deleteButton) return;
@@ -1528,7 +1597,7 @@ shareHuidigeLijst.addEventListener('click', (e) => {
 });
 
 
-// --- NIEUW: ACCEPTATIE LOGICA ---
+// --- ACCEPTATIE LOGICA ---
 sluitAcceptShareKnop.addEventListener('click', () => {
     hideModal(acceptShareModal);
 });
@@ -1544,7 +1613,7 @@ acceptShareLijst.addEventListener('click', (e) => {
     if (action === 'accept') {
         sharesCollectie.doc(shareId).update({
             status: "accepted",
-            sharedWithId: eigenUserId // Koppel ons ID aan de share
+            sharedWithId: eigenUserId 
         })
         .then(() => showFeedback("Uitnodiging geaccepteerd!", "success"))
         .catch(err => showFeedback(`Fout: ${err.message}`, "error"));
@@ -1556,3 +1625,130 @@ acceptShareLijst.addEventListener('click', (e) => {
         .catch(err => showFeedback(`Fout: ${err.message}`, "error"));
     }
 });
+
+
+// --- *** NIEUW: BOODSCHAPPENLIJST LOGICA *** ---
+
+// Helper: Item toevoegen aan boodschappenlijst (gebruikt door 2 functies)
+async function addItemToShoppingList(itemName) {
+    if (!itemName || itemName.trim() === "") return;
+    if (!eigenUserId) return; // Zorg dat we de gebruiker hebben
+
+    // Check of item al bestaat (case-insensitive)
+    const normalizedName = itemName.toLowerCase();
+    const exists = alleShoppingListItems.some(item => item.naam.toLowerCase() === normalizedName);
+    
+    if (exists) {
+        showFeedback(`'${itemName}' staat al op je lijst.`, 'error');
+        return;
+    }
+    
+    // Voeg toe aan Firestore
+    try {
+        await shoppingListCollectieBasis.add({
+            naam: itemName,
+            checked: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            userId: eigenUserId // Altijd persoonlijk
+        });
+        showFeedback(`'${itemName}' toegevoegd aan boodschappenlijst!`, 'success');
+    } catch (err) {
+        console.error("Fout bij toevoegen aan boodschappenlijst:", err);
+        showFeedback(`Fout: ${err.message}`, 'error');
+    }
+}
+
+// Open de modal
+profileShoppingListBtn.addEventListener('click', () => {
+    hideModal(profileModal);
+    showModal(shoppingListModal);
+});
+
+// Sluit de modal
+sluitShoppingListKnop.addEventListener('click', () => {
+    hideModal(shoppingListModal);
+});
+
+// Handmatig item toevoegen via het formulier
+addShoppingItemForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const naamInput = document.getElementById('shopping-item-naam');
+    addItemToShoppingList(naamInput.value);
+    naamInput.value = '';
+});
+
+// Interacties met de lijst zelf (vinken, verwijderen, gekocht)
+shoppingList.addEventListener('click', (e) => {
+    const li = e.target.closest('li');
+    if (!li) return;
+    const id = li.dataset.id;
+    if (!id) return; // Klik op de 'lijst is leeg' placeholder
+
+    // 1. Checkbox geklikt
+    if (e.target.type === 'checkbox') {
+        const isChecked = e.target.checked;
+        shoppingListCollectieBasis.doc(id).update({ checked: isChecked })
+            .catch(err => showFeedback(err.message, 'error'));
+        return;
+    }
+    
+    // 2. Verwijderknop geklikt
+    const deleteButton = e.target.closest('.delete-btn');
+    if (deleteButton) {
+        if (confirm("Item permanent van lijst verwijderen?")) {
+            shoppingListCollectieBasis.doc(id).delete()
+                .catch(err => showFeedback(err.message, 'error'));
+        }
+        return;
+    }
+    
+    // 3. "Gekocht" knop geklikt
+    const purchasedButton = e.target.closest('.btn-purchased');
+    if (purchasedButton) {
+        const itemNaam = li.querySelector('.shopping-item-name').textContent;
+        
+        // Verwijder van lijst
+        shoppingListCollectieBasis.doc(id).delete()
+            .then(() => {
+                // Vul vriezer-formulier in
+                document.getElementById('item-naam').value = itemNaam;
+                document.getElementById('item-datum').value = new Date().toISOString().split('T')[0];
+                document.getElementById('item-aantal').value = 1;
+                document.getElementById('item-eenheid').value = 'stuks';
+                
+                // Reset vriezer/lade selecties
+                document.getElementById('item-vriezer').value = "";
+                document.getElementById('item-schuif').innerHTML = '<option value="" disabled selected>Kies eerst een vriezer...</option>';
+                document.getElementById('remember-drawer-check').checked = false;
+                
+                hideModal(shoppingListModal);
+                showFeedback(`'${itemNaam}' is van de lijst. Voeg het nu toe aan je vriezer.`, 'success');
+                document.getElementById('item-naam').focus(); // Zet focus op het vriezer-formulier
+            })
+            .catch(err => showFeedback(err.message, 'error'));
+        return;
+    }
+});
+
+// Knop "Vinkjes Wissen"
+btnClearCheckedShoppingItems.addEventListener('click', () => {
+    const itemsToDelete = alleShoppingListItems.filter(item => item.checked);
+    if (itemsToDelete.length === 0) {
+        showFeedback("Er zijn geen afgevinkte items om te wissen.", "error");
+        return;
+    }
+    
+    if (confirm(`Weet je zeker dat je ${itemsToDelete.length} afgevinkte items wilt verwijderen?`)) {
+        const batch = db.batch();
+        itemsToDelete.forEach(item => {
+            const docRef = shoppingListCollectieBasis.doc(item.id);
+            batch.delete(docRef);
+        });
+        
+        batch.commit()
+            .then(() => showFeedback("Afgevinkte items gewist!", "success"))
+            .catch(err => showFeedback(err.message, 'error'));
+    }
+});
+
+
