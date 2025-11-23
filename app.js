@@ -21,6 +21,7 @@ const usersCollectie = db.collection('users');
 const adminsCollectie = db.collection('admins');
 const sharesCollectie = db.collection('shares');
 const shoppingListCollectie = db.collection('shoppingList'); // Boodschappenlijst
+const weekMenuCollectie = db.collection('weekmenu');
 
 // ---
 // GLOBALE VARIABELEN
@@ -41,6 +42,7 @@ let sharesOwnerListener = null;
 let pendingSharesListener = null;
 let acceptedSharesListener = null;
 let shoppingListListener = null; // Boodschappenlijst
+let weekMenuListener = null;
 
 // Admin & Data Scheiding
 let isAdmin = false;
@@ -142,6 +144,16 @@ const shoppingItemNaam = document.getElementById('shopping-item-naam');
 const shoppingListUl = document.getElementById('shopping-list');
 const clearCheckedShoppingItemsBtn = document.getElementById('btn-clear-checked-shopping-items');
 
+// Weekmenu Elementen
+const profileWeekmenuBtn = document.getElementById('profile-weekmenu-btn');
+const weekmenuModal = document.getElementById('weekmenu-modal');
+const sluitWeekmenuKnop = document.getElementById('btn-sluit-weekmenu');
+const addWeekmenuForm = document.getElementById('add-weekmenu-form');
+const weekmenuDatumInput = document.getElementById('weekmenu-datum');
+const weekmenuGerechtInput = document.getElementById('weekmenu-gerecht');
+const weekmenuLinkInput = document.getElementById('weekmenu-link');
+const weekmenuListUl = document.getElementById('weekmenu-list');
+const clearOldWeekmenuBtn = document.getElementById('btn-clear-old-weekmenu');
 
 // ---
 // HELPER FUNCTIES (Modal & Aantal)
@@ -502,6 +514,7 @@ function startAlleDataListeners() {
     // 4. Start boodschappenlijst listener (alleen als we onszelf beheren)
     if (beheerdeUserId === eigenUserId) {
         startShoppingListListener();
+        startWeekMenuListener();
     }
 }
 
@@ -515,6 +528,7 @@ function stopAlleDataListeners() {
     if (pendingSharesListener) { pendingSharesListener(); pendingSharesListener = null; }
     if (acceptedSharesListener) { acceptedSharesListener(); acceptedSharesListener = null; }
     if (shoppingListListener) { shoppingListListener(); shoppingListListener = null; }
+    if (weekMenuListener) { weekMenuListener(); weekMenuListener = null; }
 }
 
 function startAdminUserListener() {
@@ -1789,5 +1803,138 @@ clearCheckedShoppingItemsBtn.addEventListener('click', async () => {
     await batch.commit();
     showFeedback("Afgevinkte items verwijderd.", "success");
 });
+// ---
+// WEEKMENU LOGICA (NIEUW)
+// ---
 
+// Open Modal vanuit Profiel
+profileWeekmenuBtn.addEventListener('click', () => {
+    hideModal(profileModal);
+    
+    // Zet datum standaard op vandaag als hij leeg is
+    if(!weekmenuDatumInput.value) {
+        weekmenuDatumInput.value = new Date().toISOString().split('T')[0];
+    }
+    
+    showModal(weekmenuModal);
+    // Listener wordt al gestart bij startAlleDataListeners()
+});
+
+sluitWeekmenuKnop.addEventListener('click', () => {
+    hideModal(weekmenuModal);
+});
+
+// Listener voor Weekmenu data
+function startWeekMenuListener() {
+    if (weekMenuListener) weekMenuListener();
+    
+    // Sorteer op datum zodat de agenda klopt
+    weekMenuListener = weekMenuCollectie
+        .where("userId", "==", eigenUserId)
+        .orderBy("datum", "asc") 
+        .onSnapshot((snapshot) => {
+            weekmenuListUl.innerHTML = '';
+            const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            if (items.length === 0) {
+                weekmenuListUl.innerHTML = '<li><i>Nog niets ingepland.</i></li>';
+                return;
+            }
+            
+            items.forEach(item => {
+                const li = document.createElement('li');
+                
+                // Datum formatteren naar "Ma 12-05"
+                const dateObj = new Date(item.datum);
+                const dagNaam = dateObj.toLocaleDateString('nl-BE', { weekday: 'short' });
+                const datumKort = dateObj.toLocaleDateString('nl-BE', { day: '2-digit', month: '2-digit' });
+                
+                // Check of er een link is
+                let linkHtml = '';
+                if (item.link) {
+                    linkHtml = `<a href="${item.link}" target="_blank" class="btn-purchased" style="text-decoration:none; display:flex; align-items:center; justify-content:center; background-color:#4A90E2;" title="Open Recept">
+                        <i class="fas fa-link"></i>
+                    </a>`;
+                }
+
+                li.innerHTML = `
+                    <div style="display:flex; flex-direction:column; width: 100%;">
+                        <small style="color:#888; font-weight:bold;">${dagNaam} ${datumKort}</small>
+                        <span class="shopping-item-name" style="font-size:1.1em;">${item.gerecht}</span>
+                    </div>
+                    <div class="item-buttons">
+                        ${linkHtml}
+                        <button class="delete-btn" title="Verwijder uit menu" data-id="${item.id}">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                `;
+                weekmenuListUl.appendChild(li);
+            });
+        }, (err) => console.error("Fout bij laden weekmenu:", err.message));
+}
+
+// Item toevoegen aan Weekmenu
+addWeekmenuForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const datum = weekmenuDatumInput.value;
+    const gerecht = weekmenuGerechtInput.value;
+    const link = weekmenuLinkInput.value; // Mag leeg zijn
+
+    if (!datum || !gerecht || !eigenUserId) return;
+    
+    weekMenuCollectie.add({
+        userId: eigenUserId,
+        datum: datum,
+        gerecht: gerecht,
+        link: link || null,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+        showFeedback(`'${gerecht}' ingepland!`, "success");
+        weekmenuGerechtInput.value = '';
+        weekmenuLinkInput.value = '';
+        // Datum laten we staan of zetten we eentje verder, voor nu laten we hem staan
+        weekmenuGerechtInput.focus();
+    })
+    .catch(err => showFeedback(err.message, "error"));
+});
+
+// Knoppen in de lijst (alleen verwijderen in dit geval)
+weekmenuListUl.addEventListener('click', (e) => {
+    // Delete knop
+    const deleteBtn = e.target.closest('.delete-btn');
+    if (deleteBtn) {
+        const id = deleteBtn.dataset.id;
+        if(confirm("Wil je dit gerecht uit de planning verwijderen?")) {
+            weekMenuCollectie.doc(id).delete()
+                .catch(err => showFeedback(err.message, "error"));
+        }
+    }
+});
+
+// Oude items wissen (items van voor vandaag)
+clearOldWeekmenuBtn.addEventListener('click', async () => {
+    if (!confirm("Alle gerechten van GISTEREN en ouder verwijderen?")) return;
+    
+    const vandaag = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    const query = await weekMenuCollectie
+        .where("userId", "==", eigenUserId)
+        .where("datum", "<", vandaag)
+        .get();
+        
+    const batch = db.batch();
+    if (query.empty) {
+        showFeedback("Geen oude gerechten gevonden.", "success");
+        return;
+    }
+
+    query.docs.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+    
+    await batch.commit();
+    showFeedback("Oude gerechten verwijderd.", "success");
+});
 
