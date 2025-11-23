@@ -1161,11 +1161,12 @@ sluitBeheerKnop.addEventListener('click', () => {
 addVriezerForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const naam = document.getElementById('vriezer-naam').value;
-    if (beheerdeUserId !== eigenUserId) return showFeedback("Je kunt dit niet doen op een gedeeld account", "error");
+    
+    // OUDE REGEL VERWIJDERD: if (beheerdeUserId !== eigenUserId) ...
     
     vriezersCollectieBasis.add({ 
         naam: naam, 
-        userId: beheerdeUserId 
+        userId: beheerdeUserId // Dit gebruikt nu het ID van de account die je beheert
     })
     .then(() => {
         showFeedback("Vriezer toegevoegd!", "success");
@@ -1208,12 +1209,13 @@ addLadeForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const naam = document.getElementById('lade-naam').value;
     if (!geselecteerdeVriezerId) return showFeedback("Selecteer eerst een vriezer", "error");
-    if (beheerdeUserId !== eigenUserId) return showFeedback("Je kunt dit niet doen op een gedeeld account", "error");
+    
+    // OUDE REGEL VERWIJDERD: if (beheerdeUserId !== eigenUserId) ...
     
     ladesCollectieBasis.add({
         naam: naam,
         vriezerId: geselecteerdeVriezerId, 
-        userId: beheerdeUserId 
+        userId: beheerdeUserId // Dit gebruikt nu het ID van de account die je beheert
     })
     .then(() => {
         showFeedback("Lade toegevoegd!", "success");
@@ -1484,15 +1486,34 @@ profileBtn.addEventListener('click', () => {
 sluitProfileModalKnop.addEventListener('click', () => {
     hideModal(profileModal);
 });
-profileVriezerBeheerBtn.addEventListener('click', () => {
-    if (beheerdeUserId !== eigenUserId) {
-        showFeedback("Je kunt alleen je eigen vriezers beheren.", "error");
-        return;
-    }
-    hideModal(profileModal); 
-    showModal(vriezerBeheerModal); 
-    laadVriezersBeheer(); 
-});
+function laadVriezersBeheer() {
+    
+    if (vriezerBeheerListener) vriezerBeheerListener(); 
+    
+    // We gebruiken 'beheerdeUserId', dus je ziet de vriezers van het account waar je op zit
+    vriezerBeheerListener = vriezersCollectieBasis
+        .where("userId", "==", beheerdeUserId) 
+        .orderBy("naam")
+        .onSnapshot(snapshot => {
+            vriezerBeheerLijst.innerHTML = '';
+            snapshot.docs.forEach(doc => {
+                const vriezer = { id: doc.id, ...doc.data() };
+                const li = document.createElement('li');
+                li.dataset.id = vriezer.id;
+                li.dataset.naam = vriezer.naam;
+                if (vriezer.id === geselecteerdeVriezerId) li.classList.add('selected');
+                li.innerHTML = `
+                    <span>${vriezer.naam}</span>
+                    <input type="text" value="${vriezer.naam}" class="beheer-naam-input">
+                    <div class="item-buttons">
+                        <button class="edit-btn" title="Hernoem"><i class="fas fa-pencil-alt"></i></button>
+                        <button class="delete-btn" title="Verwijder"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                `;
+                vriezerBeheerLijst.appendChild(li);
+            });
+        });
+}
 
 // Export
 exportDataBtn.addEventListener('click', () => {
