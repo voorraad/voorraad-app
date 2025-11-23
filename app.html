@@ -325,6 +325,12 @@
                     </button>
                 </li>
                 <li>
+                    <button id="profile-weekmenu-btn" class="profile-menu-btn">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>Weekmenu</span>
+                    </button>
+                </li>
+                <li>
                     <button id="export-data-btn" class="profile-menu-btn">
                         <i class="fas fa-file-export"></i>
                         <span>Exporteer Data</span>
@@ -441,7 +447,43 @@
             </ul>
         </div>
     </div>
-
+<!-- Weekmenu Modal -->
+    <div id="weekmenu-modal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Mijn Weekmenu</h2>
+            <button type="button" id="btn-sluit-weekmenu" class="btn-cancel">Sluiten</button>
+        </div>
+        
+        <h3>Gerecht Inplannen</h3>
+        <form id="add-weekmenu-form" style="margin-bottom: 20px;">
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <label for="weekmenu-datum" style="font-size: 0.9em; font-weight: bold;">Datum:</label>
+                <input type="date" id="weekmenu-datum" required style="padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                
+                <input type="text" id="weekmenu-gerecht" placeholder="Wat eten we?" required style="padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                
+                <input type="url" id="weekmenu-link" placeholder="Link naar recept (https://...)" style="padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                
+                <button type="submit" class="btn-beheer" style="width: 100%; margin-top: 5px;">
+                    <i class="fas fa-plus"></i> Inplannen
+                </button>
+            </div>
+        </form>
+        
+        <hr>
+        
+        <div class="modal-header" style="margin-bottom: 10px;">
+            <h3 style="margin: 0; border: none;">Op de planning</h3>
+            <button type="button" id="btn-clear-old-weekmenu" class="btn-beheer" style="background-color: #d9534f; font-size: 13px;">
+                <i class="fas fa-history"></i> Oude wissen
+            </button>
+        </div>
+        
+        <ul id="weekmenu-list" class="shopping-list">
+            </ul>
+    </div>
+</div>
     
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
