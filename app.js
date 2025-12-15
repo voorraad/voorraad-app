@@ -32,6 +32,13 @@ let alleItems = [];
 let currentUser = null; 
 let geselecteerdeVriezerId = null;
 let geselecteerdeVriezerNaam = null;
+let userUnits = []; 
+const defaultUnits = [
+    "stuks", "zak", "boterpot", "ijsdoos", 
+    "Ikea doos 600ml", "iglodoos 450ml", 
+    "iglodoos 1l laag", "iglodoos 1l hoog", 
+    "gram", "kilo", "bakje", "portie"
+];
 
 // Listeners
 let vriezersListener = null;
@@ -469,8 +476,29 @@ function startAlleDataListeners() {
     if (!beheerdeUserId) return; 
     console.log(`Start listeners voor: ${beheerdeUserId}`);
     
-    stopAlleDataListeners(); // Zorg dat alles gestopt is
-    
+    stopAlleDataListeners(); 
+
+    // --- NIEUW: Listener voor User Settings (Eenheden) ---
+    // We luisteren naar het user document om de 'customUnits' op te halen
+    usersCollectie.doc(beheerdeUserId).onSnapshot((doc) => {
+        if (doc.exists) {
+            const data = doc.data();
+            if (data.customUnits && Array.isArray(data.customUnits)) {
+                userUnits = data.customUnits;
+            } else {
+                // Als de gebruiker nog geen eigen units heeft, gebruik de defaults
+                // En sla ze meteen op zodat ze bewerkbaar zijn
+                userUnits = [...defaultUnits];
+                if (beheerdeUserId === eigenUserId) {
+                    usersCollectie.doc(eigenUserId).set({ customUnits: defaultUnits }, { merge: true });
+                }
+            }
+        } else {
+            userUnits = [...defaultUnits];
+        }
+        renderUnitDropdowns(); // Update de dropdowns in het formulier
+        renderUnitBeheerLijst(); // Update de lijst in het beheer scherm
+    });
     // 1. Vriezers Listener
     vriezersListener = vriezersCollectieBasis
         .where('userId', '==', beheerdeUserId)
@@ -1071,10 +1099,24 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
         }
         
         editId.value = id;
-        editNaam.value = item.naam;
-        editAantal.value = item.aantal;
-        editEenheid.value = item.eenheid || 'stuks';
-        editCategorie.value = item.categorie || 'Geen'; // *** NIEUW ***
+    editNaam.value = item.naam;
+    editAantal.value = item.aantal;
+    
+    // *** AANGEPAST STUKJE VOOR EENHEDEN ***
+    const eenheidSelect = document.getElementById('edit-item-eenheid');
+    // Check of de huidige eenheid van het item in de lijst staat
+    if (!userUnits.includes(item.eenheid)) {
+        // Staat er niet in (misschien oude data of verwijderde eenheid)
+        // Voeg tijdelijk een optie toe
+        const tempOption = document.createElement('option');
+        tempOption.value = item.eenheid;
+        tempOption.textContent = item.eenheid + " (Archief)";
+        eenheidSelect.appendChild(tempOption);
+    }
+    eenheidSelect.value = item.eenheid || 'stuks';
+    // *** EINDE AANPASSING ***
+
+    editCategorie.value = item.categorie || 'Geen';
         
         editVriezer.innerHTML = '';
         alleVriezers.forEach(vriezer => {
@@ -1964,3 +2006,106 @@ clearOldWeekmenuBtn.addEventListener('click', async () => {
     await batch.commit();
     showFeedback("Oude gerechten verwijderd.", "success");
 });
+// --- EENHEDEN FUNCTIES ---
+
+// 1. Vul de Select Dropdowns (Toevoegen & Bewerken)
+function renderUnitDropdowns() {
+    const selects = [document.getElementById('item-eenheid'), document.getElementById('edit-item-eenheid')];
+    
+    selects.forEach(select => {
+        if(!select) return;
+        const hudigeWaarde = select.value; // Onthoud wat geselecteerd was indien mogelijk
+        
+        select.innerHTML = '';
+        userUnits.forEach(unit => {
+            const option = document.createElement('option');
+            option.value = unit;
+            // Maak de tekst netjes (hoofdlettertje)
+            option.textContent = unit.charAt(0).toUpperCase() + unit.slice(1);
+            select.appendChild(option);
+        });
+
+        // Herstel selectie als die nog bestaat
+        if (userUnits.includes(hudigeWaarde)) {
+            select.value = hudigeWaarde;
+        }
+    });
+}
+
+// 2. Vul de Beheer Lijst in de Modal
+const eenheidBeheerLijst = document.getElementById('eenheid-beheer-lijst');
+const addEenheidForm = document.getElementById('add-eenheid-form');
+
+function renderUnitBeheerLijst() {
+    if (!eenheidBeheerLijst) return;
+    eenheidBeheerLijst.innerHTML = '';
+    
+    userUnits.forEach(unit => {
+        const li = document.createElement('li');
+        // Hergebruik de styling van de shared-list of beheer-lijst
+        li.innerHTML = `
+            <span>${unit}</span>
+            <div class="item-buttons">
+                <button class="delete-btn" onclick="verwijderEenheid('${unit}')"><i class="fas fa-trash-alt"></i></button>
+            </div>
+        `;
+        // Kleine inline styling fix voor consistentie
+        li.style.display = 'flex';
+        li.style.justifyContent = 'space-between';
+        li.style.padding = '8px';
+        li.style.marginBottom = '5px';
+        li.style.background = '#fff';
+        li.style.border = '1px solid #eee';
+        
+        eenheidBeheerLijst.appendChild(li);
+    });
+}
+
+// 3. Eenheid Toevoegen
+if (addEenheidForm) {
+    addEenheidForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const input = document.getElementById('eenheid-naam');
+        const nieuweEenheid = input.value.trim().toLowerCase(); // Opslaan in lowercase voor consistentie
+        
+        if (!nieuweEenheid) return;
+        if (userUnits.includes(nieuweEenheid)) {
+            showFeedback("Deze eenheid bestaat al.", "error");
+            return;
+        }
+        
+        if (beheerdeUserId !== eigenUserId) {
+            showFeedback("Je kunt alleen eenheden aanpassen in je eigen account.", "error");
+            return;
+        }
+
+        const updatedUnits = [...userUnits, nieuweEenheid].sort();
+        
+        usersCollectie.doc(eigenUserId).update({
+            customUnits: updatedUnits
+        })
+        .then(() => {
+            showFeedback("Eenheid toegevoegd!", "success");
+            input.value = '';
+        })
+        .catch(err => showFeedback(err.message, "error"));
+    });
+}
+
+// 4. Eenheid Verwijderen (Global scope nodig voor onclick)
+window.verwijderEenheid = function(unitToDelete) {
+    if (beheerdeUserId !== eigenUserId) {
+        showFeedback("Je kunt alleen eenheden aanpassen in je eigen account.", "error");
+        return;
+    }
+
+    if (!confirm(`Wil je "${unitToDelete}" verwijderen uit je lijst? Items die dit gebruiken blijven bestaan, maar de eenheid verdwijnt uit de keuzelijst.`)) return;
+
+    const updatedUnits = userUnits.filter(u => u !== unitToDelete);
+    
+    usersCollectie.doc(eigenUserId).update({
+        customUnits: updatedUnits
+    })
+    .then(() => showFeedback("Eenheid verwijderd.", "success"))
+    .catch(err => showFeedback(err.message, "error"));
+};
