@@ -1091,7 +1091,61 @@ li.sortable-ghost {
 .btn-full-width-toggle i {
     margin-right: 8px; 
 }
+/* --- Auto-Emojis Styling --- */
+.emoji-icon {
+    font-style: normal;
+    margin-right: 6px;
+    font-size: 1.2em;
+}
 
+/* --- Selectie Modus Styling --- */
+.selection-checkbox {
+    display: none; /* Standaard verborgen */
+    width: 20px;
+    height: 20px;
+    margin-right: 15px;
+    cursor: pointer;
+}
+body.selection-mode-active .selection-checkbox {
+    display: block; /* Zichtbaar in modus */
+}
+body.selection-mode-active .item-buttons {
+    display: none; /* Verberg edit/delete knoppen in selectie modus */
+}
+body.selection-mode-active li {
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+body.selection-mode-active li.selected {
+    background-color: #e0f7fa;
+    border-color: #4A90E2;
+}
+#btn-select-mode.active {
+    background-color: #4A90E2; /* Blauw als actief */
+    color: white;
+}
+
+/* --- QR Print Modal (alleen QR zichtbaar bij printen) --- */
+@media print {
+    #qr-print-modal.show {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: white;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+    }
+    #qr-print-modal .modal-content {
+        box-shadow: none;
+        border: none;
+    }
+    #qr-print-modal .modal-header, #qr-print-modal .btn-print {
+        display: none !important;
+    }
+}
 /* --- PRINT STIJLEN --- */
 @media print {
     /* Verberg alles wat niet geprint moet worden */
