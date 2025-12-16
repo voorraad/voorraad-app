@@ -68,6 +68,7 @@ const editDatum = document.getElementById('edit-item-datum');
 const editCategorie = document.getElementById('edit-item-categorie');
 
 // Knoppen & Containers
+const btnToggleAlles = document.getElementById('btn-toggle-alles');
 const btnCancel = document.getElementById('btn-cancel');
 const logoutBtn = document.getElementById('logout-btn');
 const searchBar = document.getElementById('search-bar');
@@ -356,6 +357,23 @@ function renderDynamischeLijsten() {
     
     // Check bulk checkboxes
     document.querySelectorAll('.bulk-check').forEach(c => c.addEventListener('change', updateBulkCount));
+
+    // UPDATE DE KNOP STATUS BIJ RENDER (BELANGRIJK!)
+    updateToggleButtonState();
+}
+
+function updateToggleButtonState() {
+    const alleLades = document.querySelectorAll('.lade-group');
+    if (alleLades.length === 0) return;
+    const erIsIetsDicht = Array.from(alleLades).some(lade => lade.classList.contains('collapsed'));
+
+    if (erIsIetsDicht) {
+        btnToggleAlles.innerHTML = '<i class="fas fa-plus-square"></i> Alles Openen';
+        btnToggleAlles.style.backgroundColor = ''; 
+    } else {
+        btnToggleAlles.innerHTML = '<i class="fas fa-minus-square"></i> Alles Sluiten';
+        btnToggleAlles.style.backgroundColor = '#f0ad4e'; 
+    }
 }
 
 function initDragAndDrop() {
@@ -383,6 +401,35 @@ function updateDashboard() {
         dashboard.innerHTML += `<span>${v.naam}: ${count}</span>`;
     });
 }
+
+// --- ALLES OPENEN / SLUITEN (UPDATED) ---
+btnToggleAlles.addEventListener('click', () => {
+    // Selecteer alle lade-groepen
+    const alleLades = document.querySelectorAll('.lade-group');
+    if (alleLades.length === 0) return;
+
+    // Check of er momenteel lades dicht zijn
+    // (Als er ook maar eentje dicht is, is de actie 'Alles Openen')
+    const erIsIetsDicht = Array.from(alleLades).some(lade => lade.classList.contains('collapsed'));
+
+    if (erIsIetsDicht) {
+        // ACTIE: Alles Openen
+        alleLades.forEach(lade => lade.classList.remove('collapsed'));
+        
+        // Update knop naar "Alles Sluiten"
+        btnToggleAlles.innerHTML = '<i class="fas fa-minus-square"></i> Alles Sluiten';
+        // Optioneel: visuele indicatie (bv. oranje kleur)
+        btnToggleAlles.style.backgroundColor = '#f0ad4e';
+    } else {
+        // ACTIE: Alles Sluiten (want alles is al open)
+        alleLades.forEach(lade => lade.classList.add('collapsed'));
+        
+        // Update knop naar "Alles Openen"
+        btnToggleAlles.innerHTML = '<i class="fas fa-plus-square"></i> Alles Openen';
+        btnToggleAlles.style.backgroundColor = ''; // Reset kleur
+    }
+});
+
 
 // --- BULK MOVE FUNCTIONALITEIT (NIEUW) ---
 btnStartMoveMode.addEventListener('click', () => {
