@@ -44,7 +44,7 @@
             <!-- Stats komen hier -->
         </div>
         
-        <!-- Action Bar voor Snel Verplaatsen (NIEUW) -->
+        <!-- Action Bar voor Snel Verplaatsen -->
         <div id="bulk-move-controls" style="display: none; margin-bottom: 20px; background: #e0f7fa; padding: 10px; border-radius: 8px; border: 1px solid #4A90E2;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                 <strong><i class="fas fa-dolly"></i> Verplaatsmodus Actief</strong>
@@ -132,8 +132,9 @@
             <input type="text" id="search-bar" placeholder="Zoek een product...">
         </div>
         
-        <!-- Knoppenbalk (NIEUW) -->
+        <!-- Knoppenbalk -->
         <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <!-- DEZE KNOP IS AANGEPAST IN JS -->
             <button id="btn-toggle-alles" class="btn-full-width-toggle" style="flex: 1; margin-bottom: 0;">
                 <i class="fas fa-plus-square"></i> Alles Openen
             </button>
@@ -239,7 +240,7 @@
         </div> 
     </div>
 
-    <!-- QR Code Toon Modal (NIEUW) -->
+    <!-- QR Code Toon Modal -->
     <div id="qr-show-modal" class="modal-overlay">
         <div class="modal-content" style="text-align: center;">
             <h2>Lade QR Code</h2>
@@ -265,7 +266,7 @@
         </div>
     </div>
     
-    <!-- "Gekocht" Verwerking Modal (NIEUW) -->
+    <!-- "Gekocht" Verwerking Modal -->
     <div id="purchased-process-modal" class="modal-overlay">
         <div class="modal-content">
             <h2><i class="fas fa-check-circle" style="color: #66DDAA;"></i> Waar heb je het gelegd?</h2>
@@ -296,7 +297,7 @@
         </div>
     </div>
 
-    <!-- Geschiedenis Modal (NIEUW) -->
+    <!-- Geschiedenis Modal -->
     <div id="history-modal" class="modal-overlay">
         <div class="modal-content modal-groot">
             <div class="modal-header">
@@ -358,9 +359,7 @@
                 <li><button id="print-btn" class="profile-menu-btn"><i class="fas fa-print"></i><span>Print Voorraadlijst</span></button></li>
                 <li><button id="profile-shopping-list-btn" class="profile-menu-btn"><i class="fas fa-shopping-cart"></i><span>Boodschappenlijst</span></button></li>
                 <li><button id="profile-weekmenu-btn" class="profile-menu-btn"><i class="fas fa-calendar-alt"></i><span>Weekmenu</span></button></li>
-                <!-- NIEUW: Geschiedenis knop -->
                 <li><button id="profile-history-btn" class="profile-menu-btn"><i class="fas fa-history"></i><span>Geschiedenis / Logboek</span></button></li>
-                
                 <li><button id="export-data-btn" class="profile-menu-btn"><i class="fas fa-file-export"></i><span>Exporteer Data</span></button></li>
             </ul>
 
