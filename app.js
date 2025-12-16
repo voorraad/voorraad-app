@@ -345,7 +345,10 @@ function renderDynamischeLijsten() {
 
     // Toggle click listeners voor accordion
     document.querySelectorAll('.lade-header').forEach(h => {
-        h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed'));
+        h.addEventListener('click', () => {
+            h.parentElement.classList.toggle('collapsed');
+            updateToggleButtonState();
+        });
     });
     
     // CRUD Listeners
@@ -363,16 +366,22 @@ function renderDynamischeLijsten() {
 }
 
 function updateToggleButtonState() {
-    const alleLades = document.querySelectorAll('.lade-group');
+    const alleLades = Array.from(document.querySelectorAll('.lade-group'));
     if (alleLades.length === 0) return;
-    const erIsIetsDicht = Array.from(alleLades).some(lade => lade.classList.contains('collapsed'));
 
-    if (erIsIetsDicht) {
-        btnToggleAlles.innerHTML = '<i class="fas fa-plus-square"></i> Alles Openen';
-        btnToggleAlles.style.backgroundColor = ''; 
-    } else {
+    // Als ELKE lade GEEN 'collapsed' class heeft -> alles is open.
+    const allOpen = alleLades.every(lade => !lade.classList.contains('collapsed'));
+
+    if (allOpen) {
+        // State: Alles is open. Knop moet "Alles Sluiten" worden.
         btnToggleAlles.innerHTML = '<i class="fas fa-minus-square"></i> Alles Sluiten';
-        btnToggleAlles.style.backgroundColor = '#f0ad4e'; 
+        btnToggleAlles.style.backgroundColor = '#f0ad4e'; // Oranje
+        btnToggleAlles.dataset.action = "close";
+    } else {
+        // State: Iets is dicht (of alles is dicht). Knop moet "Alles Openen" zijn.
+        btnToggleAlles.innerHTML = '<i class="fas fa-plus-square"></i> Alles Openen';
+        btnToggleAlles.style.backgroundColor = ''; // Grijs/Default
+        btnToggleAlles.dataset.action = "open";
     }
 }
 
@@ -402,32 +411,19 @@ function updateDashboard() {
     });
 }
 
-// --- ALLES OPENEN / SLUITEN (UPDATED) ---
+// --- ALLES OPENEN / SLUITEN (FIXED) ---
 btnToggleAlles.addEventListener('click', () => {
-    // Selecteer alle lade-groepen
+    const action = btnToggleAlles.dataset.action;
     const alleLades = document.querySelectorAll('.lade-group');
-    if (alleLades.length === 0) return;
 
-    // Check of er momenteel lades dicht zijn
-    // (Als er ook maar eentje dicht is, is de actie 'Alles Openen')
-    const erIsIetsDicht = Array.from(alleLades).some(lade => lade.classList.contains('collapsed'));
-
-    if (erIsIetsDicht) {
-        // ACTIE: Alles Openen
-        alleLades.forEach(lade => lade.classList.remove('collapsed'));
-        
-        // Update knop naar "Alles Sluiten"
-        btnToggleAlles.innerHTML = '<i class="fas fa-minus-square"></i> Alles Sluiten';
-        // Optioneel: visuele indicatie (bv. oranje kleur)
-        btnToggleAlles.style.backgroundColor = '#f0ad4e';
+    if (action === "close") {
+        // Sluit alles
+        alleLades.forEach(l => l.classList.add('collapsed'));
     } else {
-        // ACTIE: Alles Sluiten (want alles is al open)
-        alleLades.forEach(lade => lade.classList.add('collapsed'));
-        
-        // Update knop naar "Alles Openen"
-        btnToggleAlles.innerHTML = '<i class="fas fa-plus-square"></i> Alles Openen';
-        btnToggleAlles.style.backgroundColor = ''; // Reset kleur
+        // Open alles (default)
+        alleLades.forEach(l => l.classList.remove('collapsed'));
     }
+    updateToggleButtonState();
 });
 
 
