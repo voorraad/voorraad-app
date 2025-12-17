@@ -1,4 +1,9 @@
 /* --- Globale instellingen (Mobile-first) --- */
+/* BELANGRIJK: Dit zorgt dat padding de breedte niet groter maakt dan 100% */
+*, *:before, *:after {
+    box-sizing: border-box;
+}
+
 body {
     font-family: 'Inter', system-ui, sans-serif;
     background-color: #f4f7f6;
@@ -6,11 +11,11 @@ body {
     margin: 0;
     padding: 10px;
     line-height: 1.6;
-    padding-bottom: 80px; /* Extra ruimte voor de bulk-actiebalk */
+    padding-bottom: 100px; /* Extra ruimte zodat content niet achter de bulk-balk verdwijnt */
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 800px; /* Smaller voor betere focus op desktop */
     margin: 0 auto;
     padding: 15px;
     background-color: #ffffff;
@@ -209,7 +214,6 @@ hr { border: none; height: 1px; background-color: #e0e0e0; margin: 25px 0; }
 #item-naam { grid-column: 1 / 2; }
 #item-aantal, #item-eenheid, #item-vriezer, #item-schuif {
     width: 100%;
-    box-sizing: border-box;
 }
 #add-item-form button[type="submit"] { grid-column: 1 / 2; width: 100%; }
 
@@ -281,7 +285,6 @@ hr { border: none; height: 1px; background-color: #e0e0e0; margin: 25px 0; }
 
 input[type="text"], input[type="number"], input[type="email"], select, input[type="date"] {
     width: 100%;
-    box-sizing: border-box; 
     background-color: #fdfdfd;
     color: #333;
     border: 1px solid #ccc;
@@ -432,7 +435,7 @@ li .item-buttons {
     justify-content: center;
     align-items: center;
     padding: 20px;
-    box-sizing: border-box;
+    box-sizing: border-box; /* Zeker zijn dat padding binnen de width valt */
     opacity: 0;
     transition: opacity 0.2s ease-in-out;
 }
@@ -880,13 +883,14 @@ body.move-mode .bulk-checkbox {
     bottom: 0;
     left: 0;
     width: 100%;
+    /* BELANGRIJK: padding en border worden nu CORRECT berekend binnen de 100% breedte */
     background-color: #ffffff;
     border-top: 2px solid #66DDAA;
-    padding: 15px 20px;
+    padding: 12px 15px; /* Iets minder padding voor mobiel */
     box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
     display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
+    flex-wrap: wrap; /* Zorgt dat items onder elkaar gaan als het te smal wordt */
+    gap: 10px;
     align-items: center;
     justify-content: space-between;
     z-index: 999;
@@ -899,28 +903,33 @@ body.move-mode .bulk-checkbox {
 .bulk-info {
     font-weight: bold;
     color: #333;
+    font-size: 0.9em;
+    white-space: nowrap; /* Zorg dat tekst niet raar breekt */
 }
 .bulk-controls {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-grow: 1;
     justify-content: flex-end;
+    flex-wrap: wrap; /* Zodat dropdowns en knop onder elkaar kunnen op hele kleine schermen */
 }
 .bulk-select {
-    padding: 10px;
+    padding: 8px;
     border: 1px solid #ccc;
     border-radius: 5px;
     font-size: 14px;
-    max-width: 200px;
+    max-width: 150px; /* Iets smaller maken zodat het past */
+    flex-grow: 1;
 }
 .btn-bulk-move {
     background-color: #4A90E2;
     color: white;
     border: none;
     border-radius: 5px;
-    padding: 10px 15px;
+    padding: 8px 15px;
     font-weight: bold;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 /* Knop om modus te activeren */
