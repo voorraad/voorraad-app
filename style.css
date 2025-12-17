@@ -248,6 +248,7 @@ hr { border: none; height: 1px; background-color: #e0e0e0; margin: 25px 0; }
 }
 .form-grid-pair {
     display: grid;
+    /* FIX: Op mobiel altijd onder elkaar */
     grid-template-columns: 1fr;
     gap: 15px;
     width: 100%;
