@@ -15,7 +15,7 @@ body {
 }
 
 .container {
-    max-width: 800px; /* Smaller voor betere focus op desktop */
+    max-width: 1200px; /* HERSTELD: Terug naar de oorspronkelijke breedte */
     margin: 0 auto;
     padding: 15px;
     background-color: #ffffff;
@@ -882,7 +882,10 @@ body.move-mode .bulk-checkbox {
     position: fixed;
     bottom: 0;
     left: 0;
+    right: 0; /* Toevoegen voor centreren met margin auto */
     width: 100%;
+    max-width: 1200px; /* AANGEPAST: Beperkt de breedte van alleen de balk */
+    margin: 0 auto; /* Zorgt dat de balk centreert */
     /* BELANGRIJK: padding en border worden nu CORRECT berekend binnen de 100% breedte */
     background-color: #ffffff;
     border-top: 2px solid #66DDAA;
