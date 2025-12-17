@@ -57,6 +57,9 @@
         <form id="add-item-form">
             
             <div class="input-with-button" style="grid-column: 1 / 3;">
+                <!-- NIEUW: Emoji veld toegevoegd aan de input-groep -->
+                <input type="text" id="item-emoji" placeholder="🏷️" style="width: 50px; flex-shrink: 0; text-align: center; padding: 0;" title="Emoji">
+                
                 <input type="text" id="item-naam" placeholder="Productnaam" required list="product-suggesties">
                 <button type="button" id="scan-btn" class="btn-beheer" title="Scan barcode">
                     <i class="fas fa-barcode"></i>
@@ -162,10 +165,15 @@
             <h2>Item Bewerken</h2>
             <form id="edit-item-form">
                 <input type="hidden" id="edit-item-id">
-                <label for="edit-item-naam">Naam:</label>
-                <input type="text" id="edit-item-naam" required>
                 
-                <label for="edit-item-aantal">Aantal:</label>
+                <label for="edit-item-naam">Naam & Emoji:</label>
+                <!-- Flex container voor emoji en naam op één regel -->
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="edit-item-emoji" style="width: 50px; text-align: center; padding: 0;" placeholder="🏷️">
+                    <input type="text" id="edit-item-naam" required style="flex-grow: 1;">
+                </div>
+                
+                <label for="edit-item-aantal" style="margin-top: 15px;">Aantal:</label>
                 <div class="aantal-wrapper">
                     <button type="button" class="aantal-btn" data-action="minus" aria-label="Verminder aantal">-</button>
                     <input type="number" id="edit-item-aantal" step="0.25" min="0.25" required>
@@ -233,20 +241,23 @@
                     <select id="move-purchased-eenheid" style="flex-grow: 1;"></select>
                 </div>
                 
-                <label style="margin-top: 10px;">Categorie:</label>
-                <select id="move-purchased-categorie">
-                     <option value="Geen">Geen categorie</option>
-                     <option value="Groenten">Groenten</option>
-                     <option value="Vlees">Vlees</option>
-                     <option value="Vis">Vis</option>
-                     <option value="Restjes">Restjes</option>
-                     <option value="Brood">Brood</option>
-                     <option value="Fruit">Fruit</option>
-                     <option value="IJs">IJs</option>
-                     <option value="Saus">Saus</option>
-                     <option value="Friet">Friet</option>
-                     <option value="Ander">Ander</option>
-                </select>
+                <label style="margin-top: 10px;">Categorie & Emoji:</label>
+                <div style="display: flex; gap: 10px;">
+                    <select id="move-purchased-categorie" style="flex-grow: 1;">
+                         <option value="Geen">Geen categorie</option>
+                         <option value="Groenten">Groenten</option>
+                         <option value="Vlees">Vlees</option>
+                         <option value="Vis">Vis</option>
+                         <option value="Restjes">Restjes</option>
+                         <option value="Brood">Brood</option>
+                         <option value="Fruit">Fruit</option>
+                         <option value="IJs">IJs</option>
+                         <option value="Saus">Saus</option>
+                         <option value="Friet">Friet</option>
+                         <option value="Ander">Ander</option>
+                    </select>
+                    <input type="text" id="move-purchased-emoji" placeholder="🏷️" style="width: 50px; text-align: center; padding: 0;">
+                </div>
 
                 <div class="modal-buttons">
                     <button type="submit" class="btn-save">Opslaan in Vriezer</button>
