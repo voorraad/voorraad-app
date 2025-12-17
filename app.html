@@ -57,11 +57,11 @@
         <form id="add-item-form">
             
             <div class="input-with-button" style="grid-column: 1 / 3;">
-                <!-- AANGEPAST: Geen randen, transparante achtergrond, lijkt onderdeel van de naam -->
-                <input type="text" id="item-emoji" placeholder="🏷️" style="width: 40px; flex-shrink: 0; text-align: center; border: 1px solid #ccc; border-right: none; border-radius: 5px 0 0 5px; background-color: #f9f9f9;" title="Emoji">
+                <!-- AANGEPAST: Hoogte gelijkgetrokken met de barcode knop -->
+                <input type="text" id="item-emoji" placeholder="🏷️" style="width: 50px; flex-shrink: 0; text-align: center; border-radius: 5px 0 0 5px; border-right: none;" title="Emoji">
                 
                 <!-- AANGEPAST: Naamveld sluit aan op emoji veld -->
-                <input type="text" id="item-naam" placeholder="Productnaam" required list="product-suggesties" style="border-radius: 0 5px 5px 0; border-left: none;">
+                <input type="text" id="item-naam" placeholder="Productnaam" required list="product-suggesties" style="border-radius: 0 5px 5px 0; border-left: 1px solid #ccc;">
                 
                 <button type="button" id="scan-btn" class="btn-beheer" title="Scan barcode">
                     <i class="fas fa-barcode"></i>
@@ -173,8 +173,8 @@
                 <label for="edit-item-naam">Naam & Emoji:</label>
                 <div style="display: flex; gap: 0;"> <!-- Gap 0 voor aansluiting -->
                     <!-- AANGEPAST: Emoji veld in edit modal -->
-                    <input type="text" id="edit-item-emoji" style="width: 40px; text-align: center; border-radius: 5px 0 0 5px; border-right: none; background-color: #f9f9f9;" placeholder="🏷️">
-                    <input type="text" id="edit-item-naam" required style="flex-grow: 1; border-radius: 0 5px 5px 0; border-left: none;">
+                    <input type="text" id="edit-item-emoji" style="width: 50px; text-align: center; border-radius: 5px 0 0 5px; border-right: none;" placeholder="🏷️">
+                    <input type="text" id="edit-item-naam" required style="flex-grow: 1; border-radius: 0 5px 5px 0; border-left: 1px solid #ccc;">
                 </div>
                 
                 <label for="edit-item-aantal" style="margin-top: 15px;">Aantal:</label>
@@ -260,7 +260,7 @@
                          <option value="Ander">Ander</option>
                     </select>
                     <!-- AANGEPAST: Emoji veld in move modal -->
-                    <input type="text" id="move-purchased-emoji" placeholder="🏷️" style="width: 40px; text-align: center; border-radius: 0 5px 5px 0; border-left: none; background-color: #f9f9f9;">
+                    <input type="text" id="move-purchased-emoji" placeholder="🏷️" style="width: 50px; text-align: center; border-radius: 0 5px 5px 0; border-left: 1px solid #ccc;">
                 </div>
 
                 <div class="modal-buttons">
