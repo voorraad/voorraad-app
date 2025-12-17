@@ -14,15 +14,13 @@ const firebaseConfig = typeof __firebase_config !== 'undefined'
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
-
-// Collecties
 const itemsCollectieBasis = db.collection('items');
 const ladesCollectieBasis = db.collection('lades');
 const vriezersCollectieBasis = db.collection('vriezers');
 const usersCollectie = db.collection('users');
 const adminsCollectie = db.collection('admins');
 const sharesCollectie = db.collection('shares');
-const shoppingListCollectie = db.collection('shoppingList');
+const shoppingListCollectie = db.collection('shoppingList'); // Boodschappenlijst
 const weekMenuCollectie = db.collection('weekmenu');
 // NIEUW: Geschiedenis collectie
 const historyCollectie = db.collection('history');
@@ -76,6 +74,7 @@ const vriezerSelect = document.getElementById('item-vriezer');
 const schuifSelect = document.getElementById('item-schuif'); 
 const itemDatum = document.getElementById('item-datum');
 const itemCategorie = document.getElementById('item-categorie');
+const itemEmoji = document.getElementById('item-emoji'); // NIEUW
 const editModal = document.getElementById('edit-modal');
 const editForm = document.getElementById('edit-item-form');
 const editId = document.getElementById('edit-item-id');
@@ -86,6 +85,7 @@ const editVriezer = document.getElementById('edit-item-vriezer');
 const editSchuif = document.getElementById('edit-item-schuif');
 const editDatum = document.getElementById('edit-item-datum');
 const editCategorie = document.getElementById('edit-item-categorie');
+const editEmoji = document.getElementById('edit-item-emoji'); // NIEUW
 const btnCancel = document.getElementById('btn-cancel');
 const logoutBtn = document.getElementById('logout-btn');
 const searchBar = document.getElementById('search-bar');
@@ -135,7 +135,7 @@ const profileShoppingListBtn = document.getElementById('profile-shopping-list-bt
 // Nieuwe Profiel Knoppen
 const exportDataBtn = document.getElementById('export-data-btn');
 const profileShareBtn = document.getElementById('profile-share-btn');
-const profileHistoryBtn = document.getElementById('profile-history-btn'); // NIEUW
+const profileHistoryBtn = document.getElementById('profile-history-btn'); 
 
 // Notificatie Modal Elementen
 const notificatieModal = document.getElementById('notificatie-modal');
@@ -172,13 +172,13 @@ const weekmenuLinkInput = document.getElementById('weekmenu-link');
 const weekmenuListUl = document.getElementById('weekmenu-list');
 const clearOldWeekmenuBtn = document.getElementById('btn-clear-old-weekmenu');
 
-// NIEUW: Geschiedenis (Logboek) Elementen
+// Geschiedenis (Logboek) Elementen
 const historyModal = document.getElementById('history-modal');
 const sluitHistoryKnop = document.getElementById('btn-sluit-history');
 const historyListUl = document.getElementById('history-list');
 const btnClearHistory = document.getElementById('btn-clear-history');
 
-// NIEUW: Bulk Actie Elementen
+// Bulk Actie Elementen
 const btnToggleMode = document.getElementById('btn-toggle-mode');
 const bulkActionBar = document.getElementById('bulk-action-bar');
 const bulkCountSpan = document.getElementById('bulk-count');
@@ -186,14 +186,14 @@ const btnBulkMove = document.getElementById('btn-bulk-move');
 const bulkTargetVriezer = document.getElementById('bulk-target-vriezer');
 const bulkTargetLade = document.getElementById('bulk-target-lade');
 
-// NIEUW: QR Code Modal Elementen
+// QR Code Modal Elementen
 const qrModal = document.getElementById('qr-modal');
 const sluitQrKnop = document.getElementById('btn-sluit-qr');
 const qrCanvas = document.getElementById('qr-canvas');
 const qrLadeNaam = document.getElementById('qr-lade-naam');
 const btnPrintQr = document.getElementById('btn-print-qr');
 
-// NIEUW: Slimmer Gekocht (Move Purchased) Elementen
+// Slimmer Gekocht (Move Purchased) Elementen
 const movePurchasedModal = document.getElementById('move-purchased-modal');
 const movePurchasedForm = document.getElementById('move-purchased-form');
 const btnCancelMovePurchased = document.getElementById('btn-cancel-move-purchased');
@@ -205,6 +205,7 @@ const movePurchasedLade = document.getElementById('move-purchased-lade');
 const movePurchasedAantal = document.getElementById('move-purchased-aantal');
 const movePurchasedEenheid = document.getElementById('move-purchased-eenheid');
 const movePurchasedCategorie = document.getElementById('move-purchased-categorie');
+const movePurchasedEmoji = document.getElementById('move-purchased-emoji'); // NIEUW
 
 
 // ---
@@ -246,7 +247,7 @@ function formatDatum(timestamp) {
     if (!timestamp) return 'Onbekende datum';
     return timestamp.toDate().toLocaleDateString('nl-BE');
 }
-// NIEUW: Helper voor Emoji's
+// Helper voor Emoji's
 function getEmojiForCategory(categorie) {
     const emojis = {
         "Vlees": "🥩",
@@ -256,19 +257,22 @@ function getEmojiForCategory(categorie) {
         "Brood": "🍞",
         "IJs": "🍦",
         "Restjes": "🥡",
-        "Saus": "🥣", // Bestond al, maar check dubbel
+        "Saus": "🥫",
+        "Friet": "🍟",
         "Ander": "📦",
-        "Friet": "🍟", // NIEUW
-        "Pizza": "🍕", // Eventueel handig? Maar je vroeg specifiek Friet
         "Geen": "❄️"
     };
-    // Als Saus nog geen emoji had in de vorige versie, pas ik hem hier aan naar 🥫 of 🥣.
-    // Ik gebruik 🥫 (blik/pot) of 🥣 (kom). Laten we consistent zijn met je lijst.
-    if (categorie === "Saus") return "🥫"; 
-    
     return emojis[categorie] || "❄️";
 }
 
+// NIEUW: Functie om emoji veld te updaten bij categorie change
+function updateEmojiField(selectElement, inputElement) {
+    const cat = selectElement.value;
+    const emoji = getEmojiForCategory(cat);
+    // Vul alleen in als het veld leeg is of als de gebruiker dit waarschijnlijk verwacht
+    // Voor nu: altijd overschrijven als 'hulp', gebruiker kan aanpassen
+    inputElement.value = emoji;
+}
 
 // Helper voor Aantal Knoppen (UX)
 function handleAantalKlik(e) {
@@ -329,44 +333,32 @@ function sluitScanner() {
         hideModal(scanModal);
     }
 }
-// *** AANGEPAST: QR Code ondersteuning ***
+// *** QR Code ondersteuning ***
 function onScanSuccess(decodedText, decodedResult) {
     console.log(`Scan succesvol: ${decodedText}`);
     sluitScanner();
     
-    // Check of het een QR URL is van onze app
-    // Voorbeeld: https://vriezer-app.firebaseapp.com/?ladeFilter=LADE_ID
     if (decodedText.includes("ladeFilter=")) {
         try {
             const url = new URL(decodedText);
             const ladeId = url.searchParams.get("ladeFilter");
             if (ladeId) {
-                // We moeten eerst weten welke vriezer bij deze lade hoort
-                // Dit is lastig omdat we alleen 'alleLades' hebben geladen
-                // Als de lade in de lijst zit:
                 const gevondenLade = alleLades.find(l => l.id === ladeId);
                 
                 if (gevondenLade) {
                     showFeedback(`Lade gescand: ${gevondenLade.naam}`, "success");
-                    // Selecteer de vriezerfilter
-                    // We moeten de juiste kolom vinden en daar het filter zetten
                     const vriezerId = gevondenLade.vriezerId;
                     
-                    // Reset zoekbalk
                     searchBar.value = "";
                     
-                    // Zet dropdown filter
                     const filterSelect = document.getElementById(`filter-lade-${vriezerId}`);
                     if (filterSelect) {
                         filterSelect.value = ladeId;
-                        // Trigger update
                         updateItemVisibility();
                         
-                        // Scroll naar de kolom
                         const kolom = filterSelect.closest('.vriezer-kolom');
                         if (kolom) {
                             kolom.scrollIntoView({ behavior: 'smooth' });
-                            // Open de lade
                             const ladeGroup = kolom.querySelector(`.lade-group[data-lade-id="${ladeId}"]`);
                             if (ladeGroup) ladeGroup.classList.remove('collapsed');
                         }
@@ -379,7 +371,6 @@ function onScanSuccess(decodedText, decodedResult) {
             console.error("Fout bij parsen QR URL:", e);
         }
     } else {
-        // Gewoon EAN nummer
         fetchProductFromOFF(decodedText);
     }
 }
@@ -460,7 +451,6 @@ auth.onAuthStateChanged((user) => {
         startAlleDataListeners();
         startPendingSharesListener();
         
-        // Check voor QR URL parameters bij laden (als de pagina opent via QR scan)
         checkUrlForLadeFilter();
 
     } else {
@@ -473,17 +463,14 @@ auth.onAuthStateChanged((user) => {
         stopAlleDataListeners(); 
         console.log("Niet ingelogd, terug naar index.html");
         
-        // UI leegmaken
         vriezerLijstenContainer.innerHTML = '';
         dashboard.innerHTML = '';
         vriezerSelect.innerHTML = '<option value="" disabled selected>Kies een vriezer...</option>';
         schuifSelect.innerHTML = '<option value="" disabled selected>Kies eerst een vriezer...</option>';
         
-        // Knoppen resetten/verbergen
         switchAccountKnop.style.display = 'none';
         hideModal(switchAccountModal);
         
-        // Profiel Knop Resetten
         profileImg.src = '';
         profileImg.style.display = 'none';
         profileIcon.style.display = 'block';
@@ -500,8 +487,6 @@ function checkUrlForLadeFilter() {
     const urlParams = new URLSearchParams(window.location.search);
     const ladeId = urlParams.get('ladeFilter');
     if (ladeId) {
-        // Omdat listeners asynchroon zijn, kunnen we nog niet direct filteren
-        // We slaan het op en doen het in renderDynamischeLijsten
         window.pendingLadeFilter = ladeId;
     }
 }
@@ -525,7 +510,6 @@ async function checkAdminStatus(uid) {
             console.log("ADMIN STATUS: Ja");
             isAdmin = true;
             
-            // Stel 'Wissel Account' modal in voor ADMIN
             switchAccountKnop.style.display = 'inline-flex';
             adminSwitchSection.style.display = 'block';
             userSwitchSection.style.display = 'none';
@@ -536,7 +520,6 @@ async function checkAdminStatus(uid) {
             console.log("ADMIN STATUS: Nee");
             isAdmin = false;
             
-            // Stel 'Wissel Account' modal in voor GEWONE USER
             adminSwitchSection.style.display = 'none';
             userSwitchSection.style.display = 'block';
             
@@ -558,16 +541,14 @@ function schakelBeheer(naarUserId, naarUserEmail) {
     beheerdeUserEmail = naarUserEmail || 'Onbekende Gebruiker';
     isEersteNotificatieCheck = true; 
 
-    stopAlleDataListeners(); // Stopt alle data- en share-listeners
+    stopAlleDataListeners(); 
 
     vriezerLijstenContainer.innerHTML = '';
     dashboard.innerHTML = '';
     vriezerSelect.innerHTML = '<option value="" disabled selected>Kies een vriezer...</option>';
     schuifSelect.innerHTML = '<option value="" disabled selected>Kies eerst een vriezer...</option>';
     
-    // Start alleen de data listeners voor de nieuwe beheerde user
     startAlleDataListeners();
-    // De share listeners (pending, accepted) blijven gestopt, die zijn alleen voor de 'eigen' user
     
     updateSwitchAccountUI();
     
@@ -581,7 +562,6 @@ function updateSwitchAccountUI() {
         switchAccountTitel.style.color = '#555';
         switchTerugKnop.style.display = 'none';
         
-        // Start eigen share listeners opnieuw als we terugschakelen
         startPendingSharesListener();
         if(isAdmin) startAdminUserListener();
         else startAcceptedSharesListener();
@@ -592,7 +572,6 @@ function updateSwitchAccountUI() {
         switchAccountTitel.style.color = '#FF6B6B';
         switchTerugKnop.style.display = 'block';
         
-        // Stop eigen share listeners als we wegschakelen
         if (pendingSharesListener) pendingSharesListener();
         if (acceptedSharesListener) acceptedSharesListener();
         if (shoppingListListener) shoppingListListener(); 
@@ -634,7 +613,6 @@ function startAlleDataListeners() {
             alleVriezers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             console.log("Vriezers geladen:", alleVriezers.length);
             vulToevoegVriezerDropdown();
-            // Vul ook de Bulk dropdown
             renderBulkDropdowns();
             renderDynamischeLijsten(); 
         }, (err) => console.error("Fout bij vriezers listener:", err.message));
@@ -686,7 +664,7 @@ function stopAlleDataListeners() {
     if (acceptedSharesListener) { acceptedSharesListener(); acceptedSharesListener = null; }
     if (shoppingListListener) { shoppingListListener(); shoppingListListener = null; }
     if (weekMenuListener) { weekMenuListener(); weekMenuListener = null; }
-    if (historyListener) { historyListener(); historyListener = null; } // NIEUW
+    if (historyListener) { historyListener(); historyListener = null; } 
 }
 
 function startAdminUserListener() {
@@ -877,7 +855,7 @@ function updateLadeDropdown(vriezerId, ladeSelectElement, resetSelectie) {
     }
 }
 
-// *** AANGEPAST: renderDynamischeLijsten met Auto Emoji en Bulk Checkboxes ***
+// *** renderDynamischeLijsten ***
 function renderDynamischeLijsten() {
     
     const openLadeIds = new Set();
@@ -885,7 +863,6 @@ function renderDynamischeLijsten() {
         openLadeIds.add(group.dataset.ladeId);
     });
     
-    // Check voor automatische lade opening vanuit QR
     if (window.pendingLadeFilter) {
         openLadeIds.add(window.pendingLadeFilter);
     }
@@ -926,12 +903,10 @@ function renderDynamischeLijsten() {
             ladeFilterSelect.innerHTML += `<option value="${lade.id}">${lade.naam}</option>`;
         });
         
-        // Pas opgeslagen filter toe (bijv. van QR scan)
         if (window.pendingLadeFilter) {
              const checkLade = vriezerLades.find(l => l.id === window.pendingLadeFilter);
              if (checkLade) {
                  ladeFilterSelect.value = window.pendingLadeFilter;
-                 // Scroll naar deze vriezer later
                  setTimeout(() => kolomDiv.scrollIntoView({ behavior: 'smooth' }), 500);
              }
         }
@@ -952,7 +927,6 @@ function renderDynamischeLijsten() {
         const catFilterSelect = document.createElement('select');
         catFilterSelect.id = `filter-categorie-${vriezer.id}`;
         catFilterSelect.className = 'lade-filter-select';
-        // Opties (hardcoded, gelijk aan de HTML formulieren)
         catFilterSelect.innerHTML = `
             <option value="all">Alle categorieën</option>
             <option value="Geen">Geen categorie</option>
@@ -1024,11 +998,9 @@ function renderDynamischeLijsten() {
                 
                 li.dataset.dagen = diffDagen; 
                 
-                // NIEUW: Emoji bepalen
-                const emoji = getEmojiForCategory(item.categorie || 'Geen');
+                // *** AANGEPAST: Emoji uit item halen of default ***
+                const emoji = item.emoji || getEmojiForCategory(item.categorie || 'Geen');
 
-                // NIEUW: Checkbox voor bulk-acties (initieel verborgen via CSS)
-                // En we checken of hij al geselecteerd was
                 const isChecked = selectedItemIds.has(item.id) ? 'checked' : '';
 
                 li.innerHTML = `
@@ -1044,7 +1016,6 @@ function renderDynamischeLijsten() {
                     </div>
                 `;
                 
-                // Event listener voor checkbox
                 const checkbox = li.querySelector('.bulk-checkbox');
                 checkbox.addEventListener('change', (e) => {
                     if (e.target.checked) selectedItemIds.add(item.id);
@@ -1065,7 +1036,6 @@ function renderDynamischeLijsten() {
         vriezerLijstenContainer.appendChild(kolomDiv);
     });
     
-    // Reset pending filter
     window.pendingLadeFilter = null;
 
     const kanBewerken = (beheerdeUserId === eigenUserId) || 
@@ -1076,7 +1046,6 @@ function renderDynamischeLijsten() {
     }
     updateItemVisibility(); 
     
-    // Herstel UI state als we in move mode zitten
     if (isMoveMode) {
         document.body.classList.add('move-mode');
         bulkActionBar.classList.add('visible');
@@ -1125,7 +1094,6 @@ function initDragAndDrop() {
         })
         .then(() => {
             showFeedback('Item verplaatst!', 'success');
-            // Log in geschiedenis
             const itemNaam = itemEl.querySelector('strong').innerText;
             logHistoryAction("Verplaatst (Sleep)", `${itemNaam} naar ${newLadeNaam}`);
         })
@@ -1148,6 +1116,13 @@ function initDragAndDrop() {
 // ---
 // STAP 5: Items CRUD
 // ---
+
+// NIEUW: Luister naar categorie wijzigingen om emoji voor te stellen
+itemCategorie.addEventListener('change', () => updateEmojiField(itemCategorie, itemEmoji));
+editCategorie.addEventListener('change', () => updateEmojiField(editCategorie, editEmoji));
+movePurchasedCategorie.addEventListener('change', () => updateEmojiField(movePurchasedCategorie, movePurchasedEmoji));
+
+
 form.addEventListener('submit', (e) => {
     e.preventDefault(); 
     
@@ -1171,12 +1146,16 @@ form.addEventListener('submit', (e) => {
     const itemNaam = document.getElementById('item-naam').value;
     const ingevrorenOpDatum = new Date(itemDatum.value + "T00:00:00");
 
+    // *** AANGEPAST: Emoji opslaan ***
+    const gekozenEmoji = itemEmoji.value || getEmojiForCategory(itemCategorie.value);
+
     itemsCollectieBasis.add({
         naam: itemNaam,
         aantal: parseFloat(document.getElementById('item-aantal').value),
         eenheid: document.getElementById('item-eenheid').value,
         ingevrorenOp: ingevrorenOpDatum,
         categorie: itemCategorie.value,
+        emoji: gekozenEmoji, // NIEUW
         userId: beheerdeUserId,
         vriezerId: geselecteerdeVriezerId,
         ladeId: geselecteerdeLadeId,
@@ -1192,11 +1171,13 @@ form.addEventListener('submit', (e) => {
             document.getElementById('item-eenheid').value = "stuks";
             itemDatum.value = vandaag;
             itemCategorie.value = "Geen"; 
+            itemEmoji.value = ""; // Reset emoji
             document.getElementById('item-naam').focus();
         } else {
             form.reset();
             itemDatum.value = vandaag;
             itemCategorie.value = "Geen"; 
+            itemEmoji.value = ""; // Reset emoji
             document.getElementById('item-eenheid').value = "stuks";
             document.getElementById('item-aantal').value = 1; 
             vriezerSelect.value = "";
@@ -1251,7 +1232,6 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
                 addShoppingItem(item.naam);
             }
             
-            // Verwijder item uit vriezer
             itemsCollectieBasis.doc(id).delete()
                 .then(() => {
                     showFeedback('Item verwijderd.', 'success');
@@ -1284,6 +1264,9 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
     eenheidSelect.value = item.eenheid || 'stuks';
 
     editCategorie.value = item.categorie || 'Geen';
+    
+    // *** AANGEPAST: Vul emoji veld met opgeslagen waarde of default ***
+    editEmoji.value = item.emoji || getEmojiForCategory(item.categorie || 'Geen');
         
         editVriezer.innerHTML = '';
         alleVriezers.forEach(vriezer => {
@@ -1322,6 +1305,9 @@ editForm.addEventListener('submit', (e) => {
     
     const nieuweDatum = new Date(editDatum.value + "T00:00:00");
     
+    // *** AANGEPAST: Emoji updaten ***
+    const gekozenEmoji = editEmoji.value || getEmojiForCategory(editCategorie.value);
+
     itemsCollectieBasis.doc(id).update({
         naam: editNaam.value,
         aantal: parseFloat(editAantal.value),
@@ -1330,12 +1316,12 @@ editForm.addEventListener('submit', (e) => {
         ladeId: geselecteerdeLadeId,
         ladeNaam: geselecteerdeLadeNaam,
         ingevrorenOp: new Date (nieuweDatum),
-        categorie: editCategorie.value 
+        categorie: editCategorie.value,
+        emoji: gekozenEmoji // NIEUW
     })
     .then(() => {
         sluitItemModal();
         showFeedback('Item bijgewerkt!', 'success');
-        // Geschiedenis is optioneel bij bewerken, laten we het houden op verplaatsen en verwijderen
     })
     .catch((err) => showFeedback(`Fout bij bijwerken: ${err.message}`, 'error'));
 });
@@ -1443,7 +1429,6 @@ function laadLadesBeheer(vriezerId) {
                 li.dataset.id = lade.id;
                 li.dataset.naam = lade.naam;
                 
-                // NIEUW: QR Knop in beheer
                 li.innerHTML = `
                     <span>${lade.naam}</span>
                     <input type="text" value="${lade.naam}" class="beheer-naam-input">
@@ -1487,26 +1472,21 @@ ladeBeheerLijst.addEventListener('click', (e) => {
     const ladeNaam = li.dataset.naam;
     const deleteBtn = e.target.closest('.delete-btn');
     const editBtn = e.target.closest('.edit-btn');
-    const qrBtn = e.target.closest('.qr-btn'); // NIEUW
+    const qrBtn = e.target.closest('.qr-btn'); 
     
     if (deleteBtn) handleVerwijderLade(ladeId, ladeNaam);
     else if (editBtn) handleHernoem(li, ladesCollectieBasis);
-    else if (qrBtn) toonQrCode(ladeId, ladeNaam); // NIEUW
+    else if (qrBtn) toonQrCode(ladeId, ladeNaam); 
 });
 
-// NIEUW: Functie om QR code te tonen
 function toonQrCode(ladeId, ladeNaam) {
     if (!ladeId) return;
     
-    // URL van de app + query parameter voor de lade
-    // Let op: in Firebase hosting is de URL vaak iets als https://jouw-app.web.app
-    // We gebruiken window.location.origin
     const appUrl = window.location.origin + window.location.pathname;
     const qrUrl = `${appUrl}?ladeFilter=${ladeId}`;
     
     console.log("QR URL:", qrUrl);
     
-    // Genereer QR
     const qr = new QRious({
         element: qrCanvas,
         value: qrUrl,
@@ -1518,11 +1498,7 @@ function toonQrCode(ladeId, ladeNaam) {
     showModal(qrModal);
 }
 
-// Print QR
 btnPrintQr.addEventListener('click', () => {
-    // We kunnen de modal printen, of alleen de afbeelding
-    // Simpele manier: window.print()
-    // In CSS hebben we @media print geregeld om de rest te verbergen, maar we moeten zorgen dat de modal zichtbaar is
     window.print();
 });
 sluitQrKnop.addEventListener('click', () => hideModal(qrModal));
@@ -1720,7 +1696,7 @@ manualEanBtn.addEventListener('click', () => {
 // Aantal knoppen (UX)
 form.addEventListener('click', handleAantalKlik);
 editModal.addEventListener('click', handleAantalKlik);
-movePurchasedModal.addEventListener('click', handleAantalKlik); // Ook in de nieuwe modal
+movePurchasedModal.addEventListener('click', handleAantalKlik); 
 
 // Profiel Modal
 profileBtn.addEventListener('click', () => {
@@ -2072,6 +2048,7 @@ movePurchasedForm.addEventListener('submit', (e) => {
     const eenheid = movePurchasedEenheid.value;
     const categorie = movePurchasedCategorie.value;
     const listId = movePurchasedTempId.value;
+    const emoji = movePurchasedEmoji.value; // NIEUW: Emoji meegeven
     
     if(!vriezerId || !ladeId) {
         showFeedback("Kies a.u.b. een vriezer en lade.", "error");
@@ -2084,6 +2061,7 @@ movePurchasedForm.addEventListener('submit', (e) => {
         aantal: aantal,
         eenheid: eenheid,
         categorie: categorie,
+        emoji: emoji, // NIEUW
         vriezerId: vriezerId,
         ladeId: ladeId,
         ladeNaam: ladeNaam,
