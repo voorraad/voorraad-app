@@ -256,10 +256,16 @@ function getEmojiForCategory(categorie) {
         "Brood": "🍞",
         "IJs": "🍦",
         "Restjes": "🥡",
-        "Saus": "🥣",
+        "Saus": "🥣", // Bestond al, maar check dubbel
         "Ander": "📦",
+        "Friet": "🍟", // NIEUW
+        "Pizza": "🍕", // Eventueel handig? Maar je vroeg specifiek Friet
         "Geen": "❄️"
     };
+    // Als Saus nog geen emoji had in de vorige versie, pas ik hem hier aan naar 🥫 of 🥣.
+    // Ik gebruik 🥫 (blik/pot) of 🥣 (kom). Laten we consistent zijn met je lijst.
+    if (categorie === "Saus") return "🥫"; 
+    
     return emojis[categorie] || "❄️";
 }
 
@@ -946,6 +952,7 @@ function renderDynamischeLijsten() {
         const catFilterSelect = document.createElement('select');
         catFilterSelect.id = `filter-categorie-${vriezer.id}`;
         catFilterSelect.className = 'lade-filter-select';
+        // Opties (hardcoded, gelijk aan de HTML formulieren)
         catFilterSelect.innerHTML = `
             <option value="all">Alle categorieën</option>
             <option value="Geen">Geen categorie</option>
@@ -956,6 +963,8 @@ function renderDynamischeLijsten() {
             <option value="Brood">Brood</option>
             <option value="Fruit">Fruit</option>
             <option value="IJs">IJs</option>
+            <option value="Saus">Saus</option>
+            <option value="Friet">Friet</option>
             <option value="Ander">Ander</option>
         `;
         catFilterSelect.addEventListener('change', updateItemVisibility); 
