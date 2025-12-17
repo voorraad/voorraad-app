@@ -1102,6 +1102,17 @@ body.move-mode .bulk-checkbox {
         flex-shrink: 0;
     }
     
+    /* *** FIX: Vriezer kolommen naast elkaar op desktop *** */
+    .vriezer-container {
+        flex-direction: row; /* Zorg dat ze in een rij staan */
+        align-items: flex-start;
+    }
+    .vriezer-kolom {
+        flex: 1; /* Laat kolommen ruimte verdelen */
+        min-width: 300px; /* Minimum breedte behouden */
+        max-width: 50%; /* Maximaal de helft van het scherm bij 2 kolommen, of laat flex het regelen */
+    }
+
     /* Bulk bar op desktop ook beperken */
     .bulk-action-bar {
         max-width: 1200px;
