@@ -451,6 +451,7 @@ auth.onAuthStateChanged((user) => {
         startAlleDataListeners();
         startPendingSharesListener();
         
+        // Check voor QR URL parameters bij laden (als de pagina opent via QR scan)
         checkUrlForLadeFilter();
 
     } else {
@@ -463,14 +464,17 @@ auth.onAuthStateChanged((user) => {
         stopAlleDataListeners(); 
         console.log("Niet ingelogd, terug naar index.html");
         
+        // UI leegmaken
         vriezerLijstenContainer.innerHTML = '';
         dashboard.innerHTML = '';
         vriezerSelect.innerHTML = '<option value="" disabled selected>Kies een vriezer...</option>';
         schuifSelect.innerHTML = '<option value="" disabled selected>Kies eerst een vriezer...</option>';
         
+        // Knoppen resetten/verbergen
         switchAccountKnop.style.display = 'none';
         hideModal(switchAccountModal);
         
+        // Profiel Knop Resetten
         profileImg.src = '';
         profileImg.style.display = 'none';
         profileIcon.style.display = 'block';
@@ -483,10 +487,15 @@ auth.onAuthStateChanged((user) => {
     }
 });
 
+// AANGEPASTE LOGICA VOOR QR FILTER
 function checkUrlForLadeFilter() {
+    // Haal de query string parameters op
     const urlParams = new URLSearchParams(window.location.search);
     const ladeId = urlParams.get('ladeFilter');
+    
     if (ladeId) {
+        console.log("QR Filter gevonden in URL:", ladeId);
+        // Sla de lade ID op in een globale variabele om te gebruiken zodra de data geladen is
         window.pendingLadeFilter = ladeId;
     }
 }
@@ -903,6 +912,7 @@ function renderDynamischeLijsten() {
             ladeFilterSelect.innerHTML += `<option value="${lade.id}">${lade.naam}</option>`;
         });
         
+        // AANGEPAST: Pas de pending filter ook toe op de dropdown
         if (window.pendingLadeFilter) {
              const checkLade = vriezerLades.find(l => l.id === window.pendingLadeFilter);
              if (checkLade) {
@@ -998,7 +1008,6 @@ function renderDynamischeLijsten() {
                 
                 li.dataset.dagen = diffDagen; 
                 
-                // *** AANGEPAST: Emoji uit item halen of default ***
                 const emoji = item.emoji || getEmojiForCategory(item.categorie || 'Geen');
 
                 const isChecked = selectedItemIds.has(item.id) ? 'checked' : '';
@@ -1036,6 +1045,9 @@ function renderDynamischeLijsten() {
         vriezerLijstenContainer.appendChild(kolomDiv);
     });
     
+    // AANGEPAST: Reset de pending filter niet direct, maar laat de zichtbaarheidsupdate zijn werk doen
+    // en reset hem pas als de filter daadwerkelijk is toegepast in de updateItemVisibility of als de gebruiker zelf iets doet
+    // Voor nu: reset hem hier, want updateItemVisibility leest de dropdown uit, en die hebben we net gezet
     window.pendingLadeFilter = null;
 
     const kanBewerken = (beheerdeUserId === eigenUserId) || 
@@ -1117,7 +1129,6 @@ function initDragAndDrop() {
 // STAP 5: Items CRUD
 // ---
 
-// NIEUW: Luister naar categorie wijzigingen om emoji voor te stellen
 itemCategorie.addEventListener('change', () => updateEmojiField(itemCategorie, itemEmoji));
 editCategorie.addEventListener('change', () => updateEmojiField(editCategorie, editEmoji));
 movePurchasedCategorie.addEventListener('change', () => updateEmojiField(movePurchasedCategorie, movePurchasedEmoji));
@@ -1146,7 +1157,6 @@ form.addEventListener('submit', (e) => {
     const itemNaam = document.getElementById('item-naam').value;
     const ingevrorenOpDatum = new Date(itemDatum.value + "T00:00:00");
 
-    // *** AANGEPAST: Emoji opslaan ***
     const gekozenEmoji = itemEmoji.value || getEmojiForCategory(itemCategorie.value);
 
     itemsCollectieBasis.add({
@@ -1155,7 +1165,7 @@ form.addEventListener('submit', (e) => {
         eenheid: document.getElementById('item-eenheid').value,
         ingevrorenOp: ingevrorenOpDatum,
         categorie: itemCategorie.value,
-        emoji: gekozenEmoji, // NIEUW
+        emoji: gekozenEmoji, 
         userId: beheerdeUserId,
         vriezerId: geselecteerdeVriezerId,
         ladeId: geselecteerdeLadeId,
@@ -1171,13 +1181,13 @@ form.addEventListener('submit', (e) => {
             document.getElementById('item-eenheid').value = "stuks";
             itemDatum.value = vandaag;
             itemCategorie.value = "Geen"; 
-            itemEmoji.value = ""; // Reset emoji
+            itemEmoji.value = ""; 
             document.getElementById('item-naam').focus();
         } else {
             form.reset();
             itemDatum.value = vandaag;
             itemCategorie.value = "Geen"; 
-            itemEmoji.value = ""; // Reset emoji
+            itemEmoji.value = ""; 
             document.getElementById('item-eenheid').value = "stuks";
             document.getElementById('item-aantal').value = 1; 
             vriezerSelect.value = "";
@@ -1265,7 +1275,6 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
 
     editCategorie.value = item.categorie || 'Geen';
     
-    // *** AANGEPAST: Vul emoji veld met opgeslagen waarde of default ***
     editEmoji.value = item.emoji || getEmojiForCategory(item.categorie || 'Geen');
         
         editVriezer.innerHTML = '';
@@ -1305,7 +1314,6 @@ editForm.addEventListener('submit', (e) => {
     
     const nieuweDatum = new Date(editDatum.value + "T00:00:00");
     
-    // *** AANGEPAST: Emoji updaten ***
     const gekozenEmoji = editEmoji.value || getEmojiForCategory(editCategorie.value);
 
     itemsCollectieBasis.doc(id).update({
@@ -1317,7 +1325,7 @@ editForm.addEventListener('submit', (e) => {
         ladeNaam: geselecteerdeLadeNaam,
         ingevrorenOp: new Date (nieuweDatum),
         categorie: editCategorie.value,
-        emoji: gekozenEmoji // NIEUW
+        emoji: gekozenEmoji 
     })
     .then(() => {
         sluitItemModal();
