@@ -24,7 +24,7 @@
 
     <!-- QR Code Scanner Lib -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    <!-- QR Code Generator Lib (Nieuw) -->
+    <!-- QR Code Generator Lib -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 </head>
 <body>
@@ -57,8 +57,8 @@
         <form id="add-item-form">
             
             <div class="input-with-button" style="grid-column: 1 / 3;">
-                <!-- AANGEPAST: Emoji veld kleiner gemaakt (35px) -->
-                <input type="text" id="item-emoji" placeholder="🏷️" style="width: 35px; flex-shrink: 0; text-align: center; padding: 0;" title="Emoji">
+                <!-- AANGEPAST: Breedte 40px en padding 12px (verticaal) om te matchen met de rest -->
+                <input type="text" id="item-emoji" placeholder="🏷️" style="width: 40px; flex-shrink: 0; text-align: center; padding: 12px 0;" title="Emoji">
                 
                 <input type="text" id="item-naam" placeholder="Productnaam" required list="product-suggesties">
                 <button type="button" id="scan-btn" class="btn-beheer" title="Scan barcode">
@@ -84,9 +84,12 @@
             <select id="item-vriezer" required>
                 <option value="" disabled selected>Kies een vriezer...</option> 
             </select>
-            <!-- NIEUWE Groepering voor Categorie en Datum -->
+            <select id="item-schuif" required>
+                <option value="" disabled selected>Kies eerst een vriezer...</option> 
+            </select>
+            
+            <!-- Groepering voor Categorie en Datum -->
             <div class="form-grid-pair" style="grid-column: 1 / 3;">
-                <!-- NIEUW CATEGORIE VELD -->
                 <div>
                     <label for="item-categorie" class="form-label">Categorie:</label>
                     <select id="item-categorie" required>
@@ -104,7 +107,6 @@
                     </select>
                 </div>
                 
-                <!-- AANGEPAST: Datumveld heeft nu een wrapper -->
                 <div class="form-field-group">
                     <label for="item-datum" class="form-label">Ingevroren op:</label>
                     <input type="date" id="item-datum" required>
@@ -126,7 +128,7 @@
             <input type="text" id="search-bar" placeholder="Zoek een product...">
         </div>
         
-        <!-- Controls Bar: Toggle Alles & Verplaatsmodus -->
+        <!-- Controls Bar -->
         <div style="display: flex; gap: 10px; margin-bottom: 20px;">
             <button id="btn-toggle-alles" class="btn-full-width-toggle" style="flex: 1; margin-bottom: 0;">
                 <i class="fas fa-plus-square"></i> Alles Openen
@@ -141,7 +143,7 @@
         </div>
     </div>
 
-    <!-- NIEUW: Bulk Actie Balk (Fixed Bottom) -->
+    <!-- Bulk Actie Balk -->
     <div id="bulk-action-bar" class="bulk-action-bar">
         <span class="bulk-info" id="bulk-count">0 items geselecteerd</span>
         <div class="bulk-controls">
@@ -159,7 +161,7 @@
     MODALS
     --- -->
 
-    <!-- *** AANGEPAST: Edit Item Modal *** -->
+    <!-- Edit Item Modal -->
     <div id="edit-modal" class="modal-overlay">
         <div class="modal-content">
             <h2>Item Bewerken</h2>
@@ -167,10 +169,9 @@
                 <input type="hidden" id="edit-item-id">
                 
                 <label for="edit-item-naam">Naam & Emoji:</label>
-                <!-- Flex container voor emoji en naam op één regel -->
                 <div style="display: flex; gap: 10px;">
-                    <!-- AANGEPAST: Emoji veld kleiner gemaakt (35px) -->
-                    <input type="text" id="edit-item-emoji" style="width: 35px; text-align: center; padding: 0;" placeholder="🏷️">
+                    <!-- AANGEPAST: Emoji veld in edit modal -->
+                    <input type="text" id="edit-item-emoji" style="width: 40px; text-align: center; padding: 12px 0;" placeholder="🏷️">
                     <input type="text" id="edit-item-naam" required style="flex-grow: 1;">
                 </div>
                 
@@ -190,7 +191,6 @@
                 <label for="edit-item-schuif">Schuif/Lade:</label>
                 <select id="edit-item-schuif" required></select>
                 
-                <!-- NIEUW CATEGORIE VELD -->
                 <label for="edit-item-categorie">Categorie:</label>
                 <select id="edit-item-categorie" required>
                     <option value="Geen">Geen categorie</option>
@@ -217,14 +217,14 @@
         </div>
     </div>
 
-    <!-- NIEUW: Move Purchased Modal (Slimmer Gekocht) -->
+    <!-- Move Purchased Modal -->
     <div id="move-purchased-modal" class="modal-overlay">
         <div class="modal-content">
             <h2>Gekocht & Opbergen</h2>
             <p>Waar heb je <strong><span id="move-purchased-naam"></span></strong> gelegd?</p>
             <form id="move-purchased-form">
-                <input type="hidden" id="move-purchased-temp-id"> <!-- ID van boodschappenlijst item -->
-                <input type="hidden" id="move-purchased-item-naam"> <!-- Naam om op te slaan -->
+                <input type="hidden" id="move-purchased-temp-id">
+                <input type="hidden" id="move-purchased-item-naam">
                 
                 <label>Vriezer:</label>
                 <select id="move-purchased-vriezer" required style="margin-bottom: 10px;">
@@ -257,8 +257,8 @@
                          <option value="Friet">Friet</option>
                          <option value="Ander">Ander</option>
                     </select>
-                    <!-- AANGEPAST: Emoji veld kleiner gemaakt (35px) -->
-                    <input type="text" id="move-purchased-emoji" placeholder="🏷️" style="width: 35px; text-align: center; padding: 0;">
+                    <!-- AANGEPAST: Emoji veld in move modal -->
+                    <input type="text" id="move-purchased-emoji" placeholder="🏷️" style="width: 40px; text-align: center; padding: 12px 0;">
                 </div>
 
                 <div class="modal-buttons">
@@ -278,7 +278,6 @@
             </div>
             
             <div class="beheer-container">
-                
                 <div class="beheer-kolom">
                     <h3>Vriezers</h3>
                     <form id="add-vriezer-form">
@@ -308,12 +307,11 @@
                     <hr>
                     <ul id="eenheid-beheer-lijst" class="shared-list"></ul>
                 </div>
-
             </div>
         </div> 
     </div>
 
-    <!-- NIEUW: QR Code Modal -->
+    <!-- QR Code Modal -->
     <div id="qr-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
@@ -322,7 +320,7 @@
             </div>
             <p style="text-align: center;">Print deze code en plak hem op de lade.</p>
             <div style="text-align: center;">
-                <canvas id="qr-canvas"></canvas> <!-- Hier tekent JS de code op -->
+                <canvas id="qr-canvas"></canvas>
             </div>
             <p id="qr-lade-naam" style="text-align: center; font-weight: bold; margin-top: 10px;"></p>
             <div class="modal-buttons" style="justify-content: center;">
@@ -339,7 +337,7 @@
                 <button type="button" id="btn-stop-scan" class="btn-cancel">Annuleren</button>
             </div>
             <div id="barcode-scanner-container" style="width: 100%; max-width: 450px; margin: 20px auto;"></div>
-            <p style="text-align: center; color: #777;">Richt de camera op een barcode of QR-code.</p>
+            <p style="text-align: center; color: #777;">Richt de camera op een barcode.</p>
         </div>
     </div>
     
@@ -350,23 +348,19 @@
                 <h2>Wissel Account</h2>
                 <button type="button" id="btn-sluit-switch-account" class="btn-cancel">Sluiten</button>
             </div>
-            
             <div class="admin-huidig-beheer">
                 <h3 id="switch-account-titel">Je beheert je eigen vriezers.</h3>
                 <button id="switch-terug-knop" class="btn-beheer" style="display: none; background-color: #4A90E2;">
                     <i class="fas fa-arrow-left"></i> Terug naar mijn account
                 </button>
             </div>
-            
             <hr>
-            
             <div class="beheer-container">
                 <div class="beheer-kolom" id="user-switch-section" style="display: none;">
                     <h3 class="user-only">Gedeeld met mij</h3>
                     <p>Selecteer een account om hun vriezers te bekijken/beheren.</p>
                     <ul id="user-shared-lijst" class="shared-list"></ul>
                 </div>
-                
                 <div class="beheer-kolom" id="admin-switch-section" style="display: none;">
                     <h3 class="admin-only">Alle Gebruikers (Admin)</h3>
                     <p>Selecteer een gebruiker om hun vriezers te beheren.</p>
@@ -383,14 +377,11 @@
                 <h2>Mijn Profiel</h2>
                 <button type="button" id="btn-sluit-profile" class="btn-cancel">Sluiten</button>
             </div>
-            
             <div class="profile-header">
                 <i class="fas fa-user-circle"></i>
                 <img id="profile-modal-img" src="" alt="Profiel">
                 <span id="profile-email">Laden...</span>
             </div>
-
-            <!-- Menu Opties -->
             <ul class="profile-menu-list">
                 <li>
                     <button id="profile-vriezer-beheer-btn" class="profile-menu-btn">
@@ -422,7 +413,6 @@
                         <span>Weekmenu</span>
                     </button>
                 </li>
-                <!-- NIEUW: Geschiedenis knop -->
                 <li>
                     <button id="profile-history-btn" class="profile-menu-btn">
                         <i class="fas fa-history"></i>
@@ -436,17 +426,14 @@
                     </button>
                 </li>
             </ul>
-
             <hr>
-            
             <button id="logout-btn" class="btn-beheer btn-logout" style="width: 100%;">
                 <i class="fas fa-sign-out-alt"></i> Uitloggen
             </button>
-            
         </div>
     </div>
     
-    <!-- NIEUW: Geschiedenis Modal -->
+    <!-- Geschiedenis Modal -->
     <div id="history-modal" class="modal-overlay">
         <div class="modal-content modal-groot">
             <div class="modal-header">
@@ -482,7 +469,6 @@
                 <h2>Mijn Vriezers Delen</h2>
                 <button type="button" id="btn-sluit-share" class="btn-cancel">Sluiten</button>
             </div>
-            
             <div class="beheer-container">
                 <div class="beheer-kolom">
                     <h3>Nieuwe Gebruiker Uitnodigen</h3>
@@ -530,7 +516,6 @@
                 <h2>Boodschappenlijst</h2>
                 <button type="button" id="btn-sluit-shopping-list" class="btn-cancel">Sluiten</button>
             </div>
-            
             <h3>Item Toevoegen</h3>
             <form id="add-shopping-item-form" class="input-with-button" style="margin-bottom: 20px;">
                 <input type="text" id="shopping-item-naam" placeholder="Nieuw item..." required>
@@ -538,16 +523,13 @@
                     <i class="fas fa-plus"></i>
                 </button>
             </form>
-            
             <hr>
-            
             <div class="modal-header" style="margin-bottom: 10px;">
                 <h3 style="margin: 0; border: none;">Mijn Lijst</h3>
                 <button type="button" id="btn-clear-checked-shopping-items" class="btn-beheer" style="background-color: #d9534f; font-size: 13px;">
                     <i class="fas fa-check-double"></i> Vinkjes Wissen
                 </button>
             </div>
-            
             <ul id="shopping-list" class="shopping-list"></ul>
         </div>
     </div>
@@ -559,7 +541,6 @@
                 <h2>Mijn Weekmenu</h2>
                 <button type="button" id="btn-sluit-weekmenu" class="btn-cancel">Sluiten</button>
             </div>
-            
             <h3>Gerecht Inplannen</h3>
             <form id="add-weekmenu-form" style="margin-bottom: 20px;">
                 <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -575,16 +556,13 @@
                     </button>
                 </div>
             </form>
-            
             <hr>
-            
             <div class="modal-header" style="margin-bottom: 10px;">
                 <h3 style="margin: 0; border: none;">Op de planning</h3>
                 <button type="button" id="btn-clear-old-weekmenu" class="btn-beheer" style="background-color: #d9534f; font-size: 13px;">
                     <i class="fas fa-history"></i> Oude wissen
                 </button>
             </div>
-            
             <ul id="weekmenu-list" class="shopping-list"></ul>
         </div>
     </div>
