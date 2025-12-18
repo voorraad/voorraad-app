@@ -37,7 +37,8 @@ let geselecteerdeVriezerNaam = null;
 let userUnits = []; 
 const defaultUnits = [
     "stuks", "zak", "boterpot", "ijsdoos", 
-    "iglodoos 450ml", "iglodoos 1l laag", "iglodoos 1l hoog", 
+    "Ikea doos 600ml", "iglodoos 450ml", 
+    "iglodoos 1l laag", "iglodoos 1l hoog", 
     "gram", "kilo", "bakje", "portie"
 ];
 
@@ -73,7 +74,7 @@ const vriezerSelect = document.getElementById('item-vriezer');
 const schuifSelect = document.getElementById('item-schuif'); 
 const itemDatum = document.getElementById('item-datum');
 const itemCategorie = document.getElementById('item-categorie');
-const itemEmoji = document.getElementById('item-emoji');
+const itemEmoji = document.getElementById('item-emoji'); // NIEUW
 const editModal = document.getElementById('edit-modal');
 const editForm = document.getElementById('edit-item-form');
 const editId = document.getElementById('edit-item-id');
@@ -84,7 +85,7 @@ const editVriezer = document.getElementById('edit-item-vriezer');
 const editSchuif = document.getElementById('edit-item-schuif');
 const editDatum = document.getElementById('edit-item-datum');
 const editCategorie = document.getElementById('edit-item-categorie');
-const editEmoji = document.getElementById('edit-item-emoji');
+const editEmoji = document.getElementById('edit-item-emoji'); // NIEUW
 const btnCancel = document.getElementById('btn-cancel');
 const logoutBtn = document.getElementById('logout-btn');
 const searchBar = document.getElementById('search-bar');
@@ -204,7 +205,7 @@ const movePurchasedLade = document.getElementById('move-purchased-lade');
 const movePurchasedAantal = document.getElementById('move-purchased-aantal');
 const movePurchasedEenheid = document.getElementById('move-purchased-eenheid');
 const movePurchasedCategorie = document.getElementById('move-purchased-categorie');
-const movePurchasedEmoji = document.getElementById('move-purchased-emoji');
+const movePurchasedEmoji = document.getElementById('move-purchased-emoji'); // NIEUW
 
 
 // ---
@@ -264,11 +265,12 @@ function getEmojiForCategory(categorie) {
     return emojis[categorie] || "❄️";
 }
 
-// Functie om emoji veld te updaten bij categorie change
+// NIEUW: Functie om emoji veld te updaten bij categorie change
 function updateEmojiField(selectElement, inputElement) {
     const cat = selectElement.value;
     const emoji = getEmojiForCategory(cat);
     // Vul alleen in als het veld leeg is of als de gebruiker dit waarschijnlijk verwacht
+    // Voor nu: altijd overschrijven als 'hulp', gebruiker kan aanpassen
     inputElement.value = emoji;
 }
 
@@ -917,7 +919,6 @@ function renderDynamischeLijsten() {
              if (checkLade) {
                  console.log("Lade filter toegepast op dropdown:", window.pendingLadeFilter);
                  ladeFilterSelect.value = window.pendingLadeFilter;
-                 // Scroll pas na rendering met kleine vertraging
                  setTimeout(() => {
                      kolomDiv.scrollIntoView({ behavior: 'smooth' });
                  }, 300);
