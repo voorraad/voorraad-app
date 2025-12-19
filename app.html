@@ -3,30 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vriezer</title>
+    <title>Voorraad Beheer</title>
     
     <link rel="stylesheet" href="style.css">
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     
-    <!-- Favicons -->
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-    <link rel="manifest" href="site.webmanifest">
-    <link rel="mask-icon" href="safari-pinned-tab.svg" color="#5bbad5">
-    <meta name="msapplication-TileColor" content="#da532c">
-    <meta name="theme-color" content="#ffffff">
-
-    <!-- QR Code Scanner Lib -->
+    <!-- Libraries -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    <!-- QR Code Generator Lib -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
-    <!-- Emoji Picker Lib (Lichtgewicht) -->
     <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
 </head>
 <body>
@@ -34,7 +21,7 @@
     <div class="container">
         <!-- Header Bar -->
         <div class="header-bar">
-            <h1>Vriezer</h1>
+            <h1>Mijn Voorraad</h1>
             <div class="header-icons-wrapper">
                 <button id="switch-account-knop" class="btn-beheer btn-admin" style="display: none;" title="Wissel Account">
                     <i class="fas fa-users-cog"></i>
@@ -48,6 +35,18 @@
             </div>
         </div>
 
+        <!-- TABS NAVIGATIE -->
+        <div class="tabs-container">
+            <button class="tab-btn active" data-tab="vriezer">
+                <i class="fas fa-snowflake"></i> Vriezer
+            </button>
+            <button class="tab-btn" data-tab="koelkast">
+                <i class="fas fa-temperature-low"></i> Koelkast
+            </button>
+            <button class="tab-btn" data-tab="voorraad">
+                <i class="fas fa-box-open"></i> Voorraad
+            </button>
+        </div>
 
         <div id="feedback-message" class="feedback"></div>
 
@@ -57,34 +56,23 @@
 
         <!-- Add Item Form -->
         <form id="add-item-form">
-            
             <div class="input-with-button" style="grid-column: 1 / 3;">
-                <!-- AANGEPAST: Klasse 'emoji-trigger' toegevoegd en readonly gemaakt om toetsenbord te voorkomen -->
                 <input type="text" id="item-emoji" class="emoji-trigger" placeholder="🏷️" style="width: 50px; height: 50px; flex-grow: 0; flex-shrink: 0; text-align: center; border-radius: 5px; border: 1px solid #ccc; padding: 0; font-size: 20px; cursor: pointer;" title="Kies Emoji" readonly>
-                
                 <input type="text" id="item-naam" placeholder="Productnaam" required list="product-suggesties" style="height: 50px;">
-                
-                <button type="button" id="scan-btn" class="btn-beheer" title="Scan barcode">
-                    <i class="fas fa-barcode"></i>
-                </button>
-                <button type="button" id="manual-ean-btn" class="btn-beheer" title="Handmatig EAN invoeren">
-                    <i class="fas fa-keyboard"></i>
-                </button>
+                <button type="button" id="scan-btn" class="btn-beheer" title="Scan barcode"><i class="fas fa-barcode"></i></button>
+                <button type="button" id="manual-ean-btn" class="btn-beheer" title="Handmatig EAN invoeren"><i class="fas fa-keyboard"></i></button>
             </div>
-            
             <datalist id="product-suggesties"></datalist>
 
             <div class="aantal-wrapper">
-                <button type="button" class="aantal-btn" data-action="minus" aria-label="Verminder aantal">-</button>
+                <button type="button" class="aantal-btn" data-action="minus">-</button>
                 <input type="number" id="item-aantal" placeholder="Aantal" value="1" step="0.25" min="0.25" required>
-                <button type="button" class="aantal-btn" data-action="plus" aria-label="Verhoog aantal">+</button>
+                <button type="button" class="aantal-btn" data-action="plus">+</button>
             </div>
             
-            <!-- HIER IS DE EENHEID SELECT -->
-            <select id="item-eenheid" required>
-                <!-- Dynamisch gevuld -->
-            </select>
+            <select id="item-eenheid" required></select>
             
+            <!-- Dit label verandert op basis van de tab -->
             <select id="item-vriezer" required>
                 <option value="" disabled selected>Kies een vriezer...</option> 
             </select>
@@ -92,7 +80,6 @@
                 <option value="" disabled selected>Kies eerst een vriezer...</option> 
             </select>
             
-            <!-- NIEUWE Groepering voor Categorie en Datum -->
             <div class="form-grid-pair" style="grid-column: 1 / 3;">
                 <div class="form-field-group">
                     <label for="item-categorie" class="form-label">Categorie:</label>
@@ -108,18 +95,22 @@
                         <option value="Saus">Saus</option>
                         <option value="Friet">Friet</option>
                         <option value="Ander">Ander</option>
+                        <option value="Zuivel">Zuivel</option> <!-- Toegevoegd voor koelkast -->
+                        <option value="Drank">Drank</option> <!-- Toegevoegd voor voorraad -->
+                        <option value="Pasta/Rijst">Pasta/Rijst</option> <!-- Toegevoegd voor voorraad -->
+                        <option value="Blik">Blik</option> <!-- Toegevoegd voor voorraad -->
                     </select>
                 </div>
                 
                 <div class="form-field-group">
-                    <label for="item-datum" class="form-label">Ingevroren op:</label>
+                    <label for="item-datum" class="form-label">Datum:</label>
                     <input type="date" id="item-datum" required>
                 </div>
             </div>
             
             <div style="grid-column: 1 / 3; display: flex; align-items: center; gap: 10px;">
                 <input type="checkbox" id="remember-drawer-check" style="width: auto;">
-                <label for="remember-drawer-check" style="margin: 0; font-weight: normal;">Onthoud vriezer en lade</label>
+                <label for="remember-drawer-check" style="margin: 0; font-weight: normal;">Onthoud locatie en lade</label>
             </div>
 
             <button type="submit">Toevoegen</button>
@@ -132,7 +123,6 @@
             <input type="text" id="search-bar" placeholder="Zoek een product...">
         </div>
         
-        <!-- Controls Bar -->
         <div style="display: flex; gap: 10px; margin-bottom: 20px;">
             <button id="btn-toggle-alles" class="btn-full-width-toggle" style="flex: 1; margin-bottom: 0;">
                 <i class="fas fa-plus-square"></i> Alles Openen
@@ -152,7 +142,7 @@
         <span class="bulk-info" id="bulk-count">0 items geselecteerd</span>
         <div class="bulk-controls">
             <select id="bulk-target-vriezer" class="bulk-select">
-                <option value="" disabled selected>Naar vriezer...</option>
+                <option value="" disabled selected>Naar locatie...</option>
             </select>
             <select id="bulk-target-lade" class="bulk-select">
                 <option value="" disabled selected>Naar lade...</option>
@@ -161,10 +151,6 @@
         </div>
     </div>
     
-    <!-- ---
-    MODALS
-    --- -->
-
     <!-- Edit Item Modal -->
     <div id="edit-modal" class="modal-overlay">
         <div class="modal-content">
@@ -174,22 +160,21 @@
                 
                 <label for="edit-item-naam">Naam & Emoji:</label>
                 <div style="display: flex; gap: 10px;">
-                    <!-- AANGEPAST: class emoji-trigger en readonly -->
                     <input type="text" id="edit-item-emoji" class="emoji-trigger" style="width: 50px; height: 50px; flex-grow: 0; flex-shrink: 0; text-align: center; border-radius: 5px; border: 1px solid #ccc; padding: 0; font-size: 20px; cursor: pointer;" placeholder="🏷️" readonly>
                     <input type="text" id="edit-item-naam" required style="flex-grow: 1; height: 50px;">
                 </div>
                 
                 <label for="edit-item-aantal" style="margin-top: 15px;">Aantal:</label>
                 <div class="aantal-wrapper">
-                    <button type="button" class="aantal-btn" data-action="minus" aria-label="Verminder aantal">-</button>
+                    <button type="button" class="aantal-btn" data-action="minus">-</button>
                     <input type="number" id="edit-item-aantal" step="0.25" min="0.25" required>
-                    <button type="button" class="aantal-btn" data-action="plus" aria-label="Verhoog aantal">+</button>
+                    <button type="button" class="aantal-btn" data-action="plus">+</button>
                 </div>
 
                 <label for="edit-item-eenheid">Eenheid:</label>
                 <select id="edit-item-eenheid" required></select>
                 
-                <label for="edit-item-vriezer">Vriezer:</label>
+                <label for="edit-item-vriezer">Locatie:</label>
                 <select id="edit-item-vriezer" required></select>
                 
                 <label for="edit-item-schuif">Schuif/Lade:</label>
@@ -208,9 +193,13 @@
                     <option value="Saus">Saus</option>
                     <option value="Friet">Friet</option>
                     <option value="Ander">Ander</option>
+                    <option value="Zuivel">Zuivel</option>
+                    <option value="Drank">Drank</option>
+                    <option value="Pasta/Rijst">Pasta/Rijst</option>
+                    <option value="Blik">Blik</option>
                 </select>
                 
-                <label for="edit-item-datum">Ingevroren op:</label>
+                <label for="edit-item-datum">Datum:</label>
                 <input type="date" id="edit-item-datum" required>
                 
                 <div class="modal-buttons">
@@ -230,9 +219,9 @@
                 <input type="hidden" id="move-purchased-temp-id">
                 <input type="hidden" id="move-purchased-item-naam">
                 
-                <label>Vriezer:</label>
+                <label>Locatie:</label>
                 <select id="move-purchased-vriezer" required style="margin-bottom: 10px;">
-                    <option value="" disabled selected>Kies vriezer...</option>
+                    <option value="" disabled selected>Kies locatie...</option>
                 </select>
                 
                 <label>Lade:</label>
@@ -260,20 +249,23 @@
                          <option value="Saus">Saus</option>
                          <option value="Friet">Friet</option>
                          <option value="Ander">Ander</option>
+                         <option value="Zuivel">Zuivel</option>
+                         <option value="Drank">Drank</option>
+                         <option value="Pasta/Rijst">Pasta/Rijst</option>
+                         <option value="Blik">Blik</option>
                     </select>
-                    <!-- AANGEPAST: class emoji-trigger en readonly -->
                     <input type="text" id="move-purchased-emoji" class="emoji-trigger" placeholder="🏷️" style="width: 50px; height: 50px; flex-grow: 0; flex-shrink: 0; text-align: center; border-radius: 5px; border: 1px solid #ccc; padding: 0; font-size: 20px; cursor: pointer;" readonly>
                 </div>
 
                 <div class="modal-buttons">
-                    <button type="submit" class="btn-save">Opslaan in Vriezer</button>
+                    <button type="submit" class="btn-save">Opslaan</button>
                     <button type="button" id="btn-cancel-move-purchased" class="btn-cancel">Annuleren</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- NIEUW: Emoji Picker Modal -->
+    <!-- Emoji Picker Modal -->
     <div id="emoji-picker-modal" class="modal-overlay" style="z-index: 2000;">
         <div class="modal-content" style="width: auto; padding: 10px;">
             <div class="modal-header" style="justify-content: flex-end; margin-bottom: 5px;">
@@ -283,19 +275,24 @@
         </div>
     </div>
 
-    <!-- Vriezer Beheer Modal -->
+    <!-- Beheer Modal (Locaties & Lades) -->
     <div id="vriezer-beheer-modal" class="modal-overlay">
         <div class="modal-content modal-groot"> 
             <div class="modal-header">
-                <h2>Beheer Vriezers, Lades & Eenheden</h2>
+                <h2>Beheer Locaties, Lades & Eenheden</h2>
                 <button type="button" id="btn-sluit-beheer" class="btn-cancel">Sluiten</button>
             </div>
             
             <div class="beheer-container">
                 <div class="beheer-kolom">
-                    <h3>Vriezers</h3>
-                    <form id="add-vriezer-form">
-                        <input type="text" id="vriezer-naam" placeholder="Naam vriezer" required>
+                    <h3>Locaties</h3>
+                    <form id="add-vriezer-form" style="display: flex; flex-direction: column; gap: 10px;">
+                        <input type="text" id="vriezer-naam" placeholder="Naam (bv. Keuken Koelkast)" required>
+                        <select id="vriezer-type" required style="height: 50px;">
+                            <option value="vriezer">Vriezer</option>
+                            <option value="koelkast">Koelkast</option>
+                            <option value="voorraad">Voorraadkast</option>
+                        </select>
                         <button type="submit">Toevoegen</button>
                     </form>
                     <hr>
@@ -303,9 +300,9 @@
                 </div>
 
                 <div class="beheer-kolom">
-                    <h3 id="lades-beheer-titel">Kies eerst een vriezer...</h3>
+                    <h3 id="lades-beheer-titel">Kies eerst een locatie...</h3>
                     <form id="add-lade-form" style="display: none;">
-                        <input type="text" id="lade-naam" placeholder="Naam lade" required>
+                        <input type="text" id="lade-naam" placeholder="Naam lade/plank" required>
                         <button type="submit">Toevoegen</button>
                     </form>
                     <hr id="lades-beheer-hr" style="display: none;">
@@ -332,7 +329,7 @@
                 <h2>Lade QR Code</h2>
                 <button type="button" id="btn-sluit-qr" class="btn-cancel">Sluiten</button>
             </div>
-            <p style="text-align: center;">Print deze code en plak hem op de lade.</p>
+            <p style="text-align: center;">Print deze code en plak hem op de lade/plank.</p>
             <div style="text-align: center;">
                 <canvas id="qr-canvas"></canvas>
             </div>
@@ -363,7 +360,7 @@
                 <button type="button" id="btn-sluit-switch-account" class="btn-cancel">Sluiten</button>
             </div>
             <div class="admin-huidig-beheer">
-                <h3 id="switch-account-titel">Je beheert je eigen vriezers.</h3>
+                <h3 id="switch-account-titel">Je beheert je eigen voorraad.</h3>
                 <button id="switch-terug-knop" class="btn-beheer" style="display: none; background-color: #4A90E2;">
                     <i class="fas fa-arrow-left"></i> Terug naar mijn account
                 </button>
@@ -372,12 +369,12 @@
             <div class="beheer-container">
                 <div class="beheer-kolom" id="user-switch-section" style="display: none;">
                     <h3 class="user-only">Gedeeld met mij</h3>
-                    <p>Selecteer een account om hun vriezers te bekijken/beheren.</p>
+                    <p>Selecteer een account om hun voorraad te bekijken/beheren.</p>
                     <ul id="user-shared-lijst" class="shared-list"></ul>
                 </div>
                 <div class="beheer-kolom" id="admin-switch-section" style="display: none;">
                     <h3 class="admin-only">Alle Gebruikers (Admin)</h3>
-                    <p>Selecteer een gebruiker om hun vriezers te beheren.</p>
+                    <p>Selecteer een gebruiker om hun voorraad te beheren.</p>
                     <ul id="admin-user-lijst" class="shared-list"></ul>
                 </div>
             </div>
@@ -399,14 +396,14 @@
             <ul class="profile-menu-list">
                 <li>
                     <button id="profile-vriezer-beheer-btn" class="profile-menu-btn">
-                        <i class="fas fa-snowflake"></i>
-                        <span>Mijn Vriezers Beheren</span>
+                        <i class="fas fa-warehouse"></i>
+                        <span>Locaties Beheren</span>
                     </button>
                 </li>
                 <li>
                     <button id="profile-share-btn" class="profile-menu-btn">
                         <i class="fas fa-users"></i>
-                        <span>Mijn Vriezers Delen</span>
+                        <span>Voorraad Delen</span>
                     </button>
                 </li>
                 <li>
@@ -471,7 +468,7 @@
                 <h2>Houdbaarheid Waarschuwing</h2>
                 <button type="button" id="btn-sluit-notificatie" class="btn-cancel">Sluiten</button>
             </div>
-            <p>De volgende items zijn al erg lang ingevroren. Overweeg om deze binnenkort te gebruiken!</p>
+            <p>De volgende items zijn al erg lang opgeslagen. Overweeg om deze binnenkort te gebruiken!</p>
             <ul id="notificatie-lijst" class="notificatie-lijst"></ul>
         </div>
     </div>
@@ -480,13 +477,13 @@
     <div id="share-modal" class="modal-overlay">
         <div class="modal-content modal-groot">
             <div class="modal-header">
-                <h2>Mijn Vriezers Delen</h2>
+                <h2>Voorraad Delen</h2>
                 <button type="button" id="btn-sluit-share" class="btn-cancel">Sluiten</button>
             </div>
             <div class="beheer-container">
                 <div class="beheer-kolom">
                     <h3>Nieuwe Gebruiker Uitnodigen</h3>
-                    <p>Deel al je vriezers met iemand anders (ze hebben een account nodig).</p>
+                    <p>Deel al je locaties met iemand anders (ze hebben een account nodig).</p>
                     <form id="share-invite-form">
                         <label for="share-email">E-mailadres:</label>
                         <input type="email" id="share-email" placeholder="naam@voorbeeld.com" required>
@@ -502,7 +499,7 @@
                 </div>
                 <div class="beheer-kolom">
                     <h3>Huidige Gedeelde Toegang</h3>
-                    <p>Je deelt je vriezers momenteel met:</p>
+                    <p>Je deelt je voorraad momenteel met:</p>
                     <ul id="share-huidige-lijst" class="shared-list">
                          <li><i>Laden...</i></li>
                     </ul>
@@ -518,7 +515,7 @@
                 <h2>Openstaande Uitnodigingen</h2>
                 <button type="button" id="btn-sluit-accept-share" class="btn-cancel">Later</button>
             </div>
-            <p>Je bent uitgenodigd om vriezers te beheren. Accepteer of weiger de uitnodigingen.</p>
+            <p>Je bent uitgenodigd om een voorraad te beheren.</p>
             <ul id="accept-share-lijst" class="accept-share-list"></ul>
         </div>
     </div>
@@ -626,7 +623,6 @@
         emojiPicker.addEventListener('emoji-click', event => {
             if (currentEmojiInput) {
                 currentEmojiInput.value = event.detail.unicode;
-                // Trigger change event voor eventuele listeners in app.js
                 currentEmojiInput.dispatchEvent(new Event('change')); 
             }
             emojiPickerModal.classList.remove('show');
