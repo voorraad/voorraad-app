@@ -473,23 +473,9 @@ async function registreerGebruiker(user) {
 }
 
 async function checkAdminStatus(uid) {
-    try { 
-        const doc = await adminsCollectie.doc(uid).get(); 
-        isAdmin = doc.exists; 
-    } catch (e) { 
-        isAdmin = false; 
-    }
-    
-    if(isAdmin) { 
-        switchAccountKnop.style.display = 'inline-flex'; 
-        adminSwitchSection.style.display = 'block'; 
-        userSwitchSection.style.display = 'none'; 
-        startAdminUserListener(); 
-    } else { 
-        adminSwitchSection.style.display = 'none'; 
-        userSwitchSection.style.display = 'block'; 
-        startAcceptedSharesListener(); 
-    }
+    try { const doc = await adminsCollectie.doc(uid).get(); isAdmin = doc.exists; } catch (e) { isAdmin = false; }
+    if(isAdmin) { switchAccountKnop.style.display = 'inline-flex'; adminSwitchSection.style.display = 'block'; userSwitchSection.style.display = 'none'; startAdminUserListener(); }
+    else { adminSwitchSection.style.display = 'none'; userSwitchSection.style.display = 'block'; startAcceptedSharesListener(); }
     updateSwitchAccountUI();
 }
 
@@ -508,13 +494,7 @@ function schakelBeheer(naarUserId, naarUserEmail) {
 function updateSwitchAccountUI() {
     if (beheerdeUserId === eigenUserId) {
         switchAccountTitel.textContent = 'Je beheert je eigen voorraad.'; switchAccountTitel.style.color = '#555'; switchTerugKnop.style.display = 'none';
-        startPendingSharesListener(); 
-        
-        // Zorg dat de juiste listener herstart indien nodig
-        if(isAdmin) startAdminUserListener(); 
-        else startAcceptedSharesListener(); 
-        
-        startShoppingListListener();
+        startPendingSharesListener(); if(isAdmin) startAdminUserListener(); else startAcceptedSharesListener(); startShoppingListListener();
     } else {
         switchAccountTitel.textContent = `LET OP: Je beheert ${beheerdeUserEmail}!`; switchAccountTitel.style.color = '#FF6B6B'; switchTerugKnop.style.display = 'block';
         if (pendingSharesListener) pendingSharesListener(); if (acceptedSharesListener) acceptedSharesListener(); if (shoppingListListener) shoppingListListener();
