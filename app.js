@@ -14,6 +14,8 @@ const firebaseConfig = typeof __firebase_config !== 'undefined'
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
+
+// Collectie referenties
 const itemsCollectieBasis = db.collection('items');
 const ladesCollectieBasis = db.collection('lades');
 const vriezersCollectieBasis = db.collection('vriezers');
@@ -40,10 +42,10 @@ const defaultUnits = [
     "gram", "kilo", "bakje", "portie", "pak", "fles", "blik"
 ];
 
-// --- NIEUWE VARIABELE VOOR TABBLADEN ---
+// VARIABELE VOOR TABBLADEN
 let activeTab = 'vriezer'; // Default: Vriezer
 
-// Listeners
+// Listeners (om ze te kunnen stoppen bij uitloggen/wisselen)
 let vriezersListener = null;
 let ladesListener = null;
 let itemsListener = null; 
@@ -54,6 +56,8 @@ let acceptedSharesListener = null;
 let shoppingListListener = null;
 let weekMenuListener = null;
 let historyListener = null;
+let vriezerBeheerListener = null;
+let ladeBeheerListener = null;
 
 // Admin & Data Scheiding
 let isAdmin = false;
@@ -218,6 +222,7 @@ function switchTab(tabName) {
 // ---
 function showModal(modalElement) { if (modalElement) modalElement.classList.add('show'); }
 function hideModal(modalElement) { if (modalElement) modalElement.classList.remove('show'); }
+
 function showFeedback(message, type = 'success') {
     feedbackMessage.textContent = message;
     feedbackMessage.className = 'feedback';
@@ -225,14 +230,24 @@ function showFeedback(message, type = 'success') {
     feedbackMessage.classList.add('show');
     setTimeout(() => { feedbackMessage.classList.remove('show'); }, 3000);
 }
+
 function formatAantal(aantal, eenheid) {
     if (!eenheid || eenheid === 'stuks') return `${aantal}x`;
+    if (eenheid === 'zak') {
+        if (aantal === 1) return "1 zak";
+        if (aantal === 0.75) return "3/4 zak";
+        if (aantal === 0.5) return "1/2 zak";
+        if (aantal === 0.25) return "1/4 zak";
+        return `${aantal} zakken`;
+    }
     return `${aantal}x ${eenheid}`;
 }
+
 function formatDatum(timestamp) {
     if (!timestamp) return 'Onbekende datum';
     return timestamp.toDate().toLocaleDateString('nl-BE');
 }
+
 function getEmojiForCategory(categorie) {
     const emojis = {
         "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", 
@@ -242,11 +257,13 @@ function getEmojiForCategory(categorie) {
     };
     return emojis[categorie] || "❄️";
 }
+
 function updateEmojiField(selectElement, inputElement) {
     const cat = selectElement.value;
     const emoji = getEmojiForCategory(cat);
     inputElement.value = emoji;
 }
+
 function handleAantalKlik(e) {
     const target = e.target.closest('.aantal-btn');
     if (!target) return;
@@ -267,66 +284,141 @@ function handleAantalKlik(e) {
 function startScanner() {
     html5QrCode = new Html5Qrcode(scannerContainerId);
     showModal(scanModal);
-    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } }, onScanSuccess, onScanFailure)
-    .catch(err => { showFeedback("Camera fout.", "error"); sluitScanner(); });
+    html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        onScanSuccess,
+        onScanFailure
+    ).catch(err => {
+        console.log("Scanner fout:", err);
+        showFeedback("Camera niet gevonden of geen toestemming.", "error");
+        sluitScanner();
+    });
 }
+
 function sluitScanner() {
-    if (html5QrCode) { html5QrCode.stop().then(() => hideModal(scanModal)).catch(() => hideModal(scanModal)); } 
-    else { hideModal(scanModal); }
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => hideModal(scanModal)).catch(() => hideModal(scanModal));
+    } else {
+        hideModal(scanModal);
+    }
 }
+
 function onScanSuccess(decodedText, decodedResult) {
     sluitScanner();
+    
+    // Check of het een lade-QR code is
     if (decodedText.includes("ladeFilter=")) {
-        const urlParams = new URL(decodedText).searchParams;
-        const ladeId = urlParams.get("ladeFilter");
-        // Logic to filter by lade... similar to original
-        const gevondenLade = alleLades.find(l => l.id === ladeId);
-        if(gevondenLade) {
-             // Zoek de parent vriezer om de tab te switchen
-             const parentVriezer = alleVriezers.find(v => v.id === gevondenLade.vriezerId);
-             if(parentVriezer && parentVriezer.type) {
-                 switchTab(parentVriezer.type);
-             }
-             
-             window.pendingLadeFilter = ladeId;
-             renderDynamischeLijsten();
-             showFeedback(`Locatie: ${gevondenLade.naam}`, 'success');
+        try {
+            const url = new URL(decodedText);
+            const ladeId = url.searchParams.get("ladeFilter");
+            
+            if (ladeId) {
+                const gevondenLade = alleLades.find(l => l.id === ladeId);
+                
+                if (gevondenLade) {
+                    // Zoek de parent vriezer/locatie om de tab te switchen
+                    const parentVriezer = alleVriezers.find(v => v.id === gevondenLade.vriezerId);
+                    if (parentVriezer && parentVriezer.type) {
+                        switchTab(parentVriezer.type);
+                    }
+                    
+                    window.pendingLadeFilter = ladeId;
+                    renderDynamischeLijsten();
+                    showFeedback(`Locatie: ${gevondenLade.naam}`, 'success');
+                } else {
+                    showFeedback("Locatie niet gevonden in dit account.", "error");
+                }
+            }
+        } catch (e) {
+            console.error("Fout QR:", e);
         }
     } else {
+        // Het is waarschijnlijk een product barcode
         fetchProductFromOFF(decodedText);
     }
 }
-function onScanFailure(error) {}
+
+function onScanFailure(error) {
+    // console.warn(`Scanfout: ${error}`);
+}
+
 async function fetchProductFromOFF(ean) {
-    if (!ean || ean.length < 8) { showFeedback("Ongeldige EAN.", "error"); return; }
+    if (!ean || ean.length < 8) {
+        showFeedback("Ongeldige EAN.", "error");
+        return;
+    }
     try {
         const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${ean}.json`);
         const data = await response.json();
+        
         if (data.status === 1 && data.product && data.product.product_name) {
             document.getElementById('item-naam').value = data.product.product_name;
             showFeedback(`Gevonden: ${data.product.product_name}`, "success");
-        } else { showFeedback("Product niet gevonden.", "error"); }
-    } catch (error) { showFeedback("Fout bij ophalen productinfo.", "error"); }
+        } else {
+            showFeedback("Product niet gevonden in database.", "error");
+        }
+    } catch (error) {
+        showFeedback("Fout bij ophalen productinfo.", "error");
+    }
 }
 
 // --- AUTH & INIT ---
 auth.onAuthStateChanged((user) => {
     if (user) {
-        currentUser = user; eigenUserId = user.uid; beheerdeUserId = user.uid; beheerdeUserEmail = user.email || "Jezelf";
-        isEersteNotificatieCheck = true; alleAcceptedShares = [];
+        console.log("Ingelogd:", user.email);
+        currentUser = user;
+        eigenUserId = user.uid;
+        beheerdeUserId = user.uid;
+        beheerdeUserEmail = user.email || "Jezelf";
+        isEersteNotificatieCheck = true;
+        alleAcceptedShares = [];
+
         registreerGebruiker(user);
         checkAdminStatus(user.uid);
         
-        if (user.photoURL) { profileImg.src = user.photoURL; profileImg.style.display = 'block'; profileIcon.style.display = 'none'; profileModalImg.src = user.photoURL; profileModalImg.style.display = 'block'; }
-        else { profileImg.style.display = 'none'; profileIcon.style.display = 'block'; profileModalImg.style.display = 'none'; }
-        profileEmailEl.textContent = user.email || 'Geen e-mail';
+        // Profiel UI
+        const userPhoto = user.photoURL;
+        const userEmail = user.email || 'Geen e-mail';
+        
+        if (userPhoto) {
+            profileImg.src = userPhoto;
+            profileImg.style.display = 'block';
+            profileIcon.style.display = 'none';
+            profileModalImg.src = userPhoto;
+            profileModalImg.style.display = 'block';
+            profileModalIcon.style.display = 'none';
+        } else {
+            profileImg.style.display = 'none';
+            profileIcon.style.display = 'block';
+            profileModalImg.style.display = 'none';
+            profileModalIcon.style.display = 'block';
+        }
+        profileEmailEl.textContent = userEmail;
+
+        // Reset inputs
         itemDatum.value = new Date().toISOString().split('T')[0];
+        
+        // Start app
         startAlleDataListeners();
         startPendingSharesListener();
         checkUrlForLadeFilter();
+
     } else {
-        currentUser = null; eigenUserId = null; beheerdeUserId = null; isAdmin = false;
+        // Uitgelogd
+        currentUser = null;
+        eigenUserId = null;
+        beheerdeUserId = null;
+        isAdmin = false;
+        
         stopAlleDataListeners();
+        console.log("Niet ingelogd.");
+        
+        // UI Reset
+        vriezerLijstenContainer.innerHTML = '';
+        dashboard.innerHTML = '';
+        switchAccountKnop.style.display = 'none';
+        
         window.location.replace('index.html');
     }
 });
@@ -334,36 +426,79 @@ auth.onAuthStateChanged((user) => {
 function checkUrlForLadeFilter() {
     const urlParams = new URLSearchParams(window.location.search);
     const ladeId = urlParams.get('ladeFilter');
-    if (ladeId) window.pendingLadeFilter = ladeId;
+    if (ladeId) {
+        window.pendingLadeFilter = ladeId;
+    }
 }
 
 async function registreerGebruiker(user) {
-    try { await usersCollectie.doc(user.uid).set({ email: user.email || 'Onbekend', displayName: user.displayName || user.email, laatstGezien: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }); } catch (e) {}
+    try {
+        await usersCollectie.doc(user.uid).set({
+            email: user.email || 'Onbekend',
+            displayName: user.displayName || user.email,
+            laatstGezien: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+    } catch (e) {
+        console.warn("Kon user niet registreren:", e);
+    }
 }
+
 async function checkAdminStatus(uid) {
-    try { const doc = await adminsCollectie.doc(uid).get(); isAdmin = doc.exists; } catch (e) { isAdmin = false; }
-    if(isAdmin) { switchAccountKnop.style.display = 'inline-flex'; adminSwitchSection.style.display = 'block'; userSwitchSection.style.display = 'none'; startAdminUserListener(); }
-    else { adminSwitchSection.style.display = 'none'; userSwitchSection.style.display = 'block'; startAcceptedSharesListener(); }
+    try {
+        const doc = await adminsCollectie.doc(uid).get();
+        isAdmin = doc.exists;
+    } catch (e) {
+        isAdmin = false;
+    }
+    
+    if(isAdmin) {
+        switchAccountKnop.style.display = 'inline-flex';
+        adminSwitchSection.style.display = 'block';
+        userSwitchSection.style.display = 'none';
+        startAdminUserListener();
+    } else {
+        adminSwitchSection.style.display = 'none';
+        userSwitchSection.style.display = 'block';
+        startAcceptedSharesListener();
+    }
     updateSwitchAccountUI();
 }
+
 function schakelBeheer(naarUserId, naarUserEmail) {
     if (beheerdeUserId === naarUserId) return;
-    beheerdeUserId = naarUserId; beheerdeUserEmail = naarUserEmail || 'Onbekende';
+    
+    beheerdeUserId = naarUserId;
+    beheerdeUserEmail = naarUserEmail || 'Onbekende';
     isEersteNotificatieCheck = true;
+    
     stopAlleDataListeners();
-    vriezerLijstenContainer.innerHTML = ''; dashboard.innerHTML = '';
+    vriezerLijstenContainer.innerHTML = '';
+    dashboard.innerHTML = '';
+    
     startAlleDataListeners();
     updateSwitchAccountUI();
     hideModal(switchAccountModal);
     showFeedback(`Je beheert nu: ${beheerdeUserEmail}`, 'success');
 }
+
 function updateSwitchAccountUI() {
     if (beheerdeUserId === eigenUserId) {
-        switchAccountTitel.textContent = 'Je beheert je eigen voorraad.'; switchAccountTitel.style.color = '#555'; switchTerugKnop.style.display = 'none';
-        startPendingSharesListener(); if(isAdmin) startAdminUserListener(); else startAcceptedSharesListener(); startShoppingListListener();
+        switchAccountTitel.textContent = 'Je beheert je eigen voorraad.';
+        switchAccountTitel.style.color = '#555';
+        switchTerugKnop.style.display = 'none';
+        
+        startPendingSharesListener();
+        if(isAdmin) startAdminUserListener(); else startAcceptedSharesListener();
+        startShoppingListListener();
+        
     } else {
-        switchAccountTitel.textContent = `LET OP: Je beheert nu ${beheerdeUserEmail}!`; switchAccountTitel.style.color = '#FF6B6B'; switchTerugKnop.style.display = 'block';
-        if (pendingSharesListener) pendingSharesListener(); if (acceptedSharesListener) acceptedSharesListener(); if (shoppingListListener) shoppingListListener();
+        switchAccountTitel.textContent = `LET OP: Je beheert nu ${beheerdeUserEmail}!`;
+        switchAccountTitel.style.color = '#FF6B6B';
+        switchTerugKnop.style.display = 'block';
+        
+        if (pendingSharesListener) pendingSharesListener();
+        if (acceptedSharesListener) acceptedSharesListener();
+        if (shoppingListListener) shoppingListListener();
     }
 }
 
@@ -371,44 +506,153 @@ function updateSwitchAccountUI() {
 function startAlleDataListeners() {
     if (!beheerdeUserId) return;
     stopAlleDataListeners();
+
+    // 1. User Units
     usersCollectie.doc(beheerdeUserId).onSnapshot((doc) => {
-        if (doc.exists) { const data = doc.data(); userUnits = data.customUnits || [...defaultUnits]; }
-        else { userUnits = [...defaultUnits]; }
-        renderUnitDropdowns(); renderUnitBeheerLijst();
+        if (doc.exists) {
+            const data = doc.data();
+            userUnits = data.customUnits || [...defaultUnits];
+        } else {
+            userUnits = [...defaultUnits];
+        }
+        renderUnitDropdowns();
+        renderUnitBeheerLijst();
     });
-    vriezersListener = vriezersCollectieBasis.where('userId', '==', beheerdeUserId).orderBy('naam').onSnapshot((snapshot) => {
-        // Hier voegen we een default type toe voor oude data
-        alleVriezers = snapshot.docs.map(doc => ({ 
-            id: doc.id, 
-            ...doc.data(),
-            type: doc.data().type || 'vriezer' // Default naar vriezer voor oude data
-        }));
-        vulToevoegVriezerDropdown();
-        renderBulkDropdowns();
-        renderDynamischeLijsten();
-    });
-    ladesListener = ladesCollectieBasis.where('userId', '==', beheerdeUserId).orderBy('naam').onSnapshot((snapshot) => {
-        alleLades = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        updateLadeDropdown(vriezerSelect.value, schuifSelect, false);
-        renderDynamischeLijsten();
-    });
-    itemsListener = itemsCollectieBasis.where("userId", "==", beheerdeUserId).onSnapshot((snapshot) => {
-        alleItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderDynamischeLijsten(); updateDashboard();
-        if (isEersteNotificatieCheck && alleItems.length > 0 && beheerdeUserId === eigenUserId) { checkHoudbaarheidNotificaties(); isEersteNotificatieCheck = false; }
-    });
-    if (beheerdeUserId === eigenUserId) { startShoppingListListener(); startWeekMenuListener(); }
+
+    // 2. Vriezers/Locaties
+    vriezersListener = vriezersCollectieBasis
+        .where('userId', '==', beheerdeUserId)
+        .orderBy('naam')
+        .onSnapshot((snapshot) => {
+            alleVriezers = snapshot.docs.map(doc => ({ 
+                id: doc.id, 
+                ...doc.data(),
+                type: doc.data().type || 'vriezer' // Default naar vriezer voor backwards compatibility
+            }));
+            
+            vulToevoegVriezerDropdown();
+            renderBulkDropdowns();
+            renderDynamischeLijsten();
+        });
+
+    // 3. Lades
+    ladesListener = ladesCollectieBasis
+        .where('userId', '==', beheerdeUserId)
+        .orderBy('naam')
+        .onSnapshot((snapshot) => {
+            alleLades = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            updateLadeDropdown(vriezerSelect.value, schuifSelect, false);
+            renderDynamischeLijsten();
+        });
+
+    // 4. Items
+    itemsListener = itemsCollectieBasis
+        .where("userId", "==", beheerdeUserId)
+        .onSnapshot((snapshot) => {
+            alleItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderDynamischeLijsten();
+            updateDashboard();
+            
+            if (isEersteNotificatieCheck && alleItems.length > 0 && beheerdeUserId === eigenUserId) {
+                checkHoudbaarheidNotificaties();
+                isEersteNotificatieCheck = false;
+            }
+        });
+
+    if (beheerdeUserId === eigenUserId) {
+        startShoppingListListener();
+        startWeekMenuListener();
+    }
 }
+
 function stopAlleDataListeners() {
-    if (vriezersListener) vriezersListener(); if (ladesListener) ladesListener(); if (itemsListener) itemsListener();
-    if (userListListener) userListListener(); if (sharesOwnerListener) sharesOwnerListener(); if (pendingSharesListener) pendingSharesListener();
-    if (acceptedSharesListener) acceptedSharesListener(); if (shoppingListListener) shoppingListListener(); if (weekMenuListener) weekMenuListener(); if (historyListener) historyListener();
+    if (vriezersListener) { vriezersListener(); vriezersListener = null; }
+    if (ladesListener) { ladesListener(); ladesListener = null; }
+    if (itemsListener) { itemsListener(); itemsListener = null; }
+    if (userListListener) { userListListener(); userListListener = null; }
+    if (sharesOwnerListener) { sharesOwnerListener(); sharesOwnerListener = null; }
+    if (pendingSharesListener) { pendingSharesListener(); pendingSharesListener = null; }
+    if (acceptedSharesListener) { acceptedSharesListener(); acceptedSharesListener = null; }
+    if (shoppingListListener) { shoppingListListener(); shoppingListListener = null; }
+    if (weekMenuListener) { weekMenuListener(); weekMenuListener = null; }
+    if (historyListener) { historyListener(); historyListener = null; }
 }
-// (Listeners voor admin/share weggelaten voor beknoptheid, zijn ongewijzigd ten opzichte van vorige versie behalve de map logica)
-function startAdminUserListener() { /* ... */ }
-function startAcceptedSharesListener() { /* ... */ }
-function startPendingSharesListener() { /* ... */ }
-function startSharesOwnerListener() { /* ... */ }
+
+function startAdminUserListener() {
+    if (userListListener) userListListener();
+    userListListener = usersCollectie.orderBy("email").onSnapshot((snapshot) => {
+        adminUserLijst.innerHTML = '';
+        snapshot.docs.forEach(doc => {
+            const user = { id: doc.id, ...doc.data() };
+            if (user.id === eigenUserId) return;
+            const li = document.createElement('li');
+            li.dataset.id = user.id; li.dataset.email = user.email || user.displayName;
+            li.innerHTML = `<div class="user-info"><span>${user.displayName || user.email}</span><small>${user.email}</small></div>`;
+            li.addEventListener('click', () => schakelBeheer(li.dataset.id, li.dataset.email));
+            adminUserLijst.appendChild(li);
+        });
+    });
+}
+
+function startAcceptedSharesListener() {
+    if (acceptedSharesListener) acceptedSharesListener();
+    acceptedSharesListener = sharesCollectie.where("sharedWithId", "==", eigenUserId).where("status", "==", "accepted").onSnapshot((snapshot) => {
+        alleAcceptedShares = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        userSharedLijst.innerHTML = '';
+        if (alleAcceptedShares.length > 0) {
+            if (!isAdmin) switchAccountKnop.style.display = 'inline-flex';
+            alleAcceptedShares.forEach(share => {
+                const li = document.createElement('li');
+                li.dataset.id = share.ownerId; li.dataset.email = share.ownerEmail;
+                li.innerHTML = `<div class="user-info"><span>${share.ownerEmail}</span><small>Rol: ${share.role}</small></div>`;
+                li.addEventListener('click', () => schakelBeheer(li.dataset.id, li.dataset.email));
+                userSharedLijst.appendChild(li);
+            });
+        } else {
+            if (!isAdmin) switchAccountKnop.style.display = 'none';
+            userSharedLijst.innerHTML = '<li><i>Niemand deelt met jou.</i></li>';
+        }
+    });
+}
+
+function startPendingSharesListener() {
+    if (pendingSharesListener) pendingSharesListener();
+    pendingSharesListener = sharesCollectie.where("sharedWithEmail", "==", currentUser.email).where("status", "==", "pending").onSnapshot((snapshot) => {
+        const pending = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        acceptShareLijst.innerHTML = '';
+        if (pending.length > 0) {
+            pending.forEach(share => {
+                const li = document.createElement('li'); li.dataset.id = share.id;
+                li.innerHTML = `
+                    <div class="invite-info"><strong>${share.ownerEmail}</strong><small>wil delen (${share.role}).</small></div>
+                    <div class="invite-buttons"><button class="btn-accept" data-action="accept">Accepteren</button><button class="btn-decline" data-action="decline">Weigeren</button></div>
+                `;
+                acceptShareLijst.appendChild(li);
+            });
+            showModal(acceptShareModal);
+        } else {
+            hideModal(acceptShareModal);
+        }
+    });
+}
+
+function startSharesOwnerListener() {
+    if (sharesOwnerListener) sharesOwnerListener();
+    shareHuidigeLijst.innerHTML = '<li><i>Laden...</i></li>';
+    sharesOwnerListener = sharesCollectie.where("ownerId", "==", eigenUserId).onSnapshot((snapshot) => {
+        const shares = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        shareHuidigeLijst.innerHTML = '';
+        if (shares.length > 0) {
+            shares.forEach(share => {
+                const li = document.createElement('li'); li.dataset.id = share.id;
+                li.innerHTML = `<div class="user-info"><span>${share.sharedWithEmail}</span><small>${share.status} (${share.role})</small></div><div class="item-buttons"><button class="delete-btn"><i class="fas fa-trash-alt"></i></button></div>`;
+                shareHuidigeLijst.appendChild(li);
+            });
+        } else {
+            shareHuidigeLijst.innerHTML = '<li><i>Je deelt nog met niemand.</i></li>';
+        }
+    });
+}
 
 
 // --- UI RENDERING ---
@@ -417,8 +661,7 @@ function vulToevoegVriezerDropdown() {
     const geselecteerdeId = vriezerSelect.value;
     vriezerSelect.innerHTML = '<option value="" disabled>Kies een locatie...</option>';
     
-    // FILTER: Toon alleen locaties van de HUIDIGE TAB in de Add Item dropdown
-    // Dit voorkomt dat je per ongeluk iets in de vriezer zet als je op het koelkast tabblad zit.
+    // FILTER: Toon alleen locaties van de HUIDIGE TAB
     const relevanteLocaties = alleVriezers.filter(v => v.type === activeTab);
     
     relevanteLocaties.forEach(vriezer => {
@@ -428,31 +671,51 @@ function vulToevoegVriezerDropdown() {
         vriezerSelect.appendChild(option);
     });
     
-    if (geselecteerdeId && relevantLocaties.some(v => v.id === geselecteerdeId)) vriezerSelect.value = geselecteerdeId;
-    else vriezerSelect.value = "";
+    if (geselecteerdeId && relevanteLocaties.some(v => v.id === geselecteerdeId)) {
+        vriezerSelect.value = geselecteerdeId;
+    } else {
+        vriezerSelect.value = "";
+    }
     updateLadeDropdown(vriezerSelect.value, schuifSelect, false);
 }
 
-vriezerSelect.addEventListener('change', () => { updateLadeDropdown(vriezerSelect.value, schuifSelect, true); });
+vriezerSelect.addEventListener('change', () => {
+    updateLadeDropdown(vriezerSelect.value, schuifSelect, true);
+});
 
 function updateLadeDropdown(vriezerId, ladeSelectElement, resetSelectie) {
     const geselecteerdeLadeId = resetSelectie ? "" : ladeSelectElement.value;
     ladeSelectElement.innerHTML = '<option value="" disabled>Kies een lade...</option>';
-    if (!vriezerId) { ladeSelectElement.innerHTML = '<option value="" disabled>Kies eerst locatie...</option>'; ladeSelectElement.value = ""; return; }
+    
+    if (!vriezerId) {
+        ladeSelectElement.innerHTML = '<option value="" disabled>Kies eerst locatie...</option>';
+        ladeSelectElement.value = "";
+        return;
+    }
     
     const gefilterdeLades = alleLades.filter(lade => lade.vriezerId === vriezerId);
     gefilterdeLades.sort((a, b) => a.naam.localeCompare(b.naam));
+    
     gefilterdeLades.forEach(lade => {
-        const option = document.createElement('option'); option.value = lade.id; option.textContent = lade.naam; ladeSelectElement.appendChild(option);
+        const option = document.createElement('option');
+        option.value = lade.id;
+        option.textContent = lade.naam;
+        ladeSelectElement.appendChild(option);
     });
-    if (geselecteerdeLadeId && gefilterdeLades.some(l => l.id === geselecteerdeLadeId)) ladeSelectElement.value = geselecteerdeLadeId;
-    else ladeSelectElement.value = "";
+    
+    if (geselecteerdeLadeId && gefilterdeLades.some(l => l.id === geselecteerdeLadeId)) {
+        ladeSelectElement.value = geselecteerdeLadeId;
+    } else {
+        ladeSelectElement.value = "";
+    }
 }
 
-// *** CRUCIALE WIJZIGING: Filter op Tab ***
+// *** RENDER DYNAMISCHE LIJSTEN (Tab Filter) ***
 function renderDynamischeLijsten() {
     const openLadeIds = new Set();
-    document.querySelectorAll('.lade-group:not(.collapsed)').forEach(group => openLadeIds.add(group.dataset.ladeId));
+    document.querySelectorAll('.lade-group:not(.collapsed)').forEach(group => {
+        openLadeIds.add(group.dataset.ladeId);
+    });
     if (window.pendingLadeFilter) openLadeIds.add(window.pendingLadeFilter);
     
     vriezerLijstenContainer.innerHTML = ''; 
@@ -460,7 +723,7 @@ function renderDynamischeLijsten() {
     // FILTER VRIEZERS OP ACTIVE TAB
     const zichtbareVriezers = alleVriezers.filter(v => v.type === activeTab);
     
-    // Sorteer: eerst de locaties, alfabetisch
+    // Sorteer
     zichtbareVriezers.sort((a, b) => a.naam.localeCompare(b.naam));
 
     if (zichtbareVriezers.length === 0) {
@@ -476,25 +739,36 @@ function renderDynamischeLijsten() {
         kolomDiv.className = 'vriezer-kolom';
         kolomDiv.innerHTML = `<h2>${vriezer.naam}</h2>`;
 
-        const vriezerLades = alleLades.filter(lade => lade.vriezerId === vriezer.id).sort((a, b) => a.naam.localeCompare(b.naam));
+        const vriezerLades = alleLades.filter(lade => lade.vriezerId === vriezer.id);
+        vriezerLades.sort((a, b) => a.naam.localeCompare(b.naam));
+        
         const vriezerItems = alleItems.filter(item => item.vriezerId === vriezer.id);
 
-        // Filters (Lade & Categorie)
+        // Filters UI
         const filterContainer = document.createElement('div'); filterContainer.className = 'lade-filter-container';
+        
         const ladeFilterGroup = document.createElement('div'); ladeFilterGroup.className = 'filter-group';
-        const ladeFilterSelect = document.createElement('select'); ladeFilterSelect.id = `filter-lade-${vriezer.id}`; ladeFilterSelect.className = 'lade-filter-select';
+        const ladeFilterSelect = document.createElement('select');
+        ladeFilterSelect.id = `filter-lade-${vriezer.id}`;
+        ladeFilterSelect.className = 'lade-filter-select';
         ladeFilterSelect.innerHTML = '<option value="all">Alle lades</option>';
         vriezerLades.forEach(lade => { ladeFilterSelect.innerHTML += `<option value="${lade.id}">${lade.naam}</option>`; });
+        
         if (window.pendingLadeFilter) { 
              const checkLade = vriezerLades.find(l => l.id === window.pendingLadeFilter);
-             if (checkLade) { ladeFilterSelect.value = window.pendingLadeFilter; setTimeout(() => kolomDiv.scrollIntoView({ behavior: 'smooth' }), 300); }
+             if (checkLade) {
+                 ladeFilterSelect.value = window.pendingLadeFilter;
+                 setTimeout(() => kolomDiv.scrollIntoView({ behavior: 'smooth' }), 300);
+             }
         }
         ladeFilterSelect.addEventListener('change', updateItemVisibility); 
         ladeFilterGroup.appendChild(ladeFilterSelect); filterContainer.appendChild(ladeFilterGroup);
 
         const catFilterGroup = document.createElement('div'); catFilterGroup.className = 'filter-group';
-        const catFilterSelect = document.createElement('select'); catFilterSelect.id = `filter-categorie-${vriezer.id}`; catFilterSelect.className = 'lade-filter-select';
-        // Uitgebreide categorieën voor alle tabbladen
+        const catFilterSelect = document.createElement('select');
+        catFilterSelect.id = `filter-categorie-${vriezer.id}`;
+        catFilterSelect.className = 'lade-filter-select';
+        // Uitgebreide categorieën
         catFilterSelect.innerHTML = `
             <option value="all">Alle categorieën</option>
             <option value="Geen">Geen</option>
@@ -517,12 +791,16 @@ function renderDynamischeLijsten() {
         catFilterGroup.appendChild(catFilterSelect); filterContainer.appendChild(catFilterGroup);
         kolomDiv.appendChild(filterContainer);
         
-        // Render Lades
+        // Render Lades en Items
         vriezerLades.forEach(lade => {
             const ladeGroup = document.createElement('div');
             ladeGroup.className = 'lade-group'; ladeGroup.dataset.ladeId = lade.id; 
-            if (window.pendingLadeFilter && window.pendingLadeFilter === lade.id) ladeGroup.classList.remove('collapsed');
-            else if (!openLadeIds.has(lade.id)) ladeGroup.classList.add('collapsed');
+            
+            if (window.pendingLadeFilter && window.pendingLadeFilter === lade.id) {
+                ladeGroup.classList.remove('collapsed');
+            } else if (!openLadeIds.has(lade.id)) {
+                ladeGroup.classList.add('collapsed');
+            }
 
             const ladeHeader = document.createElement('button'); ladeHeader.className = 'lade-header';
             ladeHeader.dataset.ladeId = lade.id; ladeHeader.dataset.ladeNaam = lade.naam;
@@ -531,7 +809,9 @@ function renderDynamischeLijsten() {
             const ladeContent = document.createElement('div'); ladeContent.className = 'lade-content';
             const ladeUl = document.createElement('ul'); ladeUl.dataset.vriezerId = vriezer.id; 
             
-            const ladeItems = vriezerItems.filter(item => item.ladeId === lade.id).sort((a, b) => a.naam.localeCompare(b.naam));
+            const ladeItems = vriezerItems.filter(item => item.ladeId === lade.id);
+            ladeItems.sort((a, b) => a.naam.localeCompare(b.naam));
+            
             ladeItems.forEach(item => {
                 const li = document.createElement('li');
                 li.dataset.id = item.id; li.dataset.ladeId = item.ladeId; li.dataset.vriezerId = item.vriezerId; li.dataset.categorie = item.categorie || 'Geen';
@@ -544,6 +824,7 @@ function renderDynamischeLijsten() {
                 
                 const emoji = item.emoji || getEmojiForCategory(item.categorie || 'Geen');
                 const isChecked = selectedItemIds.has(item.id) ? 'checked' : '';
+                
                 li.innerHTML = `
                     <input type="checkbox" class="bulk-checkbox" data-id="${item.id}" ${isChecked}>
                     <div class="item-text">
@@ -556,30 +837,47 @@ function renderDynamischeLijsten() {
                         <button class="delete-btn" title="Verwijder"><i class="fas fa-trash-alt"></i></button>
                     </div>
                 `;
+                
                 li.querySelector('.bulk-checkbox').addEventListener('change', (e) => {
-                    if (e.target.checked) selectedItemIds.add(item.id); else selectedItemIds.delete(item.id); updateBulkActionBar();
+                    if (e.target.checked) selectedItemIds.add(item.id); else selectedItemIds.delete(item.id); 
+                    updateBulkActionBar();
                 });
                 ladeUl.appendChild(li);
             });
-            ladeContent.appendChild(ladeUl); ladeGroup.appendChild(ladeHeader); ladeGroup.appendChild(ladeContent); kolomDiv.appendChild(ladeGroup);
+            
+            ladeContent.appendChild(ladeUl);
+            ladeGroup.appendChild(ladeHeader);
+            ladeGroup.appendChild(ladeContent);
+            kolomDiv.appendChild(ladeGroup);
         });
+        
         vriezerLijstenContainer.appendChild(kolomDiv);
     });
     
-    if (window.pendingLadeFilter) { setTimeout(() => { updateItemVisibility(); window.pendingLadeFilter = null; }, 100); } 
-    else { if ((beheerdeUserId === eigenUserId) || (alleAcceptedShares.find(s => s.ownerId === beheerdeUserId && s.role === 'editor'))) initDragAndDrop(); updateItemVisibility(); }
-    if (isMoveMode) { document.body.classList.add('move-mode'); bulkActionBar.classList.add('visible'); }
+    if (window.pendingLadeFilter) { 
+        setTimeout(() => { updateItemVisibility(); window.pendingLadeFilter = null; }, 100); 
+    } else { 
+        const kanBewerken = (beheerdeUserId === eigenUserId) || (alleAcceptedShares.find(s => s.ownerId === beheerdeUserId && s.role === 'editor'));
+        if (kanBewerken) initDragAndDrop(); 
+        updateItemVisibility(); 
+    }
+    
+    if (isMoveMode) { 
+        document.body.classList.add('move-mode'); 
+        bulkActionBar.classList.add('visible'); 
+    }
 }
 
 function updateDashboard() {
     dashboard.innerHTML = '';
-    // Totaal over alles heen
+    
+    // Totaal over alles
     let totaal = alleItems.length;
     let totaalSpan = document.createElement('strong');
     totaalSpan.textContent = `Totaal Alles: ${totaal}`;
     dashboard.appendChild(totaalSpan);
 
-    // Filter dashboard stats ook op tabblad om het relevant te houden
+    // Filter stats op tab
     const tabVriezers = alleVriezers.filter(v => v.type === activeTab);
 
     tabVriezers.forEach(vriezer => {
@@ -593,16 +891,42 @@ function updateDashboard() {
 function initDragAndDrop() {
     const lijsten = document.querySelectorAll('.lade-content ul');
     const onDragEnd = (event) => {
-        const itemEl = event.item; const itemId = itemEl.dataset.id; const oldLadeId = itemEl.dataset.ladeId;
-        const newUL = event.to; const newVriezerId = newUL.dataset.vriezerId; 
-        const ladeContentDiv = newUL.parentElement; const ladeHeaderBtn = ladeContentDiv.previousElementSibling;
-        const newLadeId = ladeHeaderBtn.dataset.ladeId; const newLadeNaam = ladeHeaderBtn.dataset.ladeNaam;
+        const itemEl = event.item; 
+        const itemId = itemEl.dataset.id; 
+        const oldLadeId = itemEl.dataset.ladeId;
+        
+        const newUL = event.to; 
+        const newVriezerId = newUL.dataset.vriezerId; 
+        
+        const ladeContentDiv = newUL.parentElement; 
+        const ladeHeaderBtn = ladeContentDiv.previousElementSibling;
+        const newLadeId = ladeHeaderBtn.dataset.ladeId; 
+        const newLadeNaam = ladeHeaderBtn.dataset.ladeNaam;
+
         if (oldLadeId === newLadeId) return; 
-        itemsCollectieBasis.doc(itemId).update({ vriezerId: newVriezerId, ladeId: newLadeId, ladeNaam: newLadeNaam })
-        .then(() => { showFeedback('Item verplaatst!', 'success'); logHistoryAction("Verplaatst (Sleep)", `Item naar ${newLadeNaam}`); })
+
+        itemsCollectieBasis.doc(itemId).update({ 
+            vriezerId: newVriezerId, 
+            ladeId: newLadeId, 
+            ladeNaam: newLadeNaam 
+        })
+        .then(() => { 
+            showFeedback('Item verplaatst!', 'success'); 
+            logHistoryAction("Verplaatst (Sleep)", `Item naar ${newLadeNaam}`); 
+        })
         .catch((err) => showFeedback(`Fout: ${err.message}`, 'error'));
     };
-    lijsten.forEach(lijst => { new Sortable(lijst, { animation: 150, group: 'vriezer-items', handle: '.item-text', ghostClass: 'sortable-ghost', chosenClass: 'sortable-chosen', onEnd: onDragEnd }); });
+    
+    lijsten.forEach(lijst => { 
+        new Sortable(lijst, { 
+            animation: 150, 
+            group: 'vriezer-items', 
+            handle: '.item-text', 
+            ghostClass: 'sortable-ghost', 
+            chosenClass: 'sortable-chosen', 
+            onEnd: onDragEnd 
+        }); 
+    });
 }
 
 // --- CRUD ITEMS ---
@@ -615,7 +939,8 @@ form.addEventListener('submit', (e) => {
     const kanBewerken = (beheerdeUserId === eigenUserId) || (alleAcceptedShares.find(s => s.ownerId === beheerdeUserId && s.role === 'editor'));
     if (!kanBewerken) { showFeedback("Geen rechten.", "error"); return; }
     
-    const vId = vriezerSelect.value; const lId = schuifSelect.value;
+    const vId = vriezerSelect.value; 
+    const lId = schuifSelect.value;
     if (!vId || !lId) { showFeedback("Selecteer locatie & lade.", "error"); return; }
     
     const lNaam = schuifSelect.options[schuifSelect.selectedIndex].text;
@@ -623,153 +948,298 @@ form.addEventListener('submit', (e) => {
     const emoji = itemEmoji.value || getEmojiForCategory(itemCategorie.value);
 
     itemsCollectieBasis.add({
-        naam: naam, aantal: parseFloat(document.getElementById('item-aantal').value), eenheid: document.getElementById('item-eenheid').value,
-        ingevrorenOp: new Date(itemDatum.value + "T00:00:00"), categorie: itemCategorie.value, emoji: emoji, 
-        userId: beheerdeUserId, vriezerId: vId, ladeId: lId, ladeNaam: lNaam 
+        naam: naam, 
+        aantal: parseFloat(document.getElementById('item-aantal').value), 
+        eenheid: document.getElementById('item-eenheid').value,
+        ingevrorenOp: new Date(itemDatum.value + "T00:00:00"), 
+        categorie: itemCategorie.value, 
+        emoji: emoji, 
+        userId: beheerdeUserId, 
+        vriezerId: vId, 
+        ladeId: lId, 
+        ladeNaam: lNaam 
     })
     .then(() => {
         showFeedback(`'${naam}' toegevoegd!`, 'success');
         if (document.getElementById('remember-drawer-check').checked) {
-            document.getElementById('item-naam').value = ''; document.getElementById('item-aantal').value = 1; itemEmoji.value = ""; document.getElementById('item-naam').focus();
+            document.getElementById('item-naam').value = ''; 
+            document.getElementById('item-aantal').value = 1; 
+            itemEmoji.value = ""; 
+            document.getElementById('item-naam').focus();
         } else {
-            form.reset(); itemDatum.value = new Date().toISOString().split('T')[0]; itemCategorie.value = "Geen"; itemEmoji.value = ""; 
-            document.getElementById('item-eenheid').value = "stuks"; document.getElementById('item-aantal').value = 1; 
-            vriezerSelect.value = ""; schuifSelect.innerHTML = '<option value="" disabled selected>Kies eerst een locatie...</option>';
+            form.reset(); 
+            itemDatum.value = new Date().toISOString().split('T')[0]; 
+            itemCategorie.value = "Geen"; 
+            itemEmoji.value = ""; 
+            document.getElementById('item-eenheid').value = "stuks"; 
+            document.getElementById('item-aantal').value = 1; 
+            vriezerSelect.value = ""; 
+            schuifSelect.innerHTML = '<option value="" disabled selected>Kies eerst een locatie...</option>';
         }
     }).catch(err => showFeedback(err.message, 'error'));
 });
 
 vriezerLijstenContainer.addEventListener('click', (e) => {
-    if (e.target.closest('.lade-header')) { e.target.closest('.lade-header').parentElement.classList.toggle('collapsed'); return; }
+    if (e.target.closest('.lade-header')) { 
+        e.target.closest('.lade-header').parentElement.classList.toggle('collapsed'); 
+        return; 
+    }
+    
     const kanBewerken = (beheerdeUserId === eigenUserId) || (alleAcceptedShares.find(s => s.ownerId === beheerdeUserId && s.role === 'editor'));
     if (!kanBewerken && beheerdeUserId !== eigenUserId) return;
+    
     const li = e.target.closest('li'); if (!li) return;
-    const id = li.dataset.id; const item = alleItems.find(i => i.id === id); if (!item) return;
+    const id = li.dataset.id; 
+    const item = alleItems.find(i => i.id === id); if (!item) return;
 
     if (e.target.closest('.delete-btn')) {
         if (!kanBewerken) { showFeedback("Geen rechten.", "error"); return; }
         if (confirm(`Verwijder '${item.naam}'?`)) {
-             if (parseFloat(item.aantal) <= 1 && beheerdeUserId === eigenUserId && confirm("Toevoegen aan boodschappenlijst?")) addShoppingItem(item.naam);
-             itemsCollectieBasis.doc(id).delete().then(() => { showFeedback('Verwijderd.', 'success'); logHistoryAction("Verwijderd", item.naam); });
+             if (parseFloat(item.aantal) <= 1 && beheerdeUserId === eigenUserId && confirm("Toevoegen aan boodschappenlijst?")) {
+                 addShoppingItem(item.naam);
+             }
+             itemsCollectieBasis.doc(id).delete().then(() => { 
+                 showFeedback('Verwijderd.', 'success'); 
+                 logHistoryAction("Verwijderd", item.naam); 
+             });
         }
     } else if (e.target.closest('.edit-btn')) {
         if (!kanBewerken) { showFeedback("Geen rechten.", "error"); return; }
-        editId.value = id; editNaam.value = item.naam; editAantal.value = item.aantal; editEenheid.value = item.eenheid || 'stuks';
-        editCategorie.value = item.categorie || 'Geen'; editEmoji.value = item.emoji || getEmojiForCategory(item.categorie || 'Geen');
+        
+        editId.value = id; 
+        editNaam.value = item.naam; 
+        editAantal.value = item.aantal; 
+        editEenheid.value = item.eenheid || 'stuks';
+        editCategorie.value = item.categorie || 'Geen'; 
+        editEmoji.value = item.emoji || getEmojiForCategory(item.categorie || 'Geen');
+        
         editVriezer.innerHTML = ''; 
-        alleVriezers.forEach(v => { const opt = document.createElement('option'); opt.value = v.id; opt.textContent = v.naam; if(v.id === item.vriezerId) opt.selected = true; editVriezer.appendChild(opt); });
-        updateLadeDropdown(item.vriezerId, editSchuif, false); editSchuif.value = item.ladeId;
+        alleVriezers.forEach(v => { 
+            const opt = document.createElement('option'); 
+            opt.value = v.id; 
+            opt.textContent = v.naam; 
+            if(v.id === item.vriezerId) opt.selected = true; 
+            editVriezer.appendChild(opt); 
+        });
+        
+        updateLadeDropdown(item.vriezerId, editSchuif, false); 
+        editSchuif.value = item.ladeId;
         editDatum.value = item.ingevrorenOp ? item.ingevrorenOp.toDate().toISOString().split('T')[0] : '';
+        
         showModal(editModal);
     }
 });
+
 editVriezer.addEventListener('change', () => { updateLadeDropdown(editVriezer.value, editSchuif, true); });
+
 editForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const lNaam = editSchuif.options[editSchuif.selectedIndex].text;
     itemsCollectieBasis.doc(editId.value).update({
-        naam: editNaam.value, aantal: parseFloat(editAantal.value), eenheid: editEenheid.value, vriezerId: editVriezer.value,
-        ladeId: editSchuif.value, ladeNaam: lNaam, ingevrorenOp: new Date(editDatum.value + "T00:00:00"), categorie: editCategorie.value, emoji: editEmoji.value
-    }).then(() => { hideModal(editModal); showFeedback('Bijgewerkt!', 'success'); });
+        naam: editNaam.value, 
+        aantal: parseFloat(editAantal.value), 
+        eenheid: editEenheid.value, 
+        vriezerId: editVriezer.value,
+        ladeId: editSchuif.value, 
+        ladeNaam: lNaam, 
+        ingevrorenOp: new Date(editDatum.value + "T00:00:00"), 
+        categorie: editCategorie.value, 
+        emoji: editEmoji.value
+    }).then(() => { 
+        hideModal(editModal); 
+        showFeedback('Bijgewerkt!', 'success'); 
+    });
 });
+
 btnCancel.addEventListener('click', () => hideModal(editModal));
 
 // --- BEHEER (VRIEZER/LOCATIE) ---
-let vriezerBeheerListener = null, ladeBeheerListener = null;
-profileVriezerBeheerBtn.addEventListener('click', () => { hideModal(profileModal); showModal(vriezerBeheerModal); laadVriezersBeheer(); });
+profileVriezerBeheerBtn.addEventListener('click', () => { 
+    hideModal(profileModal); 
+    showModal(vriezerBeheerModal); 
+    laadVriezersBeheer(); 
+});
+
 sluitBeheerKnop.addEventListener('click', () => {
     hideModal(vriezerBeheerModal);
-    if (vriezerBeheerListener) vriezerBeheerListener(); if (ladeBeheerListener) ladeBeheerListener();
-    ladeBeheerLijst.innerHTML = ''; addLadeForm.style.display = 'none'; ladesBeheerHr.style.display = 'none'; geselecteerdeVriezerId = null;
+    if (vriezerBeheerListener) { vriezerBeheerListener(); vriezerBeheerListener = null; }
+    if (ladeBeheerListener) { ladeBeheerListener(); ladeBeheerListener = null; }
+    
+    ladeBeheerLijst.innerHTML = ''; 
+    addLadeForm.style.display = 'none'; 
+    ladesBeheerHr.style.display = 'none'; 
+    geselecteerdeVriezerId = null;
 });
 
 addVriezerForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const naam = document.getElementById('vriezer-naam').value;
-    const type = document.getElementById('vriezer-type').value; // Haal type op
-    vriezersCollectieBasis.add({ naam: naam, type: type, userId: beheerdeUserId }) // Sla type op
-    .then(() => { showFeedback("Locatie toegevoegd!", "success"); addVriezerForm.reset(); })
+    const type = document.getElementById('vriezer-type').value; 
+    
+    vriezersCollectieBasis.add({ 
+        naam: naam, 
+        type: type, 
+        userId: beheerdeUserId 
+    })
+    .then(() => { 
+        showFeedback("Locatie toegevoegd!", "success"); 
+        addVriezerForm.reset(); 
+    })
     .catch(err => showFeedback(err.message, "error"));
 });
 
 function laadVriezersBeheer() {
     if (vriezerBeheerListener) vriezerBeheerListener();
-    vriezerBeheerListener = vriezersCollectieBasis.where("userId", "==", beheerdeUserId).orderBy("naam").onSnapshot(snapshot => {
-        vriezerBeheerLijst.innerHTML = '';
-        snapshot.docs.forEach(doc => {
-            const v = { id: doc.id, ...doc.data() };
-            const typeLabel = v.type ? `(${v.type})` : '(vriezer)';
-            const li = document.createElement('li');
-            li.dataset.id = v.id; li.dataset.naam = v.naam;
-            if (v.id === geselecteerdeVriezerId) li.classList.add('selected');
-            li.innerHTML = `
-                <span>${v.naam} <small>${typeLabel}</small></span>
-                <input type="text" value="${v.naam}" class="beheer-naam-input">
-                <div class="item-buttons"><button class="edit-btn"><i class="fas fa-pencil-alt"></i></button><button class="delete-btn"><i class="fas fa-trash-alt"></i></button></div>
-            `;
-            vriezerBeheerLijst.appendChild(li);
+    
+    vriezerBeheerListener = vriezersCollectieBasis
+        .where("userId", "==", beheerdeUserId)
+        .orderBy("naam")
+        .onSnapshot(snapshot => {
+            vriezerBeheerLijst.innerHTML = '';
+            snapshot.docs.forEach(doc => {
+                const v = { id: doc.id, ...doc.data() };
+                const typeLabel = v.type ? `(${v.type})` : '(vriezer)';
+                const li = document.createElement('li');
+                li.dataset.id = v.id; 
+                li.dataset.naam = v.naam;
+                if (v.id === geselecteerdeVriezerId) li.classList.add('selected');
+                
+                li.innerHTML = `
+                    <span>${v.naam} <small>${typeLabel}</small></span>
+                    <input type="text" value="${v.naam}" class="beheer-naam-input">
+                    <div class="item-buttons">
+                        <button class="edit-btn"><i class="fas fa-pencil-alt"></i></button>
+                        <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                `;
+                vriezerBeheerLijst.appendChild(li);
+            });
         });
-    });
 }
+
 addLadeForm.addEventListener('submit', (e) => {
     e.preventDefault();
     if (!geselecteerdeVriezerId) return;
-    ladesCollectieBasis.add({ naam: document.getElementById('lade-naam').value, vriezerId: geselecteerdeVriezerId, userId: beheerdeUserId })
-    .then(() => { showFeedback("Lade toegevoegd!", "success"); addLadeForm.reset(); });
+    ladesCollectieBasis.add({ 
+        naam: document.getElementById('lade-naam').value, 
+        vriezerId: geselecteerdeVriezerId, 
+        userId: beheerdeUserId 
+    })
+    .then(() => { 
+        showFeedback("Lade toegevoegd!", "success"); 
+        addLadeForm.reset(); 
+    });
 });
+
 function laadLadesBeheer(vriezerId) {
     if (ladeBeheerListener) ladeBeheerListener();
     ladeBeheerLijst.innerHTML = '<i>Laden...</i>';
-    ladeBeheerListener = ladesCollectieBasis.where("vriezerId", "==", vriezerId).orderBy("naam").onSnapshot(snapshot => {
-        ladeBeheerLijst.innerHTML = '';
-        snapshot.docs.forEach(doc => {
-            const l = { id: doc.id, ...doc.data() };
-            const li = document.createElement('li'); li.dataset.id = l.id; li.dataset.naam = l.naam;
-            li.innerHTML = `<span>${l.naam}</span><input type="text" value="${l.naam}" class="beheer-naam-input"><div class="item-buttons"><button class="qr-btn"><i class="fas fa-qrcode"></i></button><button class="edit-btn"><i class="fas fa-pencil-alt"></i></button><button class="delete-btn"><i class="fas fa-trash-alt"></i></button></div>`;
-            ladeBeheerLijst.appendChild(li);
+    
+    ladeBeheerListener = ladesCollectieBasis
+        .where("vriezerId", "==", vriezerId)
+        .orderBy("naam")
+        .onSnapshot(snapshot => {
+            ladeBeheerLijst.innerHTML = '';
+            snapshot.docs.forEach(doc => {
+                const l = { id: doc.id, ...doc.data() };
+                const li = document.createElement('li'); 
+                li.dataset.id = l.id; 
+                li.dataset.naam = l.naam;
+                
+                li.innerHTML = `
+                    <span>${l.naam}</span>
+                    <input type="text" value="${l.naam}" class="beheer-naam-input">
+                    <div class="item-buttons">
+                        <button class="qr-btn"><i class="fas fa-qrcode"></i></button>
+                        <button class="edit-btn"><i class="fas fa-pencil-alt"></i></button>
+                        <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                `;
+                ladeBeheerLijst.appendChild(li);
+            });
         });
-    });
 }
+
 vriezerBeheerLijst.addEventListener('click', (e) => {
     const li = e.target.closest('li'); if (!li) return;
-    const vId = li.dataset.id; const vNaam = li.dataset.naam;
-    if (e.target.closest('.delete-btn')) handleVerwijderVriezer(vId, vNaam);
-    else if (e.target.closest('.edit-btn')) handleHernoem(li, vriezersCollectieBasis);
-    else {
-        geselecteerdeVriezerId = vId; ladesBeheerTitel.textContent = `Lades voor: ${vNaam}`;
-        addLadeForm.style.display = 'grid'; ladesBeheerHr.style.display = 'block';
+    const vId = li.dataset.id; 
+    const vNaam = li.dataset.naam;
+    
+    if (e.target.closest('.delete-btn')) {
+        handleVerwijderVriezer(vId, vNaam);
+    } else if (e.target.closest('.edit-btn')) {
+        handleHernoem(li, vriezersCollectieBasis);
+    } else {
+        geselecteerdeVriezerId = vId; 
+        ladesBeheerTitel.textContent = `Lades voor: ${vNaam}`;
+        addLadeForm.style.display = 'grid'; 
+        ladesBeheerHr.style.display = 'block';
         document.querySelectorAll('#vriezer-beheer-lijst li').forEach(el => el.classList.remove('selected'));
-        li.classList.add('selected'); laadLadesBeheer(vId);
+        li.classList.add('selected'); 
+        laadLadesBeheer(vId);
     }
 });
+
 ladeBeheerLijst.addEventListener('click', (e) => {
     const li = e.target.closest('li'); if (!li) return;
-    const id = li.dataset.id; const naam = li.dataset.naam;
-    if (e.target.closest('.delete-btn')) handleVerwijderLade(id, naam);
-    else if (e.target.closest('.edit-btn')) handleHernoem(li, ladesCollectieBasis);
-    else if (e.target.closest('.qr-btn')) toonQrCode(id, naam);
+    const id = li.dataset.id; 
+    const naam = li.dataset.naam;
+    
+    if (e.target.closest('.delete-btn')) {
+        handleVerwijderLade(id, naam);
+    } else if (e.target.closest('.edit-btn')) {
+        handleHernoem(li, ladesCollectieBasis);
+    } else if (e.target.closest('.qr-btn')) {
+        toonQrCode(id, naam);
+    }
 });
+
 function handleHernoem(li, col) {
-    const input = li.querySelector('.beheer-naam-input'); const btn = li.querySelector('.edit-btn');
+    const input = li.querySelector('.beheer-naam-input'); 
+    const btn = li.querySelector('.edit-btn');
+    
     if (li.classList.contains('edit-mode')) {
-        col.doc(li.dataset.id).update({ naam: input.value }).then(() => { li.classList.remove('edit-mode'); btn.innerHTML = '<i class="fas fa-pencil-alt"></i>'; });
-    } else { li.classList.add('edit-mode'); input.focus(); btn.innerHTML = '<i class="fas fa-save"></i>'; }
+        col.doc(li.dataset.id).update({ naam: input.value }).then(() => { 
+            li.classList.remove('edit-mode'); 
+            btn.innerHTML = '<i class="fas fa-pencil-alt"></i>'; 
+        });
+    } else { 
+        li.classList.add('edit-mode'); 
+        input.focus(); 
+        btn.innerHTML = '<i class="fas fa-save"></i>'; 
+    }
 }
+
 async function handleVerwijderVriezer(id, naam) {
     const chk = await ladesCollectieBasis.where("vriezerId", "==", id).limit(1).get();
     if (!chk.empty) return showFeedback("Maak locatie eerst leeg.", "error");
-    if (confirm(`Verwijder ${naam}?`)) vriezersCollectieBasis.doc(id).delete().then(() => { if(id===geselecteerdeVriezerId) sluitBeheerKnop.click(); showFeedback("Verwijderd", "success"); });
+    
+    if (confirm(`Verwijder ${naam}?`)) {
+        vriezersCollectieBasis.doc(id).delete().then(() => { 
+            if(id === geselecteerdeVriezerId) sluitBeheerKnop.click(); 
+            showFeedback("Verwijderd", "success"); 
+        });
+    }
 }
+
 async function handleVerwijderLade(id, naam) {
     const chk = await itemsCollectieBasis.where("ladeId", "==", id).limit(1).get();
     if (!chk.empty) return showFeedback("Maak lade eerst leeg.", "error");
-    if (confirm(`Verwijder ${naam}?`)) ladesCollectieBasis.doc(id).delete().then(() => showFeedback("Verwijderd", "success"));
+    
+    if (confirm(`Verwijder ${naam}?`)) {
+        ladesCollectieBasis.doc(id).delete().then(() => showFeedback("Verwijderd", "success"));
+    }
 }
+
 function toonQrCode(id, naam) {
-    const qrUrl = `${window.location.origin}${window.location.pathname}?ladeFilter=${id}`;
+    const appUrl = window.location.origin + window.location.pathname;
+    const qrUrl = `${appUrl}?ladeFilter=${id}`;
+    
     new QRious({ element: qrCanvas, value: qrUrl, size: 250 });
-    qrLadeNaam.textContent = naam; showModal(qrModal);
+    qrLadeNaam.textContent = naam; 
+    showModal(qrModal);
 }
+
 btnPrintQr.addEventListener('click', () => window.print());
 sluitQrKnop.addEventListener('click', () => hideModal(qrModal));
 
@@ -777,13 +1247,25 @@ sluitQrKnop.addEventListener('click', () => hideModal(qrModal));
 switchAccountKnop.addEventListener('click', () => showModal(switchAccountModal));
 sluitSwitchAccountKnop.addEventListener('click', () => hideModal(switchAccountModal));
 switchTerugKnop.addEventListener('click', () => schakelBeheer(eigenUserId, "Jezelf"));
-userSharedLijst.addEventListener('click', (e) => { const li = e.target.closest('li'); if(li) schakelBeheer(li.dataset.id, li.dataset.email); });
-if(adminUserLijst) adminUserLijst.addEventListener('click', (e) => { const li = e.target.closest('li'); if(li) schakelBeheer(li.dataset.id, li.dataset.email); });
+
+userSharedLijst.addEventListener('click', (e) => { 
+    const li = e.target.closest('li'); 
+    if(li) schakelBeheer(li.dataset.id, li.dataset.email); 
+});
+
+if(adminUserLijst) {
+    adminUserLijst.addEventListener('click', (e) => { 
+        const li = e.target.closest('li'); 
+        if(li) schakelBeheer(li.dataset.id, li.dataset.email); 
+    });
+}
 
 // --- SEARCH & FILTER ---
 searchBar.addEventListener('input', updateItemVisibility);
+
 function updateItemVisibility() {
     const term = searchBar.value.toLowerCase();
+    
     document.querySelectorAll('.vriezer-kolom').forEach(kolom => {
         const h2 = kolom.querySelector('h2'); if(!h2) return;
         const vId = alleVriezers.find(v => v.naam === h2.textContent)?.id;
@@ -794,138 +1276,452 @@ function updateItemVisibility() {
         let ladeVisibleCount = {};
 
         kolom.querySelectorAll('li').forEach(li => {
-            const lId = li.dataset.ladeId; const cat = li.dataset.categorie;
+            const lId = li.dataset.ladeId; 
+            const cat = li.dataset.categorie;
             const matchL = (lFilter === 'all' || lFilter === lId);
             const matchC = (cFilter === 'all' || cFilter === cat);
             const matchS = li.querySelector('.item-text strong').textContent.toLowerCase().includes(term);
-            if (matchL && matchC && matchS) { li.style.display = 'flex'; ladeVisibleCount[lId] = true; } 
-            else { li.style.display = 'none'; }
+            
+            if (matchL && matchC && matchS) { 
+                li.style.display = 'flex'; 
+                ladeVisibleCount[lId] = true; 
+            } else { 
+                li.style.display = 'none'; 
+            }
         });
+        
         kolom.querySelectorAll('.lade-group').forEach(grp => {
             const hasItems = ladeVisibleCount[grp.dataset.ladeId];
             if ((lFilter === 'all' && (hasItems || (term==='' && cFilter==='all'))) || (lFilter === grp.dataset.ladeId)) {
                 grp.style.display = 'block';
                 if (term !== '' && hasItems) grp.classList.remove('collapsed');
-            } else grp.style.display = 'none';
+            } else {
+                grp.style.display = 'none';
+            }
         });
     });
 }
+
 btnToggleAlles.addEventListener('click', () => {
     const alle = vriezerLijstenContainer.querySelectorAll('.lade-group');
     if (alle.length===0) return;
+    
     const closed = vriezerLijstenContainer.querySelector('.lade-group.collapsed');
     alle.forEach(l => closed ? l.classList.remove('collapsed') : l.classList.add('collapsed'));
-    btnToggleAlles.innerHTML = closed ? '<i class="fas fa-minus-square"></i> Alles Sluiten' : '<i class="fas fa-plus-square"></i> Alles Openen';
+    
+    btnToggleAlles.innerHTML = closed 
+        ? '<i class="fas fa-minus-square"></i> Alles Sluiten' 
+        : '<i class="fas fa-plus-square"></i> Alles Openen';
 });
 
 // --- OVERIG ---
-printBtn.addEventListener('click', () => { hideModal(profileModal); window.print(); });
-logoutBtn.addEventListener('click', () => { if(confirm("Uitloggen?")) auth.signOut(); });
+printBtn.addEventListener('click', () => { 
+    hideModal(profileModal); 
+    window.print(); 
+});
+
+logoutBtn.addEventListener('click', () => { 
+    if(confirm("Uitloggen?")) auth.signOut(); 
+});
+
 scanBtn.addEventListener('click', startScanner);
 stopScanBtn.addEventListener('click', sluitScanner);
-manualEanBtn.addEventListener('click', () => { const e = prompt("EAN:"); if(e) fetchProductFromOFF(e.trim()); });
-form.addEventListener('click', handleAantalKlik); editModal.addEventListener('click', handleAantalKlik); movePurchasedModal.addEventListener('click', handleAantalKlik);
-profileBtn.addEventListener('click', () => showModal(profileModal)); sluitProfileModalKnop.addEventListener('click', () => hideModal(profileModal));
+manualEanBtn.addEventListener('click', () => { 
+    const e = prompt("EAN:"); 
+    if(e) fetchProductFromOFF(e.trim()); 
+});
+
+form.addEventListener('click', handleAantalKlik); 
+editModal.addEventListener('click', handleAantalKlik); 
+movePurchasedModal.addEventListener('click', handleAantalKlik);
+
+profileBtn.addEventListener('click', () => showModal(profileModal)); 
+sluitProfileModalKnop.addEventListener('click', () => hideModal(profileModal));
+
 exportDataBtn.addEventListener('click', () => {
-    const data = JSON.stringify({ vriezers: alleVriezers, lades: alleLades, items: alleItems.map(i => ({...i, ingevrorenOp: i.ingevrorenOp?.toDate().toISOString()})) }, null, 2);
-    const blob = new Blob([data], {type:'application/json'}); const url = URL.createObjectURL(blob);
+    const data = JSON.stringify({ 
+        vriezers: alleVriezers, 
+        lades: alleLades, 
+        items: alleItems.map(i => ({...i, ingevrorenOp: i.ingevrorenOp?.toDate().toISOString()})) 
+    }, null, 2);
+    
+    const blob = new Blob([data], {type:'application/json'}); 
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `backup_${new Date().toISOString().split('T')[0]}.json`;
     a.click(); URL.revokeObjectURL(url);
 });
-// Notificaties (oud code beknopt)
-function checkHoudbaarheidNotificaties() { /* ... */ }
+
+// Notificaties
+function checkHoudbaarheidNotificaties() {
+    const DAGEN_OUD = 180;
+    const oudeItems = alleItems.filter(item => {
+        if (!item.ingevrorenOp) return false;
+        const diffDagen = Math.ceil(Math.abs(new Date() - item.ingevrorenOp.toDate()) / (1000 * 60 * 60 * 24));
+        return diffDagen > DAGEN_OUD;
+    });
+
+    if (oudeItems.length > 0) {
+        notificatieLijst.innerHTML = '';
+        oudeItems.slice(0, 5).forEach(item => {
+            const li = document.createElement('li');
+            const dagen = Math.ceil(Math.abs(new Date() - item.ingevrorenOp.toDate()) / (1000 * 60 * 60 * 24));
+            li.textContent = `${item.naam} (${item.ladeNaam}) - ${dagen} dagen oud`;
+            notificatieLijst.appendChild(li);
+        });
+        showModal(notificatieModal);
+    }
+}
+
+sluitNotificatieKnop.addEventListener('click', () => hideModal(notificatieModal));
+
 // Delen
-profileShareBtn.addEventListener('click', () => { hideModal(profileModal); showModal(shareModal); startSharesOwnerListener(); });
-sluitShareKnop.addEventListener('click', () => hideModal(shareModal));
-shareInviteForm.addEventListener('submit', (e) => {
-    e.preventDefault(); const email = document.getElementById('share-email').value;
-    sharesCollectie.add({ ownerId: eigenUserId, ownerEmail: currentUser.email, sharedWithEmail: email, role: document.getElementById('share-role').value, status: 'pending' })
-    .then(() => { showFeedback("Uitgenodigd!", "success"); shareInviteForm.reset(); });
+profileShareBtn.addEventListener('click', () => { 
+    hideModal(profileModal); 
+    showModal(shareModal); 
+    startSharesOwnerListener(); 
 });
-shareHuidigeLijst.addEventListener('click', (e) => { if(e.target.closest('.delete-btn')) sharesCollectie.doc(e.target.closest('li').dataset.id).delete(); });
+sluitShareKnop.addEventListener('click', () => hideModal(shareModal));
+
+shareInviteForm.addEventListener('submit', (e) => {
+    e.preventDefault(); 
+    const email = document.getElementById('share-email').value;
+    
+    sharesCollectie.add({ 
+        ownerId: eigenUserId, 
+        ownerEmail: currentUser.email, 
+        sharedWithEmail: email, 
+        role: document.getElementById('share-role').value, 
+        status: 'pending' 
+    })
+    .then(() => { 
+        showFeedback("Uitgenodigd!", "success"); 
+        shareInviteForm.reset(); 
+    });
+});
+
+shareHuidigeLijst.addEventListener('click', (e) => { 
+    if(e.target.closest('.delete-btn')) {
+        sharesCollectie.doc(e.target.closest('li').dataset.id).delete();
+    }
+});
+
 sluitAcceptShareKnop.addEventListener('click', () => hideModal(acceptShareModal));
+
 acceptShareLijst.addEventListener('click', (e) => {
     const btn = e.target.closest('button'); if(!btn) return;
     const id = btn.closest('li').dataset.id;
-    if(btn.dataset.action === 'accept') sharesCollectie.doc(id).update({ status: 'accepted', sharedWithId: eigenUserId });
-    else sharesCollectie.doc(id).delete();
+    if(btn.dataset.action === 'accept') {
+        sharesCollectie.doc(id).update({ status: 'accepted', sharedWithId: eigenUserId });
+    } else {
+        sharesCollectie.doc(id).delete();
+    }
 });
 
 // Boodschappenlijst
-profileShoppingListBtn.addEventListener('click', () => { hideModal(profileModal); showModal(shoppingListModal); });
+profileShoppingListBtn.addEventListener('click', () => { 
+    hideModal(profileModal); 
+    showModal(shoppingListModal); 
+});
 sluitShoppingListKnop.addEventListener('click', () => hideModal(shoppingListModal));
+
 function startShoppingListListener() {
     if (shoppingListListener) shoppingListListener();
-    shoppingListListener = shoppingListCollectie.where("userId", "==", eigenUserId).orderBy("createdAt", "desc").onSnapshot(snap => {
-        shoppingListUl.innerHTML = ''; snap.docs.forEach(doc => {
-            const i = {id: doc.id, ...doc.data()};
-            const li = document.createElement('li'); li.dataset.id = i.id; li.dataset.naam = i.naam;
-            if(i.checked) li.classList.add('checked');
-            li.innerHTML = `<input type="checkbox" class="shopping-item-checkbox" ${i.checked?'checked':''}><span class="shopping-item-name">${i.naam}</span><div class="item-buttons"><button class="btn-purchased"><i class="fas fa-check"></i></button><button class="delete-btn"><i class="fas fa-trash-alt"></i></button></div>`;
-            shoppingListUl.appendChild(li);
+    shoppingListListener = shoppingListCollectie
+        .where("userId", "==", eigenUserId)
+        .orderBy("createdAt", "desc")
+        .onSnapshot(snap => {
+            shoppingListUl.innerHTML = ''; 
+            snap.docs.forEach(doc => {
+                const i = {id: doc.id, ...doc.data()};
+                const li = document.createElement('li'); 
+                li.dataset.id = i.id; 
+                li.dataset.naam = i.naam;
+                if(i.checked) li.classList.add('checked');
+                
+                li.innerHTML = `
+                    <input type="checkbox" class="shopping-item-checkbox" ${i.checked?'checked':''}>
+                    <span class="shopping-item-name">${i.naam}</span>
+                    <div class="item-buttons">
+                        <button class="btn-purchased"><i class="fas fa-check"></i></button>
+                        <button class="delete-btn"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                `;
+                shoppingListUl.appendChild(li);
+            });
         });
-    });
 }
-addShoppingItemForm.addEventListener('submit', (e) => { e.preventDefault(); addShoppingItem(shoppingItemNaam.value); shoppingItemNaam.value=''; });
-async function addShoppingItem(naam) { shoppingListCollectie.add({ userId: eigenUserId, naam: naam, checked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); }
+
+addShoppingItemForm.addEventListener('submit', (e) => { 
+    e.preventDefault(); 
+    addShoppingItem(shoppingItemNaam.value); 
+    shoppingItemNaam.value=''; 
+});
+
+async function addShoppingItem(naam) { 
+    shoppingListCollectie.add({ 
+        userId: eigenUserId, 
+        naam: naam, 
+        checked: false, 
+        createdAt: firebase.firestore.FieldValue.serverTimestamp() 
+    }); 
+}
+
 shoppingListUl.addEventListener('click', (e) => {
     const li = e.target.closest('li'); if(!li) return;
-    if(e.target.classList.contains('shopping-item-checkbox')) shoppingListCollectie.doc(li.dataset.id).update({ checked: e.target.checked });
-    else if(e.target.closest('.delete-btn')) shoppingListCollectie.doc(li.dataset.id).delete();
-    else if(e.target.closest('.btn-purchased')) {
-        movePurchasedTempId.value = li.dataset.id; movePurchasedItemNaam.value = li.dataset.naam; movePurchasedNaamSpan.textContent = li.dataset.naam;
+    
+    if(e.target.classList.contains('shopping-item-checkbox')) {
+        shoppingListCollectie.doc(li.dataset.id).update({ checked: e.target.checked });
+    } else if(e.target.closest('.delete-btn')) {
+        shoppingListCollectie.doc(li.dataset.id).delete();
+    } else if(e.target.closest('.btn-purchased')) {
+        movePurchasedTempId.value = li.dataset.id; 
+        movePurchasedItemNaam.value = li.dataset.naam; 
+        movePurchasedNaamSpan.textContent = li.dataset.naam;
+        
         movePurchasedVriezer.innerHTML = vriezerSelect.innerHTML; // Gebruik zelfde opties als main
-        hideModal(shoppingListModal); showModal(movePurchasedModal);
+        hideModal(shoppingListModal); 
+        showModal(movePurchasedModal);
     }
 });
+
 clearCheckedShoppingItemsBtn.addEventListener('click', async () => {
     const q = await shoppingListCollectie.where("userId", "==", eigenUserId).where("checked", "==", true).get();
-    const b = db.batch(); q.docs.forEach(d => b.delete(d.ref)); b.commit();
+    const b = db.batch(); 
+    q.docs.forEach(d => b.delete(d.ref)); 
+    b.commit();
 });
 
 // Move Purchased Logic
 movePurchasedForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const lNaam = movePurchasedLade.options[movePurchasedLade.selectedIndex].text;
+    
     itemsCollectieBasis.add({
-        naam: movePurchasedItemNaam.value, aantal: parseFloat(movePurchasedAantal.value), eenheid: movePurchasedEenheid.value,
-        vriezerId: movePurchasedVriezer.value, ladeId: movePurchasedLade.value, ladeNaam: lNaam, userId: eigenUserId, ingevrorenOp: new Date(),
-        categorie: movePurchasedCategorie.value, emoji: movePurchasedEmoji.value
-    }).then(() => shoppingListCollectie.doc(movePurchasedTempId.value).delete())
-    .then(() => { showFeedback("Opgeborgen!", "success"); hideModal(movePurchasedModal); movePurchasedForm.reset(); });
+        naam: movePurchasedItemNaam.value, 
+        aantal: parseFloat(movePurchasedAantal.value), 
+        eenheid: movePurchasedEenheid.value,
+        vriezerId: movePurchasedVriezer.value, 
+        ladeId: movePurchasedLade.value, 
+        ladeNaam: lNaam, 
+        userId: eigenUserId, 
+        ingevrorenOp: new Date(),
+        categorie: movePurchasedCategorie.value, 
+        emoji: movePurchasedEmoji.value
+    })
+    .then(() => shoppingListCollectie.doc(movePurchasedTempId.value).delete())
+    .then(() => { 
+        showFeedback("Opgeborgen!", "success"); 
+        hideModal(movePurchasedModal); 
+        movePurchasedForm.reset(); 
+    });
 });
+
 movePurchasedVriezer.addEventListener('change', () => updateLadeDropdown(movePurchasedVriezer.value, movePurchasedLade, true));
 btnCancelMovePurchased.addEventListener('click', () => { hideModal(movePurchasedModal); showModal(shoppingListModal); });
 
-// Weekmenu & History (Kort)
-profileWeekmenuBtn.addEventListener('click', () => { hideModal(profileModal); if(!weekmenuDatumInput.value) weekmenuDatumInput.value=new Date().toISOString().split('T')[0]; showModal(weekmenuModal); });
+// Weekmenu
+profileWeekmenuBtn.addEventListener('click', () => { 
+    hideModal(profileModal); 
+    if(!weekmenuDatumInput.value) weekmenuDatumInput.value=new Date().toISOString().split('T')[0]; 
+    showModal(weekmenuModal); 
+});
+
 sluitWeekmenuKnop.addEventListener('click', () => hideModal(weekmenuModal));
-function startWeekMenuListener() { /* ... */ } // Zie vorige code
-addWeekmenuForm.addEventListener('submit', (e) => { /* ... */ }); // Zie vorige code
-profileHistoryBtn.addEventListener('click', () => { hideModal(profileModal); showModal(historyModal); startHistoryListener(); });
+
+function startWeekMenuListener() {
+    if (weekMenuListener) weekMenuListener();
+    weekMenuListener = weekMenuCollectie
+        .where("userId", "==", eigenUserId)
+        .orderBy("datum", "asc")
+        .onSnapshot(snap => {
+            weekmenuListUl.innerHTML = '';
+            if (snap.empty) {
+                weekmenuListUl.innerHTML = '<li><i>Niets gepland.</i></li>';
+                return;
+            }
+            snap.docs.forEach(doc => {
+                const item = {id: doc.id, ...doc.data()};
+                const li = document.createElement('li');
+                const datumKort = new Date(item.datum).toLocaleDateString('nl-BE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+                
+                let linkHtml = '';
+                if (item.link) {
+                    linkHtml = `<a href="${item.link}" target="_blank" class="btn-purchased" style="background-color:#4A90E2; text-decoration:none;"><i class="fas fa-link"></i></a>`;
+                }
+                
+                li.innerHTML = `
+                    <div style="display:flex; flex-direction:column; width: 100%;">
+                        <small style="color:#888; font-weight:bold;">${datumKort}</small>
+                        <span class="shopping-item-name">${item.gerecht}</span>
+                    </div>
+                    <div class="item-buttons">${linkHtml}<button class="delete-btn"><i class="fas fa-trash-alt"></i></button></div>
+                `;
+                li.querySelector('.delete-btn').addEventListener('click', () => weekMenuCollectie.doc(item.id).delete());
+                weekmenuListUl.appendChild(li);
+            });
+        });
+}
+
+addWeekmenuForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    weekMenuCollectie.add({
+        userId: eigenUserId,
+        datum: weekmenuDatumInput.value,
+        gerecht: weekmenuGerechtInput.value,
+        link: weekmenuLinkInput.value || null,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+        showFeedback("Ingepland!", "success");
+        weekmenuGerechtInput.value = '';
+        weekmenuLinkInput.value = '';
+    });
+});
+
+clearOldWeekmenuBtn.addEventListener('click', async () => {
+    const vandaag = new Date().toISOString().split('T')[0];
+    const q = await weekMenuCollectie.where("userId", "==", eigenUserId).where("datum", "<", vandaag).get();
+    const b = db.batch(); q.docs.forEach(d => b.delete(d.ref)); b.commit();
+    showFeedback("Oude items verwijderd.", "success");
+});
+
+// Geschiedenis
+profileHistoryBtn.addEventListener('click', () => { 
+    hideModal(profileModal); 
+    showModal(historyModal); 
+    startHistoryListener(); 
+});
 sluitHistoryKnop.addEventListener('click', () => hideModal(historyModal));
-function startHistoryListener() { /* ... */ } // Zie vorige code
-function logHistoryAction(a, d) { historyCollectie.add({userId:eigenUserId, actie:a, details:d, timestamp:firebase.firestore.FieldValue.serverTimestamp()}); }
+
+function startHistoryListener() {
+    if (historyListener) historyListener();
+    historyListener = historyCollectie
+        .where("userId", "==", eigenUserId)
+        .orderBy("timestamp", "desc")
+        .limit(50)
+        .onSnapshot(snap => {
+            historyListUl.innerHTML = '';
+            if (snap.empty) {
+                historyListUl.innerHTML = '<li><i>Geen geschiedenis.</i></li>';
+                return;
+            }
+            snap.docs.forEach(doc => {
+                const data = doc.data();
+                const time = data.timestamp ? data.timestamp.toDate().toLocaleString('nl-BE') : '?';
+                const li = document.createElement('li');
+                li.innerHTML = `<div class="user-info"><span>${data.actie}: ${data.details}</span><small>${time}</small></div>`;
+                historyListUl.appendChild(li);
+            });
+        });
+}
+
+function logHistoryAction(a, d) {
+    historyCollectie.add({
+        userId: eigenUserId, 
+        actie: a, 
+        details: d, 
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+}
+
+btnClearHistory.addEventListener('click', async () => {
+    if(!confirm("Geschiedenis wissen?")) return;
+    const q = await historyCollectie.where("userId", "==", eigenUserId).get();
+    const b = db.batch(); q.docs.forEach(d => b.delete(d.ref)); b.commit();
+});
 
 // Bulk Move
-function renderBulkDropdowns() { bulkTargetVriezer.innerHTML = vriezerSelect.innerHTML; bulkTargetVriezer.value = ""; bulkTargetLade.innerHTML = '<option disabled selected>Kies eerst locatie...</option>'; }
+function renderBulkDropdowns() {
+    bulkTargetVriezer.innerHTML = vriezerSelect.innerHTML;
+    bulkTargetVriezer.value = ""; 
+    bulkTargetLade.innerHTML = '<option disabled selected>Kies eerst locatie...</option>';
+}
+
 bulkTargetVriezer.addEventListener('change', () => updateLadeDropdown(bulkTargetVriezer.value, bulkTargetLade, true));
+
 btnToggleMode.addEventListener('click', () => {
     isMoveMode = !isMoveMode;
-    if(isMoveMode) { document.body.classList.add('move-mode'); bulkActionBar.classList.add('visible'); btnToggleMode.classList.add('active'); btnToggleMode.innerHTML = '<i class="fas fa-times"></i> Stop Modus'; selectedItemIds.clear(); }
-    else { document.body.classList.remove('move-mode'); bulkActionBar.classList.remove('visible'); btnToggleMode.classList.remove('active'); btnToggleMode.innerHTML = '<i class="fas fa-bolt"></i> Verplaatsmodus'; document.querySelectorAll('.bulk-checkbox').forEach(c=>c.checked=false); }
+    if(isMoveMode) { 
+        document.body.classList.add('move-mode'); 
+        bulkActionBar.classList.add('visible'); 
+        btnToggleMode.classList.add('active'); 
+        btnToggleMode.innerHTML = '<i class="fas fa-times"></i> Stop Modus'; 
+        selectedItemIds.clear(); 
+    } else { 
+        document.body.classList.remove('move-mode'); 
+        bulkActionBar.classList.remove('visible'); 
+        btnToggleMode.classList.remove('active'); 
+        btnToggleMode.innerHTML = '<i class="fas fa-bolt"></i> Verplaatsmodus'; 
+        document.querySelectorAll('.bulk-checkbox').forEach(c => c.checked = false); 
+    }
 });
+
 btnBulkMove.addEventListener('click', async () => {
-    if(selectedItemIds.size===0 || !bulkTargetVriezer.value || !bulkTargetLade.value) return showFeedback("Selecteer items en doel.", "error");
-    const ln = bulkTargetLade.options[bulkTargetLade.selectedIndex].text; const b = db.batch();
-    selectedItemIds.forEach(id => b.update(itemsCollectieBasis.doc(id), { vriezerId: bulkTargetVriezer.value, ladeId: bulkTargetLade.value, ladeNaam: ln }));
-    await b.commit(); showFeedback("Verplaatst!", "success"); btnToggleMode.click(); logHistoryAction("Bulk Verplaatsing", `${selectedItemIds.size} items`);
+    if(selectedItemIds.size === 0 || !bulkTargetVriezer.value || !bulkTargetLade.value) {
+        return showFeedback("Selecteer items en doel.", "error");
+    }
+    
+    const ln = bulkTargetLade.options[bulkTargetLade.selectedIndex].text; 
+    const b = db.batch();
+    
+    selectedItemIds.forEach(id => {
+        b.update(itemsCollectieBasis.doc(id), { 
+            vriezerId: bulkTargetVriezer.value, 
+            ladeId: bulkTargetLade.value, 
+            ladeNaam: ln 
+        });
+    });
+    
+    await b.commit(); 
+    showFeedback("Verplaatst!", "success"); 
+    btnToggleMode.click(); 
+    logHistoryAction("Bulk Verplaatsing", `${selectedItemIds.size} items`);
 });
 
 // Unit dropdowns rendering
 function renderUnitDropdowns() {
-    [document.getElementById('item-eenheid'), document.getElementById('edit-item-eenheid'), document.getElementById('move-purchased-eenheid')].forEach(s => {
-        if(!s)return; const val = s.value; s.innerHTML=''; userUnits.forEach(u => s.innerHTML+=`<option value="${u}">${u}</option>`); if(userUnits.includes(val)) s.value=val;
+    const targets = [
+        document.getElementById('item-eenheid'), 
+        document.getElementById('edit-item-eenheid'), 
+        document.getElementById('move-purchased-eenheid')
+    ];
+    
+    targets.forEach(s => {
+        if(!s) return; 
+        const val = s.value; 
+        s.innerHTML = ''; 
+        userUnits.forEach(u => s.innerHTML += `<option value="${u}">${u}</option>`); 
+        if(userUnits.includes(val)) s.value = val;
     });
 }
-function renderUnitBeheerLijst() { /* ... */ } // Zie vorige code
+
+function renderUnitBeheerLijst() {
+    const eenheidBeheerLijst = document.getElementById('eenheid-beheer-lijst');
+    if (!eenheidBeheerLijst) return;
+    
+    eenheidBeheerLijst.innerHTML = '';
+    userUnits.forEach(unit => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>${unit}</span><div class="item-buttons"><button class="delete-btn" onclick="verwijderEenheid('${unit}')"><i class="fas fa-trash-alt"></i></button></div>`;
+        li.style.display = 'flex'; li.style.justifyContent = 'space-between'; li.style.padding = '8px'; li.style.marginBottom='5px'; li.style.background='#fff'; li.style.border='1px solid #eee';
+        eenheidBeheerLijst.appendChild(li);
+    });
+}
+
+document.getElementById('add-eenheid-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = document.getElementById('eenheid-naam');
+    const val = input.value.trim().toLowerCase();
+    
+    if(val && !userUnits.includes(val)) {
+        const updated = [...userUnits, val].sort();
+        usersCollectie.doc(eigenUserId).update({ customUnits: updated }).then(() => { input.value=''; showFeedback("Toegevoegd", "success"); });
+    }
+});
+
+window.verwijderEenheid = function(unit) {
+    if(beheerdeUserId !== eigenUserId) return showFeedback("Alleen eigen account.", "error");
+    if(!confirm(`Verwijder '${unit}'?`)) return;
+    
+    const updated = userUnits.filter(u => u !== unit);
+    usersCollectie.doc(eigenUserId).update({ customUnits: updated });
+};
