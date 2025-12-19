@@ -753,6 +753,7 @@ li .item-buttons {
 #vriezer-beheer-lijst, #lade-beheer-lijst { 
     list-style: none; 
     padding: 0; 
+    margin-bottom: 20px; /* Meer ruimte onderaan */
 }
 #vriezer-beheer-lijst li, 
 #lade-beheer-lijst li {
@@ -1091,7 +1092,7 @@ li .item-buttons {
 }
 
 
-/* --- BULK ACTIES & MOVE MODE --- */
+/* --- BULK ACTIES & MOVE MODE (AANGEPAST) --- */
 .bulk-checkbox {
     display: none; 
     width: 24px;
@@ -1105,20 +1106,25 @@ body.move-mode .bulk-checkbox {
     display: block;
 }
 
-/* De balk onderaan */
+/* De balk onderaan - LICHTER GEMAAKT */
 .bulk-action-bar {
     position: fixed;
-    bottom: 20px; /* Iets zwevend */
+    bottom: 20px; 
     left: 20px;
     right: 20px; 
     width: auto;
-    max-width: 1160px; /* Binnen container max */
+    max-width: 1160px; 
     margin: 0 auto; 
-    background-color: #333;
-    color: white;
+    
+    background-color: #ffffff; /* Wit i.p.v. Zwart */
+    border: 1px solid #e0e0e0;
+    border-top: 4px solid #4A90E2; /* Blauw accent */
+    color: #333; /* Donkere tekst */
+    
     border-radius: 12px;
     padding: 15px 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15); /* Lichtere schaduw */
+    
     display: flex;
     flex-wrap: wrap; 
     gap: 15px;
@@ -1132,8 +1138,8 @@ body.move-mode .bulk-checkbox {
     transform: translateY(0);
 }
 .bulk-info {
-    font-weight: bold;
-    color: #fff;
+    font-weight: 700;
+    color: #333; /* Donker */
     font-size: 1em;
     white-space: nowrap;
 }
@@ -1147,17 +1153,17 @@ body.move-mode .bulk-checkbox {
 }
 .bulk-select {
     padding: 10px;
-    border: 1px solid #555;
-    background-color: #444;
-    color: white;
+    border: 1px solid #ced4da;
+    background-color: #fff; /* Wit */
+    color: #333; /* Donker */
     border-radius: 6px;
     font-size: 14px;
     flex-grow: 1;
     min-width: 100px;
 }
 .btn-bulk-move {
-    background-color: #66DDAA;
-    color: #0f5132;
+    background-color: #4A90E2; /* Blauw */
+    color: #fff;
     border: none;
     border-radius: 6px;
     padding: 10px 20px;
@@ -1165,9 +1171,15 @@ body.move-mode .bulk-checkbox {
     cursor: pointer;
     white-space: nowrap;
     flex-shrink: 0;
+    box-shadow: 0 2px 5px rgba(74, 144, 226, 0.3);
+}
+.btn-bulk-move:disabled {
+    background-color: #ccc;
+    box-shadow: none;
+    cursor: not-allowed;
 }
 
-/* Knop om modus te activeren */
+/* Knop om modus te activeren - LICHTER ACTIEF */
 .btn-toggle-mode {
     background-color: white;
     color: #555;
@@ -1187,9 +1199,9 @@ body.move-mode .bulk-checkbox {
     border-color: #ccc;
 }
 .btn-toggle-mode.active {
-    background-color: #333;
-    color: white;
-    border-color: #333;
+    background-color: #e0f7fa; /* Lichtblauw i.p.v. zwart */
+    color: #0056b3; /* Donkerblauw tekst */
+    border-color: #b3e5fc;
 }
 
 /* --- QR Code Popup Beeld --- */
