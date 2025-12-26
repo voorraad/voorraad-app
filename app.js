@@ -684,6 +684,8 @@ function renderDynamischeLijsten() {
     zichtbareVriezers.forEach(vriezer => {
         const kolomDiv = document.createElement('div');
         kolomDiv.className = 'vriezer-kolom';
+        // CRUCIAL CHANGE: Add the ID as a data attribute for searching
+        kolomDiv.dataset.vriezerId = vriezer.id; 
         
         // Bereken totaal items voor deze specifieke locatie
         const vriezerItems = alleItems.filter(item => item.vriezerId === vriezer.id);
@@ -985,8 +987,8 @@ searchBar.addEventListener('input', updateItemVisibility);
 function updateItemVisibility() {
     const term = searchBar.value.toLowerCase();
     document.querySelectorAll('.vriezer-kolom').forEach(kolom => {
-        const h2 = kolom.querySelector('h2'); if(!h2) return;
-        const vId = alleVriezers.find(v => v.naam === h2.textContent.split('(')[0].trim())?.id; // Split om (X items) te negeren
+        // FIX: Gebruik data-attribute ipv textContent split
+        const vId = kolom.dataset.vriezerId;
         if(!vId) return;
         
         const lFilter = document.getElementById(`filter-lade-${vId}`)?.value || 'all';
