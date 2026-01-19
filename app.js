@@ -89,6 +89,7 @@ const form = document.getElementById('add-item-form');
 const vriezerSelect = document.getElementById('item-vriezer'); 
 const schuifSelect = document.getElementById('item-schuif'); 
 const itemDatum = document.getElementById('item-datum');
+const itemHoudbaarheid = document.getElementById('item-houdbaarheid'); // NIEUW
 const itemCategorie = document.getElementById('item-categorie');
 const itemEmoji = document.getElementById('item-emoji');
 const itemEenheid = document.getElementById('item-eenheid'); 
@@ -102,6 +103,7 @@ const editEenheid = document.getElementById('edit-item-eenheid');
 const editVriezer = document.getElementById('edit-item-vriezer');
 const editSchuif = document.getElementById('edit-item-schuif');
 const editDatum = document.getElementById('edit-item-datum');
+const editHoudbaarheid = document.getElementById('edit-item-houdbaarheid'); // NIEUW
 const editCategorie = document.getElementById('edit-item-categorie');
 const editEmoji = document.getElementById('edit-item-emoji');
 
@@ -254,7 +256,7 @@ function formatAantal(aantal, eenheid) {
 }
 
 function formatDatum(timestamp) {
-    if (!timestamp) return 'Onbekende datum';
+    if (!timestamp) return 'Onbekend';
     return timestamp.toDate().toLocaleDateString('nl-BE');
 }
 
@@ -440,7 +442,9 @@ auth.onAuthStateChanged((user) => {
         currentUser = user; eigenUserId = user.uid; beheerdeUserId = user.uid; beheerdeUserEmail = user.email || "Jezelf";
         isEersteNotificatieCheck = true; alleAcceptedShares = [];
         registreerGebruiker(user);
-        checkAdminStatus(user.uid);
+        
+        // Eerst admin checken, dan eventueel auto-switchen als het geen admin is
+        checkAdminStatusAndAutoSwitch(user.uid);
         
         if (user.photoURL) {
             profileImg.src = user.photoURL; profileImg.style.display = 'block'; profileIcon.style.display = 'none';
@@ -472,10 +476,37 @@ async function registreerGebruiker(user) {
     try { await usersCollectie.doc(user.uid).set({ email: user.email||'Onbekend', displayName: user.displayName||user.email, laatstGezien: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }); } catch (e) {}
 }
 
-async function checkAdminStatus(uid) {
+async function checkAdminStatusAndAutoSwitch(uid) {
+    // 1. Check Admin
     try { const doc = await adminsCollectie.doc(uid).get(); isAdmin = doc.exists; } catch (e) { isAdmin = false; }
-    if(isAdmin) { switchAccountKnop.style.display = 'inline-flex'; adminSwitchSection.style.display = 'block'; userSwitchSection.style.display = 'none'; startAdminUserListener(); }
-    else { adminSwitchSection.style.display = 'none'; userSwitchSection.style.display = 'block'; startAcceptedSharesListener(); }
+    
+    if(isAdmin) { 
+        switchAccountKnop.style.display = 'inline-flex'; 
+        adminSwitchSection.style.display = 'block'; 
+        userSwitchSection.style.display = 'none'; 
+        startAdminUserListener(); 
+    } else { 
+        adminSwitchSection.style.display = 'none'; 
+        userSwitchSection.style.display = 'block'; 
+        startAcceptedSharesListener(); 
+        
+        // 2. AUTO-SWITCH CHECK (Alleen voor niet-admins)
+        // Check of gebruiker eigen vriezers heeft
+        const eigenVriezers = await vriezersCollectieBasis.where('userId', '==', uid).limit(1).get();
+        
+        if (eigenVriezers.empty) {
+            // Geen eigen vriezers, zoek naar shares
+            const shares = await sharesCollectie.where("sharedWithEmail", "==", currentUser.email).where("status", "==", "accepted").limit(1).get();
+            if (!shares.empty) {
+                const share = shares.docs[0].data();
+                console.log("Auto-switching naar gedeeld account:", share.ownerEmail);
+                schakelBeheer(share.ownerId, share.ownerEmail);
+                
+                // Optioneel: verberg wissel knop niet volledig, want misschien willen ze later terug.
+                // Maar we switchen wel direct.
+            }
+        }
+    }
     updateSwitchAccountUI();
 }
 
@@ -749,12 +780,20 @@ function renderDynamischeLijsten() {
                 const emoji = item.emoji || getEmojiForCategory(item.categorie || 'Geen');
                 const isChecked = selectedItemIds.has(item.id) ? 'checked' : '';
                 
+                // NIEUWE DATUM WEERGAVE
+                let datumTekst = `In: ${formatDatum(item.ingevrorenOp)}`;
+                if (item.houdbaarheidsDatum) {
+                    datumTekst += ` | THT: ${formatDatum(item.houdbaarheidsDatum)}`;
+                } else {
+                    datumTekst += ` (${diffDagen}d)`;
+                }
+
                 li.innerHTML = `
                     <input type="checkbox" class="bulk-checkbox" data-id="${item.id}" ${isChecked}>
                     <div class="item-text">
                         <strong><span class="emoji-icon">${emoji}</span>${item.naam} (${formatAantal(item.aantal, item.eenheid)})</strong>
                         <small class="item-categorie">Cat: ${item.categorie || 'Geen'}</small>
-                        <small class="item-datum">Datum: ${formatDatum(item.ingevrorenOp)} (${diffDagen}d)</small>
+                        <small class="item-datum">${datumTekst}</small>
                     </div>
                     <div class="item-buttons">
                         <button class="edit-btn" title="Bewerken"><i class="fas fa-pencil-alt"></i></button>
@@ -833,9 +872,17 @@ form.addEventListener('submit', (e) => {
     const naam = document.getElementById('item-naam').value;
     const emoji = itemEmoji.value || getEmojiForCategory(itemCategorie.value);
 
+    // DATUMS VERWERKEN
+    const invriesOp = new Date(itemDatum.value + "T00:00:00");
+    let houdbaarTot = null;
+    if (itemHoudbaarheid.value) {
+        houdbaarTot = new Date(itemHoudbaarheid.value + "T00:00:00");
+    }
+
     itemsCollectieBasis.add({
         naam: naam, aantal: parseFloat(document.getElementById('item-aantal').value), eenheid: document.getElementById('item-eenheid').value,
-        ingevrorenOp: new Date(itemDatum.value + "T00:00:00"), categorie: itemCategorie.value, emoji: emoji, 
+        ingevrorenOp: invriesOp, houdbaarheidsDatum: houdbaarTot, 
+        categorie: itemCategorie.value, emoji: emoji, 
         userId: beheerdeUserId, vriezerId: vId, ladeId: lId, ladeNaam: lNaam 
     })
     .then(() => {
@@ -879,7 +926,10 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
         
         editEmoji.value = item.emoji || getEmojiForCategory(item.categorie || 'Geen');
         updateLadeDropdown(item.vriezerId, editSchuif, false); editSchuif.value = item.ladeId;
+        
         editDatum.value = item.ingevrorenOp ? item.ingevrorenOp.toDate().toISOString().split('T')[0] : '';
+        editHoudbaarheid.value = item.houdbaarheidsDatum ? item.houdbaarheidsDatum.toDate().toISOString().split('T')[0] : '';
+        
         showModal(editModal);
     }
 });
@@ -887,9 +937,22 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
 editForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const lNaam = editSchuif.options[editSchuif.selectedIndex].text;
+    
+    // DATUM LOGICA BIJ BEWERKEN: GEWOON DE INPUT GEBRUIKEN (Correctie gebruiker)
+    const nieuweInvriesDatum = new Date(editDatum.value + "T00:00:00");
+    // nieuweInvriesDatum.setDate(nieuweInvriesDatum.getDate() - 1); // VERWIJDERD
+
+    let nieuweHoudbaarheid = null;
+    if (editHoudbaarheid.value) {
+        nieuweHoudbaarheid = new Date(editHoudbaarheid.value + "T00:00:00");
+    }
+
     itemsCollectieBasis.doc(editId.value).update({
         naam: editNaam.value, aantal: parseFloat(editAantal.value), eenheid: editEenheid.value, vriezerId: editVriezer.value,
-        ladeId: editSchuif.value, ladeNaam: lNaam, ingevrorenOp: new Date(editDatum.value + "T00:00:00"), categorie: editCategorie.value, emoji: editEmoji.value
+        ladeId: editSchuif.value, ladeNaam: lNaam, 
+        ingevrorenOp: nieuweInvriesDatum, 
+        houdbaarheidsDatum: nieuweHoudbaarheid,
+        categorie: editCategorie.value, emoji: editEmoji.value
     }).then(() => { hideModal(editModal); showFeedback('Bijgewerkt!', 'success'); });
 });
 btnCancel.addEventListener('click', () => hideModal(editModal));
