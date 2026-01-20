@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '4.4'; 
+const APP_VERSION = '4.5'; 
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -174,8 +174,8 @@ function App() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [usersList, setUsersList] = useState([]);
     
-    // User Settings (Tabs verbergen)
-    const [hiddenTabs, setHiddenTabs] = useState([]); // Array van strings bijv. ['voorraad']
+    // User Settings
+    const [hiddenTabs, setHiddenTabs] = useState([]);
     
     // Data
     const [activeTab, setActiveTab] = useState('vriezer');
@@ -324,6 +324,14 @@ function App() {
     const formLades = formData.vriezerId 
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
         : [];
+    
+    // Dynamische grid klasse berekenen
+    const gridClass = (() => {
+        const count = filteredLocaties.length;
+        if (count === 1) return 'grid-cols-1';
+        if (count === 2) return 'grid-cols-1 md:grid-cols-2';
+        return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+    })();
 
     // --- HANDLERS ---
     const handleGoogleLogin = async () => { 
@@ -594,7 +602,7 @@ function App() {
                 </div>
 
                 {/* Lijsten Grid Container */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+                <div className={`grid gap-6 items-start ${gridClass}`}>
                     {filteredLocaties.map(vriezer => (
                         <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
                             <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">{vriezer.naam}</h2>
@@ -840,16 +848,15 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.4</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.5</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Lijsten kunnen nu naast elkaar getoond worden (max 3).</span></li>
+                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Lijsten nemen nu volledige breedte als er weinig zijn.</span></li>
                         </ul>
                     </div>
                     <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 4.3</h4>
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 4.4</h4>
                         <ul className="space-y-2 text-sm text-gray-500">
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Correcte configuratie voor standaard categorieën.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Verbeterde foutafhandeling voor React rendering.</span></li>
+                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Lijsten kunnen nu naast elkaar getoond worden (max 3).</span></li>
                         </ul>
                     </div>
                 </div>
