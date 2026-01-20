@@ -4,7 +4,7 @@ const { useState, useEffect, useMemo } = React;
 const firebaseConfig = typeof __firebase_config !== 'undefined' 
     ? JSON.parse(__firebase_config) 
     : {
-        apiKey: "", // Wordt door de omgeving ingevuld
+        apiKey: "AIzaSyB9KRUbVBknnDDkkWF2Z5nRskmY-9CkD24", // API Key hersteld
         authDomain: "vriezer-app.firebaseapp.com",
         projectId: "vriezer-app",
         storageBucket: "vriezer-app.firebasestorage.app",
