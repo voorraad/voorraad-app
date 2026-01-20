@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '4.1'; 
+const APP_VERSION = '4.2'; 
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -33,7 +33,8 @@ const BADGE_COLORS = {
     pink: "bg-pink-100 text-pink-800"
 };
 
-const STANDAARD_CATEGORIEEN = [
+// Initiele lijst (wordt gekopieerd naar user profile indien leeg)
+const INITIAL_CATEGORIEEN = [
     { name: "Vlees", color: "red" },
     { name: "Vis", color: "blue" },
     { name: "Groenten", color: "green" },
@@ -225,8 +226,13 @@ function App() {
     const [editingLadeName, setEditingLadeName] = useState('');
     const [editingUnitName, setEditingUnitName] = useState(null); 
     const [editUnitInput, setEditUnitInput] = useState('');
+    
+    // Edit States voor Categorieën
     const [newCatName, setNewCatName] = useState('');
     const [newCatColor, setNewCatColor] = useState('gray');
+    const [editingCatName, setEditingCatName] = useState(null); // Oude naam
+    const [editCatInputName, setEditCatInputName] = useState('');
+    const [editCatInputColor, setEditCatInputColor] = useState('gray');
 
     // --- AUTH & SETUP ---
     useEffect(() => {
@@ -240,7 +246,14 @@ function App() {
                         const data = doc.data();
                         setCustomUnits(data.customUnits || []);
                         setCustomCategories(data.customCategories || []);
-                        setHiddenTabs(data.hiddenTabs || []); // Laad verborgen tabs
+                        setHiddenTabs(data.hiddenTabs || []); 
+                    } else {
+                        // Init user doc with defaults if not exists
+                        db.collection('users').doc(u.uid).set({
+                            customCategories: STANDAARD_CATEGORIEEN,
+                            customUnits: [],
+                            hiddenTabs: []
+                        });
                     }
                 });
 
@@ -266,10 +279,8 @@ function App() {
             if(doc.exists) {
                 const data = doc.data();
                 setCustomUnits(data.customUnits || []);
-                setCustomCategories(data.customCategories || []);
-                // Als we niet onszelf beheren (bijv. gedeeld account), laden we de instellingen van de eigenaar
-                // Maar hiddenTabs is vaak per gebruiker zelf, hier nemen we eigenaar settings over voor consistentie in weergave
-                // Tenzij admin feature specifiek de 'viewer' wil beperken.
+                // Zorg dat we altijd iets hebben, fallback naar standaard als db leeg is
+                setCustomCategories(data.customCategories && data.customCategories.length > 0 ? data.customCategories : STANDAARD_CATEGORIEEN);
             }
         });
         return () => unsub();
@@ -314,7 +325,9 @@ function App() {
 
     // Derived
     const alleEenheden = [...BASIS_EENHEDEN, ...customUnits].sort();
-    const alleCategorieen = [...STANDAARD_CATEGORIEEN, ...customCategories];
+    // Gebruik customCategories als die geladen zijn, anders fallback
+    const actieveCategorieen = customCategories.length > 0 ? customCategories : STANDAARD_CATEGORIEEN;
+    
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
     const alerts = items.filter(i => getDagenOud(i.ingevrorenOp) > 180);
     const formLades = formData.vriezerId ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam)) : [];
@@ -353,6 +366,7 @@ function App() {
             userId: beheerdeUserId,
             emoji: formData.emoji || getEmojiForCategory(formData.categorie)
         };
+
         try {
             if(editingItem) {
                 await db.collection('items').doc(editingItem.id).update(data);
@@ -439,6 +453,7 @@ function App() {
         setEditingUnitName(null);
     };
 
+    // Categorie CRUD & Edit
     const handleAddCat = async (e) => {
         e.preventDefault();
         if(newCatName.trim()) {
@@ -453,6 +468,29 @@ function App() {
             await db.collection('users').doc(beheerdeUserId).set({customCategories: updated}, {merge:true});
         }
     };
+    const startEditCat = (cat) => { 
+        setEditingCatName(cat.name); 
+        setEditCatInputName(cat.name); 
+        setEditCatInputColor(cat.color || 'gray'); 
+    };
+    const saveCat = async () => {
+        if(!editCatInputName.trim()) return;
+        // 1. Update in lijst
+        const updated = customCategories.map(c => c.name === editingCatName ? {name: editCatInputName, color: editCatInputColor} : c);
+        await db.collection('users').doc(beheerdeUserId).set({customCategories: updated}, {merge:true});
+
+        // 2. Update items (batch) die oude naam hadden
+        if(editingCatName !== editCatInputName) {
+            const batch = db.batch();
+            const itemsWithCat = items.filter(i => i.categorie === editingCatName);
+            itemsWithCat.forEach(item => {
+                batch.update(db.collection('items').doc(item.id), { categorie: editCatInputName });
+            });
+            await batch.commit();
+        }
+        setEditingCatName(null);
+    };
+
 
     const handleShare = async (e) => {
         e.preventDefault();
@@ -468,7 +506,6 @@ function App() {
         await db.collection('users').doc(userId).update({ disabled: !currentStatus }); 
     };
 
-    // Nieuwe Admin Functie: Toggle Voorraad Tab Zichtbaarheid voor gebruiker
     const toggleUserTabVisibility = async (userId, userHiddenTabs) => {
         const tabs = userHiddenTabs || [];
         let newTabs;
@@ -592,8 +629,7 @@ function App() {
                                                     ladeItems.map(item => {
                                                         const dagen = getDagenOud(item.ingevrorenOp);
                                                         const colorClass = getStatusColor(dagen);
-                                                        // Zoek categorie object voor kleur
-                                                        const catObj = alleCategorieen.find(c => (c.name || c) === item.categorie);
+                                                        const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
                                                         const catColor = catObj ? (catObj.color || 'gray') : 'gray';
 
                                                         return (
@@ -671,7 +707,7 @@ function App() {
                     </div>
                     <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Categorie</label>
                     <select className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
-                        {alleCategorieen.map(c => <option key={c.name||c} value={c.name||c}>{c.name||c}</option>)}
+                        {actieveCategorieen.map(c => <option key={c.name||c} value={c.name||c}>{c.name||c}</option>)}
                     </select></div>
                     <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md">Opslaan</button>
                 </form>
@@ -723,10 +759,25 @@ function App() {
                     <div>
                         <h4 className="font-bold text-gray-700 mb-2">Categorieën</h4>
                         <ul className="space-y-2 mb-3">
-                            {customCategories.map(cat => (
+                            {actieveCategorieen.map(cat => (
                                 <li key={cat.name} className="flex justify-between p-2 bg-gray-50 rounded items-center">
-                                    <div className="flex items-center gap-2"><div className={`w-3 h-3 rounded-full bg-${cat.color}-500`}></div><span>{cat.name}</span></div>
-                                    <button onClick={() => handleDeleteCat(cat.name)} className="text-red-500"><Icon path={Icons.Trash2}/></button>
+                                    {editingCatName === cat.name ?
+                                        <div className="flex gap-2 w-full items-center">
+                                            <input className="flex-grow border p-1 rounded" value={editCatInputName} onChange={e=>setEditCatInputName(e.target.value)} />
+                                            <select className="border p-1 rounded" value={editCatInputColor} onChange={e=>setEditCatInputColor(e.target.value)}>
+                                                {Object.keys(BADGE_COLORS).map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                            <button onClick={saveCat} className="text-green-600"><Icon path={Icons.Check}/></button>
+                                        </div>
+                                        :
+                                        <>
+                                            <div className="flex items-center gap-2"><div className={`w-3 h-3 rounded-full bg-${cat.color}-500`}></div><span>{cat.name}</span></div>
+                                            <div className="flex gap-2">
+                                                <button onClick={()=>startEditCat(cat)} className="text-blue-500"><Icon path={Icons.Edit2} size={16}/></button>
+                                                <button onClick={() => handleDeleteCat(cat.name)} className="text-red-500"><Icon path={Icons.Trash2} size={16}/></button>
+                                            </div>
+                                        </>
+                                    }
                                 </li>
                             ))}
                         </ul>
@@ -800,16 +851,16 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.1</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.2</h4>
                         <ul className="space-y-2">
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Syntaxfouten in iconen opgelost.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Admin: Verberg 'Voorraad' tab voor specifieke gebruikers.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Categorieën volledig bewerkbaar (naam + kleur).</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Oude categorieën worden nu correct geladen.</span></li>
                         </ul>
                     </div>
                     <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 4.0</h4>
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 4.1</h4>
                         <ul className="space-y-2 text-sm text-gray-500">
-                            <li className="flex gap-2"><Badge type="major" text="Major" /><span>Grote Update! Nieuwe functies.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Admin: Verberg 'Voorraad' tab.</span></li>
                         </ul>
                     </div>
                 </div>
