@@ -113,6 +113,11 @@ const toInputDate = (timestamp) => {
     return localDate.toISOString().split('T')[0];
 };
 
+const getEmojiForCategory = (cat) => {
+    const emojis = { "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", "Brood": "🍞", "IJs": "🍦", "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" };
+    return emojis[cat] || "📦";
+};
+
 const getStatusColor = (dagen) => {
     if (dagen > 180) return 'border-l-4 border-red-500'; 
     if (dagen > 90) return 'border-l-4 border-yellow-400';
@@ -141,12 +146,10 @@ const Badge = ({ type, text }) => {
         patch: "bg-green-100 text-green-700",
         major: "bg-purple-100 text-purple-700",
         alert: "bg-red-100 text-red-700",
+        category: "bg-gray-200 text-gray-700" 
     };
-    // Als type een kleurcode is uit BADGE_COLORS
-    const colorClass = BADGE_COLORS[type] || colors[type] || "bg-gray-200 text-gray-700";
-
     return (
-        <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colorClass}`}>
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colors[type] || colors.minor}`}>
             {text}
         </span>
     );
@@ -209,7 +212,7 @@ function App() {
         naam: '', aantal: 1, eenheid: 'stuks', vriezerId: '', ladeId: '', categorie: 'Vlees', 
         ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
     });
-    const [rememberLocation, setRememberLocation] = useState(false); // Nieuwe state voor switch
+    const [rememberLocation, setRememberLocation] = useState(false); 
     const [newLocatieNaam, setNewLocatieNaam] = useState('');
     const [selectedLocatieForBeheer, setSelectedLocatieForBeheer] = useState(null);
     const [newLadeNaam, setNewLadeNaam] = useState('');
@@ -328,7 +331,7 @@ function App() {
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
         : [];
     
-    // Dynamische grid klasse berekenen
+    // Dynamische grid klasse
     const gridClass = (() => {
         const count = filteredLocaties.length;
         if (count === 1) return 'grid-cols-1';
@@ -350,8 +353,6 @@ function App() {
     // Item CRUD
     const handleOpenAdd = () => {
         setEditingItem(null);
-        // Als we willen onthouden, gebruiken we de bestaande formData (locatie/lade blijft staan)
-        // Anders resetten we naar default
         if (!rememberLocation) {
             const defaultLoc = filteredLocaties.length > 0 ? filteredLocaties[0].id : '';
             setFormData({
@@ -359,7 +360,6 @@ function App() {
                 categorie: 'Vlees', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
             });
         } else {
-             // Behoud locatie/lade, reset de rest
              setFormData(prev => ({
                 ...prev,
                 naam: '', aantal: 1, categorie: 'Vlees', 
@@ -385,29 +385,20 @@ function App() {
             if(editingItem) {
                 await db.collection('items').doc(editingItem.id).update(data);
                 setEditingItem(null);
-                setShowAddModal(false); // Altijd sluiten bij bewerken
+                setShowAddModal(false);
             } else {
                 await db.collection('items').add(data);
-                
                 if (rememberLocation) {
-                    // Als onthouden aan staat, resetten we alleen naam/aantal/emoji en laten we modal open? 
-                    // Of we sluiten modal en bij volgende openen is het nog ingevuld?
-                    // Meestal wil je bij 'snel toevoegen' dat de modal open blijft of dat hij sluit maar volgende keer onthoudt.
-                    // Gezien de vraag "dat we niet telkens daar in moeten wijzigen", ga ik ervan uit dat bij de VOLGENDE keer openen het onthouden moet zijn.
-                    // Dus we sluiten de modal wel.
                     setFormData(prev => ({
                         ...prev, 
                         naam: '', aantal: 1, emoji: '', 
-                        // Datum resetten we ook naar vandaag voor nieuw item? Meestal wel.
                         ingevrorenOp: new Date().toISOString().split('T')[0],
                         houdbaarheidsDatum: ''
                     }));
-                    setShowAddModal(false);
                 } else {
-                    // Volledige reset
                     setFormData(prev => ({...prev, naam: '', aantal: 1, emoji: ''})); 
-                    setShowAddModal(false);
                 }
+                setShowAddModal(false);
             }
         } catch(err) { alert(err.message); }
     };
@@ -916,3 +907,5 @@ function App() {
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
+
+
