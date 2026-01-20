@@ -640,9 +640,10 @@ function App() {
                                                                                 <Badge type={catColor} text={item.categorie} />
                                                                             )}
                                                                         </div>
-                                                                        <p className="text-xs text-gray-500">
-                                                                            {item.aantal} {item.eenheid} • {formatDate(item.ingevrorenOp)}
-                                                                            {item.houdbaarheidsDatum ? ` • THT: ${formatDate(item.houdbaarheidsDatum)}` : ''}
+                                                                        <p className="text-sm text-gray-700 mt-0.5"> {/* Aangepast: text-sm en gray-700 */}
+                                                                            <span className="font-bold">{item.aantal} {item.eenheid}</span> {/* Aangepast: font-bold */}
+                                                                            <span className="text-xs text-gray-500 ml-2"> • {formatDate(item.ingevrorenOp)}
+                                                                            {item.houdbaarheidsDatum ? ` • THT: ${formatDate(item.houdbaarheidsDatum)}` : ''}</span>
                                                                         </p>
                                                                     </div>
                                                                 </div>
