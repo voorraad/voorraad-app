@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '4.0'; 
+const APP_VERSION = '4.1'; 
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -85,8 +85,8 @@ const Icons = {
     ChevronDown: <path d="m6 9 6 6 6-6"/>,
     ChevronRight: <path d="m9 18 6-6-6-6"/>,
     User: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>,
-    Printer: <path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/>,
-    Share: <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+    Printer: <g><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></g>,
+    Share: <g><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></g>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -111,6 +111,11 @@ const toInputDate = (timestamp) => {
     const offset = date.getTimezoneOffset();
     const localDate = new Date(date.getTime() - (offset*60*1000));
     return localDate.toISOString().split('T')[0];
+};
+
+const getEmojiForCategory = (cat) => {
+    const emojis = { "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", "Brood": "🍞", "IJs": "🍦", "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" };
+    return emojis[cat] || "📦";
 };
 
 const getStatusColor = (dagen) => {
@@ -176,6 +181,9 @@ function App() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [usersList, setUsersList] = useState([]);
     
+    // User Settings (Tabs verbergen)
+    const [hiddenTabs, setHiddenTabs] = useState([]); // Array van strings bijv. ['voorraad']
+    
     // Data
     const [activeTab, setActiveTab] = useState('vriezer');
     const [items, setItems] = useState([]);
@@ -215,7 +223,7 @@ function App() {
     // Edit States voor Beheer
     const [editingLadeId, setEditingLadeId] = useState(null);
     const [editingLadeName, setEditingLadeName] = useState('');
-    const [editingUnitName, setEditingUnitName] = useState(null); // Oude naam
+    const [editingUnitName, setEditingUnitName] = useState(null); 
     const [editUnitInput, setEditUnitInput] = useState('');
     const [newCatName, setNewCatName] = useState('');
     const [newCatColor, setNewCatColor] = useState('gray');
@@ -229,8 +237,10 @@ function App() {
                 
                 db.collection('users').doc(u.uid).onSnapshot(doc => {
                     if(doc.exists) {
-                        setCustomUnits(doc.data().customUnits || []);
-                        setCustomCategories(doc.data().customCategories || []);
+                        const data = doc.data();
+                        setCustomUnits(data.customUnits || []);
+                        setCustomCategories(data.customCategories || []);
+                        setHiddenTabs(data.hiddenTabs || []); // Laad verborgen tabs
                     }
                 });
 
@@ -249,18 +259,23 @@ function App() {
         return () => unsubscribe();
     }, []);
 
-    // Sync Data
+    // Sync Data (User specifiek)
     useEffect(() => {
         if(!beheerdeUserId) return;
         const unsub = db.collection('users').doc(beheerdeUserId).onSnapshot(doc => {
             if(doc.exists) {
-                setCustomUnits(doc.data().customUnits || []);
-                setCustomCategories(doc.data().customCategories || []);
+                const data = doc.data();
+                setCustomUnits(data.customUnits || []);
+                setCustomCategories(data.customCategories || []);
+                // Als we niet onszelf beheren (bijv. gedeeld account), laden we de instellingen van de eigenaar
+                // Maar hiddenTabs is vaak per gebruiker zelf, hier nemen we eigenaar settings over voor consistentie in weergave
+                // Tenzij admin feature specifiek de 'viewer' wil beperken.
             }
         });
         return () => unsub();
     }, [beheerdeUserId]);
 
+    // Data Listeners
     useEffect(() => {
         if (!beheerdeUserId) return;
         const unsubV = db.collection('vriezers').where('userId', '==', beheerdeUserId).onSnapshot(s => setVriezers(s.docs.map(d => ({id: d.id, ...d.data(), type: d.data().type||'vriezer'}))));
@@ -289,6 +304,7 @@ function App() {
         if (items.length > 0) {
             const lastVersion = localStorage.getItem('app_version');
             const hasAlerts = items.some(i => getDagenOud(i.ingevrorenOp) > 180);
+            
             if (hasAlerts || lastVersion !== APP_VERSION) {
                 setShowWhatsNew(true);
                 localStorage.setItem('app_version', APP_VERSION);
@@ -381,11 +397,9 @@ function App() {
         if(confirm("Verwijderen?")) await db.collection('lades').doc(id).delete();
     };
     
-    // Lade Hernoemen
     const startEditLade = (l) => { setEditingLadeId(l.id); setEditingLadeName(l.naam); };
     const saveLadeName = async (id) => {
         await db.collection('lades').doc(id).update({ naam: editingLadeName });
-        // Update items in deze lade (batch)
         const batch = db.batch();
         const itemsInLade = items.filter(i => i.ladeId === id);
         itemsInLade.forEach(item => {
@@ -395,7 +409,6 @@ function App() {
         setEditingLadeId(null);
     };
 
-    // Eenheid CRUD + Hernoemen
     const handleAddUnit = async (e) => {
         e.preventDefault();
         const naam = newUnitNaam.trim().toLowerCase();
@@ -414,11 +427,9 @@ function App() {
     const startEditUnit = (u) => { setEditingUnitName(u); setEditUnitInput(u); };
     const saveUnitName = async () => {
         if(!editUnitInput.trim()) return;
-        // 1. Update lijst
         const updated = customUnits.map(u => u === editingUnitName ? editUnitInput : u);
         await db.collection('users').doc(beheerdeUserId).set({customUnits: updated}, {merge:true});
         
-        // 2. Update items (batch)
         const batch = db.batch();
         const itemsWithUnit = items.filter(i => i.eenheid === editingUnitName);
         itemsWithUnit.forEach(item => {
@@ -428,7 +439,6 @@ function App() {
         setEditingUnitName(null);
     };
 
-    // Categorie CRUD
     const handleAddCat = async (e) => {
         e.preventDefault();
         if(newCatName.trim()) {
@@ -444,7 +454,6 @@ function App() {
         }
     };
 
-    // Share Handler
     const handleShare = async (e) => {
         e.preventDefault();
         await db.collection('shares').add({ 
@@ -455,9 +464,20 @@ function App() {
         setShowShareModal(false);
     };
 
-    // Toggle Admin User Status
     const toggleUserStatus = async (userId, currentStatus) => {
-        await db.collection('users').doc(userId).update({ disabled: !currentStatus }); // Example field
+        await db.collection('users').doc(userId).update({ disabled: !currentStatus }); 
+    };
+
+    // Nieuwe Admin Functie: Toggle Voorraad Tab Zichtbaarheid voor gebruiker
+    const toggleUserTabVisibility = async (userId, userHiddenTabs) => {
+        const tabs = userHiddenTabs || [];
+        let newTabs;
+        if (tabs.includes('voorraad')) {
+            newTabs = tabs.filter(t => t !== 'voorraad');
+        } else {
+            newTabs = [...tabs, 'voorraad'];
+        }
+        await db.collection('users').doc(userId).set({ hiddenTabs: newTabs }, { merge: true });
     };
 
     const toggleLade = (id) => {
@@ -524,7 +544,9 @@ function App() {
                 </div>
                 <div className="max-w-3xl mx-auto px-4 flex space-x-6 border-b border-gray-100">
                     <button onClick={() => setActiveTab('vriezer')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='vriezer' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'}`}><Icon path={Icons.Snowflake}/> Vriezer</button>
-                    <button onClick={() => setActiveTab('voorraad')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500'}`}><Icon path={Icons.Box}/> Voorraad</button>
+                    {!hiddenTabs.includes('voorraad') && (
+                        <button onClick={() => setActiveTab('voorraad')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500'}`}><Icon path={Icons.Box}/> Voorraad</button>
+                    )}
                 </div>
             </header>
 
@@ -741,14 +763,24 @@ function App() {
             <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers Beheer">
                 <ul className="divide-y divide-gray-100">
                     {usersList.map(u => (
-                        <li key={u.id} className="p-3 flex justify-between items-center">
-                            <div>
-                                <p className="font-bold">{u.email || u.displayName}</p>
-                                <p className="text-xs text-gray-500">{u.id}</p>
+                        <li key={u.id} className="p-3 flex flex-col gap-2">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <p className="font-bold">{u.email || u.displayName}</p>
+                                    <p className="text-xs text-gray-500">{u.id}</p>
+                                </div>
+                                <button onClick={() => toggleUserStatus(u.id, u.disabled)} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                                    {u.disabled ? 'Geblokkeerd' : 'Actief'}
+                                </button>
                             </div>
-                            <button onClick={() => toggleUserStatus(u.id, u.disabled)} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                                {u.disabled ? 'Geblokkeerd' : 'Actief'}
-                            </button>
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <input 
+                                    type="checkbox" 
+                                    checked={(u.hiddenTabs || []).includes('voorraad')} 
+                                    onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs)}
+                                />
+                                <span>Verberg 'Voorraad' tabblad</span>
+                            </div>
                         </li>
                     ))}
                 </ul>
@@ -768,14 +800,16 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.0</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.1</h4>
                         <ul className="space-y-2">
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Syntaxfouten in iconen opgelost.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Admin: Verberg 'Voorraad' tab voor specifieke gebruikers.</span></li>
+                        </ul>
+                    </div>
+                    <div className="border-t pt-2">
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 4.0</h4>
+                        <ul className="space-y-2 text-sm text-gray-500">
                             <li className="flex gap-2"><Badge type="major" text="Major" /><span>Grote Update! Nieuwe functies.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Lades en Eenheden hernoemen.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Categorieën beheren met kleuren.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Print knop en Admin beheer.</span></li>
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Google Login bug opgelost.</span></li>
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Lijntjes weggehaald (clean look).</span></li>
                         </ul>
                     </div>
                 </div>
