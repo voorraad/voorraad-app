@@ -19,18 +19,19 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '4.6'; 
+const APP_VERSION = '4.7'; 
 
-// Standaard kleuren voor badges
-const BADGE_COLORS = {
-    gray: "bg-gray-100 text-gray-800",
-    red: "bg-red-100 text-red-800",
-    yellow: "bg-yellow-100 text-yellow-800",
-    green: "bg-green-100 text-green-800",
-    blue: "bg-blue-100 text-blue-800",
-    indigo: "bg-indigo-100 text-indigo-800",
-    purple: "bg-purple-100 text-purple-800",
-    pink: "bg-pink-100 text-pink-800"
+// Uitgebreide kleurdefinities voor Tailwind (zodat ze zeker bestaan)
+const BADGE_STYLES = {
+    gray: "bg-gray-100 text-gray-800 border-gray-200",
+    red: "bg-red-100 text-red-800 border-red-200",
+    yellow: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    green: "bg-green-100 text-green-800 border-green-200",
+    blue: "bg-blue-100 text-blue-800 border-blue-200",
+    indigo: "bg-indigo-100 text-indigo-800 border-indigo-200",
+    purple: "bg-purple-100 text-purple-800 border-purple-200",
+    pink: "bg-pink-100 text-pink-800 border-pink-200",
+    orange: "bg-orange-100 text-orange-800 border-orange-200"
 };
 
 // Zorg dat deze array objecten bevat met name en color!
@@ -113,6 +114,11 @@ const toInputDate = (timestamp) => {
     return localDate.toISOString().split('T')[0];
 };
 
+const getEmojiForCategory = (cat) => {
+    const emojis = { "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", "Brood": "🍞", "IJs": "🍦", "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" };
+    return emojis[cat] || "📦";
+};
+
 const getStatusColor = (dagen) => {
     if (dagen > 180) return 'border-l-4 border-red-500'; 
     if (dagen > 90) return 'border-l-4 border-yellow-400';
@@ -136,15 +142,20 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 };
 
 const Badge = ({ type, text }) => {
-    const colors = {
-        minor: "bg-blue-100 text-blue-700",
-        patch: "bg-green-100 text-green-700",
-        major: "bg-purple-100 text-purple-700",
-        alert: "bg-red-100 text-red-700",
-        category: "bg-gray-200 text-gray-700" 
-    };
+    // 1. Zoek kleur op in BADGE_STYLES
+    // 2. Als niet gevonden, gebruik fallback (gray)
+    // 3. Als type een "status" is (zoals 'alert'), gebruik hardcoded fallback
+    let colorClass = BADGE_STYLES[type];
+    
+    if (!colorClass) {
+        if (type === 'minor') colorClass = "bg-blue-100 text-blue-700 border-blue-200";
+        else if (type === 'patch') colorClass = "bg-green-100 text-green-700 border-green-200";
+        else if (type === 'major') colorClass = "bg-purple-100 text-purple-700 border-purple-200";
+        else colorClass = "bg-gray-200 text-gray-700";
+    }
+
     return (
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colors[type] || colors.minor}`}>
+        <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colorClass}`}>
             {text}
         </span>
     );
@@ -325,6 +336,14 @@ function App() {
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
         : [];
     
+    // Dynamische grid klasse berekenen
+    const gridClass = (() => {
+        const count = filteredLocaties.length;
+        if (count === 1) return 'grid-cols-1';
+        if (count === 2) return 'grid-cols-1 md:grid-cols-2';
+        return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+    })();
+
     // --- HANDLERS ---
     const handleGoogleLogin = async () => { 
         try { 
@@ -577,7 +596,7 @@ function App() {
             </header>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto p-4 space-y-6"> {/* max-width vergroot voor grid weergave */}
+            <main className="max-w-7xl mx-auto p-4 space-y-6">
                 {/* Tools */}
                 <div className="flex flex-col gap-4 print:hidden">
                     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
@@ -594,7 +613,7 @@ function App() {
                 </div>
 
                 {/* Lijsten Grid Container */}
-                <div className={`grid gap-6 items-start ${filteredLocaties.length === 1 ? 'grid-cols-1' : filteredLocaties.length === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
+                <div className={`grid gap-6 items-start ${gridClass}`}>
                     {filteredLocaties.map(vriezer => (
                         <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
                             <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">{vriezer.naam}</h2>
@@ -632,8 +651,8 @@ function App() {
                                                                                 <Badge type={catColor} text={item.categorie} />
                                                                             )}
                                                                         </div>
-                                                                        <p className="text-sm text-gray-700 mt-0.5"> {/* Aangepast: text-sm en gray-700 */}
-                                                                            <span className="font-bold">{item.aantal} {item.eenheid}</span> {/* Aangepast: font-bold */}
+                                                                        <p className="text-sm text-gray-700 mt-0.5">
+                                                                            <span className="font-bold">{item.aantal} {item.eenheid}</span>
                                                                             <span className="text-xs text-gray-500 ml-2"> • {formatDate(item.ingevrorenOp)}
                                                                             {item.houdbaarheidsDatum ? ` • THT: ${formatDate(item.houdbaarheidsDatum)}` : ''}</span>
                                                                         </p>
