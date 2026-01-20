@@ -79,7 +79,6 @@ const getEmojiForCategory = (cat) => {
 };
 
 const getStatusColor = (dagen) => {
-    // Alleen border, geen background meer zoals gevraagd
     if (dagen > 180) return 'border-l-4 border-red-500'; 
     if (dagen > 90) return 'border-l-4 border-yellow-400';
     return 'border-l-4 border-green-400';
@@ -116,18 +115,28 @@ const Badge = ({ type, text }) => {
     );
 };
 
-// Emoji Picker Component (Native web component wrapper)
+// Emoji Picker Component met betere React integratie
 const EmojiPicker = ({ onSelect }) => {
     const ref = useRef(null);
+
     useEffect(() => {
-        const el = ref.current;
-        if(el) {
-            const handleEmoji = (e) => onSelect(e.detail.unicode);
-            el.addEventListener('emoji-click', handleEmoji);
-            return () => el.removeEventListener('emoji-click', handleEmoji);
+        const element = ref.current;
+        if (element) {
+            const handleEmojiClick = (event) => {
+                if (onSelect) {
+                    onSelect(event.detail.unicode);
+                }
+            };
+            element.addEventListener('emoji-click', handleEmojiClick);
+            return () => {
+                element.removeEventListener('emoji-click', handleEmojiClick);
+            };
         }
     }, [onSelect]);
-    return <emoji-picker ref={ref} class="light" style={{width: '100%'}}></emoji-picker>;
+
+    return (
+        <emoji-picker ref={ref} class="light" style={{ width: '100%', height: '350px' }}></emoji-picker>
+    );
 };
 
 // --- 6. APP ---
@@ -266,7 +275,7 @@ function App() {
             ladeId: '', 
             categorie: 'Vlees', 
             ingevrorenOp: new Date().toISOString().split('T')[0], 
-            houdbaarheidsDatum: '', // Expliciet leeg bij nieuw item
+            houdbaarheidsDatum: '', 
             emoji: ''
         });
         setShowAddModal(true);
@@ -416,7 +425,7 @@ function App() {
                                                         const colorClass = getStatusColor(dagen);
                                                         
                                                         return (
-                                                            <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass} border-b border-gray-100 last:border-b-0`}>
+                                                            <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass}`}>
                                                                 <div className="flex items-center gap-3 overflow-hidden">
                                                                     <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
                                                                     <div className="min-w-0">
@@ -550,17 +559,17 @@ function App() {
                 
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 3.2</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 3.3</h4>
                         <ul className="space-y-2">
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Onderrand verwijderd bij items voor schoner uiterlijk.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Linkerrand toont nu duidelijk de status.</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Lijntjes tussen producten verwijderd.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Volledige Emoji kiezer geïntegreerd.</span></li>
                         </ul>
                     </div>
                     <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 3.1</h4>
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 3.2</h4>
                         <ul className="space-y-2 text-sm text-gray-500">
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Kleurcodering (versheid) definitief opgelost voor alle producten.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Achtergrondkleur verwijderd, enkel linkerrand toont status.</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Onderrand verwijderd bij items voor schoner uiterlijk.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Linkerrand toont nu duidelijk de status.</span></li>
                         </ul>
                     </div>
                 </div>
