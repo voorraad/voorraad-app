@@ -19,11 +19,37 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '3.6'; 
-const STANDAARD_CATEGORIEEN = ["Geen", "Vlees", "Vis", "Groenten", "Fruit", "Brood", "IJs", "Restjes", "Saus", "Friet", "Pizza", "Ander"];
+const APP_VERSION = '4.0'; 
+
+// Standaard kleuren voor badges
+const BADGE_COLORS = {
+    gray: "bg-gray-100 text-gray-800",
+    red: "bg-red-100 text-red-800",
+    yellow: "bg-yellow-100 text-yellow-800",
+    green: "bg-green-100 text-green-800",
+    blue: "bg-blue-100 text-blue-800",
+    indigo: "bg-indigo-100 text-indigo-800",
+    purple: "bg-purple-100 text-purple-800",
+    pink: "bg-pink-100 text-pink-800"
+};
+
+const STANDAARD_CATEGORIEEN = [
+    { name: "Vlees", color: "red" },
+    { name: "Vis", color: "blue" },
+    { name: "Groenten", color: "green" },
+    { name: "Fruit", color: "yellow" },
+    { name: "Brood", color: "yellow" },
+    { name: "IJs", color: "pink" },
+    { name: "Restjes", color: "gray" },
+    { name: "Saus", color: "red" },
+    { name: "Friet", color: "yellow" },
+    { name: "Pizza", color: "orange" },
+    { name: "Ander", color: "gray" }
+];
+
 const BASIS_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
 
-// Simpele Emoji lijst (Werkt altijd)
+// Simpele Emoji lijst
 const POPULAIRE_EMOJIS = [
     "🥩", "🍗", "🍖", "🥓", "🍔", "🍟", "🍕", "🌭", "🥪", "🌮", 
     "🥗", "🥦", "🌽", "🥕", "🍅", "🍆", "🥔", "🥒", "🍄", "🥜", 
@@ -58,8 +84,9 @@ const Icons = {
     Settings: <g><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g>,
     ChevronDown: <path d="m6 9 6 6 6-6"/>,
     ChevronRight: <path d="m9 18 6-6-6-6"/>,
-    Scan: <g><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="8" height="8" x="8" y="8" rx="1"/></g>,
-    User: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>
+    User: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>,
+    Printer: <path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/>,
+    Share: <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -86,11 +113,6 @@ const toInputDate = (timestamp) => {
     return localDate.toISOString().split('T')[0];
 };
 
-const getEmojiForCategory = (cat) => {
-    const emojis = { "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", "Brood": "🍞", "IJs": "🍦", "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" };
-    return emojis[cat] || "📦";
-};
-
 const getStatusColor = (dagen) => {
     if (dagen > 180) return 'border-l-4 border-red-500'; 
     if (dagen > 90) return 'border-l-4 border-yellow-400';
@@ -101,7 +123,7 @@ const getStatusColor = (dagen) => {
 const Modal = ({ isOpen, onClose, title, children }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden" onClick={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto modal-animate flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center p-4 border-b border-gray-100 sticky top-0 bg-white z-10">
                     <h3 className="text-lg font-bold text-gray-800">{title}</h3>
@@ -119,16 +141,17 @@ const Badge = ({ type, text }) => {
         patch: "bg-green-100 text-green-700",
         major: "bg-purple-100 text-purple-700",
         alert: "bg-red-100 text-red-700",
-        category: "bg-gray-200 text-gray-700" 
     };
+    // Als type een kleurcode is uit BADGE_COLORS
+    const colorClass = BADGE_COLORS[type] || colors[type] || "bg-gray-200 text-gray-700";
+
     return (
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colors[type] || colors.minor}`}>
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colorClass}`}>
             {text}
         </span>
     );
 };
 
-// Robuuste Emoji Grid (Geen externe dependency meer nodig)
 const EmojiGrid = ({ onSelect }) => {
     return (
         <div className="grid grid-cols-8 gap-2 p-2 max-h-64 overflow-y-auto">
@@ -159,6 +182,7 @@ function App() {
     const [vriezers, setVriezers] = useState([]);
     const [lades, setLades] = useState([]);
     const [customUnits, setCustomUnits] = useState([]);
+    const [customCategories, setCustomCategories] = useState([]);
 
     // UI
     const [search, setSearch] = useState('');
@@ -173,19 +197,28 @@ function App() {
     const [showBeheerModal, setShowBeheerModal] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showProfileMenu, setShowProfileMenu] = useState(false); 
+    const [showUserAdminModal, setShowUserAdminModal] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
     const [beheerTab, setBeheerTab] = useState('locaties');
 
-    // Form
+    // Forms
     const [formData, setFormData] = useState({
         naam: '', aantal: 1, eenheid: 'stuks', vriezerId: '', ladeId: '', categorie: 'Vlees', 
         ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
     });
-    
-    // Beheer Form
     const [newLocatieNaam, setNewLocatieNaam] = useState('');
     const [selectedLocatieForBeheer, setSelectedLocatieForBeheer] = useState(null);
     const [newLadeNaam, setNewLadeNaam] = useState('');
     const [newUnitNaam, setNewUnitNaam] = useState('');
+    const [shareEmail, setShareEmail] = useState('');
+    
+    // Edit States voor Beheer
+    const [editingLadeId, setEditingLadeId] = useState(null);
+    const [editingLadeName, setEditingLadeName] = useState('');
+    const [editingUnitName, setEditingUnitName] = useState(null); // Oude naam
+    const [editUnitInput, setEditUnitInput] = useState('');
+    const [newCatName, setNewCatName] = useState('');
+    const [newCatColor, setNewCatColor] = useState('gray');
 
     // --- AUTH & SETUP ---
     useEffect(() => {
@@ -195,7 +228,10 @@ function App() {
                 setBeheerdeUserId(u.uid);
                 
                 db.collection('users').doc(u.uid).onSnapshot(doc => {
-                    if(doc.exists) setCustomUnits(doc.data().customUnits || []);
+                    if(doc.exists) {
+                        setCustomUnits(doc.data().customUnits || []);
+                        setCustomCategories(doc.data().customCategories || []);
+                    }
                 });
 
                 const adminDoc = await db.collection('admins').doc(u.uid).get();
@@ -213,16 +249,18 @@ function App() {
         return () => unsubscribe();
     }, []);
 
-    // Custom Units ophalen
+    // Sync Data
     useEffect(() => {
         if(!beheerdeUserId) return;
         const unsub = db.collection('users').doc(beheerdeUserId).onSnapshot(doc => {
-            if(doc.exists) setCustomUnits(doc.data().customUnits || []);
+            if(doc.exists) {
+                setCustomUnits(doc.data().customUnits || []);
+                setCustomCategories(doc.data().customCategories || []);
+            }
         });
         return () => unsub();
     }, [beheerdeUserId]);
 
-    // Data Listeners
     useEffect(() => {
         if (!beheerdeUserId) return;
         const unsubV = db.collection('vriezers').where('userId', '==', beheerdeUserId).onSnapshot(s => setVriezers(s.docs.map(d => ({id: d.id, ...d.data(), type: d.data().type||'vriezer'}))));
@@ -238,7 +276,6 @@ function App() {
         return () => { unsubV(); unsubL(); unsubI(); };
     }, [beheerdeUserId, isDataLoaded]);
 
-    // Admin Users List Listener
     useEffect(() => {
         if (isAdmin) {
             const unsubUsers = db.collection('users').orderBy('email').onSnapshot(snap => {
@@ -248,12 +285,10 @@ function App() {
         }
     }, [isAdmin]);
 
-    // Check Alerts & Updates bij start
     useEffect(() => {
         if (items.length > 0) {
             const lastVersion = localStorage.getItem('app_version');
             const hasAlerts = items.some(i => getDagenOud(i.ingevrorenOp) > 180);
-            
             if (hasAlerts || lastVersion !== APP_VERSION) {
                 setShowWhatsNew(true);
                 localStorage.setItem('app_version', APP_VERSION);
@@ -263,40 +298,29 @@ function App() {
 
     // Derived
     const alleEenheden = [...BASIS_EENHEDEN, ...customUnits].sort();
+    const alleCategorieen = [...STANDAARD_CATEGORIEEN, ...customCategories];
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
     const alerts = items.filter(i => getDagenOud(i.ingevrorenOp) > 180);
-
-    const formLades = formData.vriezerId 
-        ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
-        : [];
+    const formLades = formData.vriezerId ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam)) : [];
 
     // --- HANDLERS ---
     const handleGoogleLogin = async () => { 
         try { 
             const provider = new firebase.auth.GoogleAuthProvider();
             await auth.signInWithPopup(provider); 
-        } catch(e) { 
-            alert("Google Login Fout: " + e.message); 
-        } 
+        } catch(e) { alert("Login Fout: " + e.message); } 
     };
 
-    const handleLogout = () => {
-        auth.signOut();
-        setShowProfileMenu(false);
-    };
+    const handleLogout = () => { auth.signOut(); setShowProfileMenu(false); };
+    const handlePrint = () => { setShowProfileMenu(false); window.print(); };
     
-    // Bij openen add modal
+    // Item CRUD
     const handleOpenAdd = () => {
         setEditingItem(null);
         const defaultLoc = filteredLocaties.length > 0 ? filteredLocaties[0].id : '';
         setFormData({
-            naam: '', aantal: 1, eenheid: 'stuks', 
-            vriezerId: defaultLoc, 
-            ladeId: '', 
-            categorie: 'Vlees', 
-            ingevrorenOp: new Date().toISOString().split('T')[0], 
-            houdbaarheidsDatum: '', 
-            emoji: ''
+            naam: '', aantal: 1, eenheid: 'stuks', vriezerId: defaultLoc, ladeId: '', 
+            categorie: 'Vlees', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
         });
         setShowAddModal(true);
     };
@@ -313,7 +337,6 @@ function App() {
             userId: beheerdeUserId,
             emoji: formData.emoji || getEmojiForCategory(formData.categorie)
         };
-
         try {
             if(editingItem) {
                 await db.collection('items').doc(editingItem.id).update(data);
@@ -332,14 +355,12 @@ function App() {
         setEditingItem(item);
         setFormData({
             naam: item.naam, aantal: item.aantal, eenheid: item.eenheid, vriezerId: item.vriezerId, ladeId: item.ladeId, categorie: item.categorie,
-            ingevrorenOp: toInputDate(item.ingevrorenOp), 
-            houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), 
-            emoji: item.emoji
+            ingevrorenOp: toInputDate(item.ingevrorenOp), houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), emoji: item.emoji
         });
         setShowAddModal(true);
     };
 
-    // Beheer Handlers
+    // --- BEHEER HANDLERS ---
     const handleAddLocatie = async (e) => {
         e.preventDefault();
         await db.collection('vriezers').add({ naam: newLocatieNaam, type: activeTab, userId: beheerdeUserId });
@@ -349,6 +370,7 @@ function App() {
         if(lades.some(l => l.vriezerId === id)) return alert("Maak locatie eerst leeg.");
         if(confirm("Verwijderen?")) await db.collection('vriezers').doc(id).delete();
     };
+
     const handleAddLade = async (e) => {
         e.preventDefault();
         await db.collection('lades').add({ naam: newLadeNaam, vriezerId: selectedLocatieForBeheer, userId: beheerdeUserId });
@@ -358,6 +380,22 @@ function App() {
         if(items.some(i => i.ladeId === id)) return alert("Maak lade eerst leeg.");
         if(confirm("Verwijderen?")) await db.collection('lades').doc(id).delete();
     };
+    
+    // Lade Hernoemen
+    const startEditLade = (l) => { setEditingLadeId(l.id); setEditingLadeName(l.naam); };
+    const saveLadeName = async (id) => {
+        await db.collection('lades').doc(id).update({ naam: editingLadeName });
+        // Update items in deze lade (batch)
+        const batch = db.batch();
+        const itemsInLade = items.filter(i => i.ladeId === id);
+        itemsInLade.forEach(item => {
+            batch.update(db.collection('items').doc(item.id), { ladeNaam: editingLadeName });
+        });
+        await batch.commit();
+        setEditingLadeId(null);
+    };
+
+    // Eenheid CRUD + Hernoemen
     const handleAddUnit = async (e) => {
         e.preventDefault();
         const naam = newUnitNaam.trim().toLowerCase();
@@ -372,6 +410,54 @@ function App() {
             const updated = customUnits.filter(u => u !== unit);
             await db.collection('users').doc(beheerdeUserId).set({customUnits: updated}, {merge:true});
         }
+    };
+    const startEditUnit = (u) => { setEditingUnitName(u); setEditUnitInput(u); };
+    const saveUnitName = async () => {
+        if(!editUnitInput.trim()) return;
+        // 1. Update lijst
+        const updated = customUnits.map(u => u === editingUnitName ? editUnitInput : u);
+        await db.collection('users').doc(beheerdeUserId).set({customUnits: updated}, {merge:true});
+        
+        // 2. Update items (batch)
+        const batch = db.batch();
+        const itemsWithUnit = items.filter(i => i.eenheid === editingUnitName);
+        itemsWithUnit.forEach(item => {
+            batch.update(db.collection('items').doc(item.id), { eenheid: editUnitInput });
+        });
+        await batch.commit();
+        setEditingUnitName(null);
+    };
+
+    // Categorie CRUD
+    const handleAddCat = async (e) => {
+        e.preventDefault();
+        if(newCatName.trim()) {
+            const updated = [...customCategories, {name: newCatName, color: newCatColor}];
+            await db.collection('users').doc(beheerdeUserId).set({customCategories: updated}, {merge:true});
+            setNewCatName('');
+        }
+    };
+    const handleDeleteCat = async (catName) => {
+        if(confirm(`Verwijder categorie '${catName}'?`)) {
+            const updated = customCategories.filter(c => c.name !== catName);
+            await db.collection('users').doc(beheerdeUserId).set({customCategories: updated}, {merge:true});
+        }
+    };
+
+    // Share Handler
+    const handleShare = async (e) => {
+        e.preventDefault();
+        await db.collection('shares').add({ 
+            ownerId: eigenUserId, ownerEmail: user.email, sharedWithEmail: shareEmail, role: 'editor', status: 'pending' 
+        });
+        alert("Uitnodiging verstuurd!");
+        setShareEmail('');
+        setShowShareModal(false);
+    };
+
+    // Toggle Admin User Status
+    const toggleUserStatus = async (userId, currentStatus) => {
+        await db.collection('users').doc(userId).update({ disabled: !currentStatus }); // Example field
     };
 
     const toggleLade = (id) => {
@@ -398,7 +484,7 @@ function App() {
     return (
         <div className="min-h-screen bg-gray-50 pb-24 font-sans text-gray-800">
             {/* Header */}
-            <header className="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-200">
+            <header className="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-200 print:hidden">
                 <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
                     <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">Mijn Voorraad</h1>
                     <div className="flex gap-2 relative">
@@ -412,12 +498,23 @@ function App() {
                                 {user.photoURL ? <img src={user.photoURL} alt="Profiel" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500"><Icon path={Icons.User} size={20}/></div>}
                             </button>
                             {showProfileMenu && (
-                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                                     <div className="px-4 py-3 border-b border-gray-50">
                                         <p className="text-sm font-medium text-gray-900 truncate">{user.displayName || 'Gebruiker'}</p>
                                         <p className="text-xs text-gray-500 truncate">{user.email}</p>
                                     </div>
-                                    <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                    {isAdmin && (
+                                        <button onClick={() => { setShowUserAdminModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                            <Icon path={Icons.Users} size={16}/> Gebruikers Beheer
+                                        </button>
+                                    )}
+                                    <button onClick={() => { setShowShareModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                        <Icon path={Icons.Share} size={16}/> Delen
+                                    </button>
+                                    <button onClick={handlePrint} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                        <Icon path={Icons.Printer} size={16}/> Print Voorraad
+                                    </button>
+                                    <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-50">
                                         <Icon path={Icons.LogOut} size={16}/> Uitloggen
                                     </button>
                                 </div>
@@ -434,7 +531,7 @@ function App() {
             {/* Main Content */}
             <main className="max-w-3xl mx-auto p-4 space-y-6">
                 {/* Tools */}
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 print:hidden">
                     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                         <div className="flex-shrink-0 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm text-sm font-bold">{items.length} items</div>
                         {filteredLocaties.map(l => <div key={l.id} className="flex-shrink-0 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm text-sm">{items.filter(i=>i.vriezerId===l.id).length} {l.naam}</div>)}
@@ -451,7 +548,7 @@ function App() {
                 {/* Lijsten */}
                 <div className="space-y-8">
                     {filteredLocaties.map(vriezer => (
-                        <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
                             <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">{vriezer.naam}</h2>
                             <div className="space-y-4">
                                 {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(lade => {
@@ -460,10 +557,11 @@ function App() {
                                     const isCollapsed = collapsedLades.has(lade.id) && !search;
                                     
                                     return (
-                                        <div key={lade.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                                            <div className="bg-gray-50/50 px-4 py-3 border-b border-gray-100 flex justify-between items-center cursor-pointer hover:bg-gray-100" onClick={() => toggleLade(lade.id)}>
+                                        <div key={lade.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden page-break-inside-avoid">
+                                            <div className="bg-gray-50/50 px-4 py-3 border-b border-gray-100 flex justify-between items-center cursor-pointer hover:bg-gray-100 print:bg-white" onClick={() => toggleLade(lade.id)}>
                                                 <h3 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
-                                                    {isCollapsed ? <Icon path={Icons.ChevronRight}/> : <Icon path={Icons.ChevronDown}/>} {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
+                                                    {isCollapsed ? <Icon path={Icons.ChevronRight} className="print:hidden"/> : <Icon path={Icons.ChevronDown} className="print:hidden"/>} 
+                                                    {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
                                                 </h3>
                                             </div>
                                             {!isCollapsed && (
@@ -472,16 +570,19 @@ function App() {
                                                     ladeItems.map(item => {
                                                         const dagen = getDagenOud(item.ingevrorenOp);
                                                         const colorClass = getStatusColor(dagen);
-                                                        
+                                                        // Zoek categorie object voor kleur
+                                                        const catObj = alleCategorieen.find(c => (c.name || c) === item.categorie);
+                                                        const catColor = catObj ? (catObj.color || 'gray') : 'gray';
+
                                                         return (
-                                                            <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass} border-b border-gray-100 last:border-b-0`}>
+                                                            <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass} last:border-b-0`}>
                                                                 <div className="flex items-center gap-3 overflow-hidden">
                                                                     <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
                                                                     <div className="min-w-0">
                                                                         <div className="flex items-center gap-2">
                                                                             <p className="font-medium text-gray-900 truncate">{item.naam}</p>
                                                                             {item.categorie && item.categorie !== "Geen" && (
-                                                                                <Badge type="category" text={item.categorie} />
+                                                                                <Badge type={catColor} text={item.categorie} />
                                                                             )}
                                                                         </div>
                                                                         <p className="text-xs text-gray-500">
@@ -490,7 +591,7 @@ function App() {
                                                                         </p>
                                                                     </div>
                                                                 </div>
-                                                                <div className="flex items-center gap-1 flex-shrink-0">
+                                                                <div className="flex items-center gap-1 flex-shrink-0 print:hidden">
                                                                     <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 rounded-lg hover:bg-blue-100"><Icon path={Icons.Edit2} size={16}/></button>
                                                                     <button onClick={()=>handleDelete(item.id, item.naam)} className="p-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100"><Icon path={Icons.Trash2} size={16}/></button>
                                                                 </div>
@@ -509,7 +610,7 @@ function App() {
             </main>
 
             {/* FAB */}
-            <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40"><Icon path={Icons.Plus} size={28}/></button>
+            <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 print:hidden"><Icon path={Icons.Plus} size={28}/></button>
 
             {/* Add/Edit Modal */}
             <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken" : "Toevoegen"}>
@@ -548,7 +649,7 @@ function App() {
                     </div>
                     <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Categorie</label>
                     <select className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
-                        {STANDAARD_CATEGORIEEN.map(c => <option key={c} value={c}>{c}</option>)}
+                        {alleCategorieen.map(c => <option key={c.name||c} value={c.name||c}>{c.name||c}</option>)}
                     </select></div>
                     <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md">Opslaan</button>
                 </form>
@@ -563,10 +664,11 @@ function App() {
             <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen">
                 <div className="flex border-b mb-4">
                     <button onClick={() => setBeheerTab('locaties')} className={`flex-1 py-2 font-medium ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500'}`}>Locaties</button>
+                    <button onClick={() => setBeheerTab('categorieen')} className={`flex-1 py-2 font-medium ${beheerTab==='categorieen'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500'}`}>Categorieën</button>
                     <button onClick={() => setBeheerTab('eenheden')} className={`flex-1 py-2 font-medium ${beheerTab==='eenheden'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500'}`}>Eenheden</button>
                 </div>
 
-                {beheerTab === 'locaties' ? (
+                {beheerTab === 'locaties' && (
                     <div className="space-y-6">
                         <div>
                             <h4 className="font-bold text-gray-700 mb-2">Locaties</h4>
@@ -582,42 +684,98 @@ function App() {
                             <div className="pt-4 border-t">
                                 <h4 className="font-bold text-gray-700 mb-2">Lades</h4>
                                 <ul className="space-y-2 mb-3">{lades.filter(l => l.vriezerId === selectedLocatieForBeheer).sort((a,b)=>a.naam.localeCompare(b.naam)).map(l => (
-                                    <li key={l.id} className="flex justify-between p-2 bg-gray-50 rounded items-center"><span>{l.naam}</span><button onClick={() => handleDeleteLade(l.id)} className="text-red-500"><Icon path={Icons.Trash2}/></button></li>
+                                    <li key={l.id} className="flex justify-between p-2 bg-gray-50 rounded items-center">
+                                        {editingLadeId === l.id ? 
+                                            <div className="flex gap-2 w-full"><input className="flex-grow border p-1 rounded" value={editingLadeName} onChange={e=>setEditingLadeName(e.target.value)} /><button onClick={()=>saveLadeName(l.id)} className="text-green-600"><Icon path={Icons.Check}/></button></div> 
+                                            : 
+                                            <><span>{l.naam}</span><div className="flex gap-2"><button onClick={()=>startEditLade(l)} className="text-blue-500"><Icon path={Icons.Edit2} size={16}/></button><button onClick={() => handleDeleteLade(l.id)} className="text-red-500"><Icon path={Icons.Trash2} size={16}/></button></div></>
+                                        }
+                                    </li>
                                 ))}</ul>
                                 <form onSubmit={handleAddLade} className="flex gap-2"><input className="flex-grow border p-2 rounded" placeholder="Nieuwe lade" value={newLadeNaam} onChange={e=>setNewLadeNaam(e.target.value)} required /><button className="bg-green-600 text-white px-3 rounded">+</button></form>
                             </div>
                         )}
                     </div>
-                ) : (
+                )}
+                {beheerTab === 'categorieen' && (
+                    <div>
+                        <h4 className="font-bold text-gray-700 mb-2">Categorieën</h4>
+                        <ul className="space-y-2 mb-3">
+                            {customCategories.map(cat => (
+                                <li key={cat.name} className="flex justify-between p-2 bg-gray-50 rounded items-center">
+                                    <div className="flex items-center gap-2"><div className={`w-3 h-3 rounded-full bg-${cat.color}-500`}></div><span>{cat.name}</span></div>
+                                    <button onClick={() => handleDeleteCat(cat.name)} className="text-red-500"><Icon path={Icons.Trash2}/></button>
+                                </li>
+                            ))}
+                        </ul>
+                        <form onSubmit={handleAddCat} className="flex gap-2 items-center">
+                            <input className="flex-grow border p-2 rounded" placeholder="Naam" value={newCatName} onChange={e=>setNewCatName(e.target.value)} required />
+                            <select className="border p-2 rounded" value={newCatColor} onChange={e=>setNewCatColor(e.target.value)}>
+                                {Object.keys(BADGE_COLORS).map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <button className="bg-purple-600 text-white px-3 rounded">+</button>
+                        </form>
+                    </div>
+                )}
+                {beheerTab === 'eenheden' && (
                     <div>
                         <h4 className="font-bold text-gray-700 mb-2">Mijn Eenheden</h4>
                         <ul className="space-y-2 mb-3">
                             {customUnits.length === 0 ? <li className="text-gray-400 italic">Geen eigen eenheden.</li> : 
                             customUnits.map(u => (
-                                <li key={u} className="flex justify-between p-2 bg-gray-50 rounded items-center"><span>{u}</span><button onClick={() => handleDeleteUnit(u)} className="text-red-500"><Icon path={Icons.Trash2}/></button></li>
+                                <li key={u} className="flex justify-between p-2 bg-gray-50 rounded items-center">
+                                    {editingUnitName === u ? 
+                                        <div className="flex gap-2 w-full"><input className="flex-grow border p-1 rounded" value={editUnitInput} onChange={e=>setEditUnitInput(e.target.value)} /><button onClick={saveUnitName} className="text-green-600"><Icon path={Icons.Check}/></button></div>
+                                        :
+                                        <><span>{u}</span><div className="flex gap-2"><button onClick={()=>startEditUnit(u)} className="text-blue-500"><Icon path={Icons.Edit2} size={16}/></button><button onClick={() => handleDeleteUnit(u)} className="text-red-500"><Icon path={Icons.Trash2} size={16}/></button></div></>
+                                    }
+                                </li>
                             ))}
                         </ul>
                         <form onSubmit={handleAddUnit} className="flex gap-2"><input className="flex-grow border p-2 rounded" placeholder="Nieuwe eenheid" value={newUnitNaam} onChange={e=>setNewUnitNaam(e.target.value)} required /><button className="bg-orange-500 text-white px-3 rounded">+</button></form>
                     </div>
                 )}
             </Modal>
+            
+            {/* User Management Modal */}
+            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers Beheer">
+                <ul className="divide-y divide-gray-100">
+                    {usersList.map(u => (
+                        <li key={u.id} className="p-3 flex justify-between items-center">
+                            <div>
+                                <p className="font-bold">{u.email || u.displayName}</p>
+                                <p className="text-xs text-gray-500">{u.id}</p>
+                            </div>
+                            <button onClick={() => toggleUserStatus(u.id, u.disabled)} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                                {u.disabled ? 'Geblokkeerd' : 'Actief'}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            </Modal>
+
+            {/* Share Modal */}
+            <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Voorraad Delen">
+                <form onSubmit={handleShare} className="space-y-4">
+                    <p className="text-sm text-gray-600">Nodig iemand uit om je voorraad te beheren.</p>
+                    <input type="email" className="w-full p-3 border border-gray-300 rounded-lg" placeholder="Email adres" value={shareEmail} onChange={e => setShareEmail(e.target.value)} required />
+                    <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">Verstuur Uitnodiging</button>
+                </form>
+            </Modal>
 
             {/* Updates Modal */}
             <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen">
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
-                
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 3.6</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.0</h4>
                         <ul className="space-y-2">
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Google Profielfoto & Uitlogmenu toegevoegd.</span></li>
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Witte lijnen verwijderd, kleurcodering verbeterd.</span></li>
-                        </ul>
-                    </div>
-                    <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 3.5</h4>
-                        <ul className="space-y-2 text-sm text-gray-500">
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Google Inloggen toegevoegd.</span></li>
+                            <li className="flex gap-2"><Badge type="major" text="Major" /><span>Grote Update! Nieuwe functies.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Lades en Eenheden hernoemen.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Categorieën beheren met kleuren.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Print knop en Admin beheer.</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Google Login bug opgelost.</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Lijntjes weggehaald (clean look).</span></li>
                         </ul>
                     </div>
                 </div>
