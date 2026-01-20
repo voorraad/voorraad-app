@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '2.2';
+const APP_VERSION = '2.3';
 const STANDAARD_CATEGORIEEN = ["Geen", "Vlees", "Vis", "Groenten", "Fruit", "Brood", "IJs", "Restjes", "Saus", "Friet", "Pizza", "Ander"];
 const STANDAARD_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
 
@@ -45,8 +45,7 @@ const Icons = {
     Alert: <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3zM12 9v4M12 17h.01"/>,
     Settings: <g><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g>,
     ChevronDown: <path d="m6 9 6 6 6-6"/>,
-    ChevronRight: <path d="m9 18 6-6-6-6"/>,
-    Scan: <g><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="8" height="8" x="8" y="8" rx="1"/></g>
+    ChevronRight: <path d="m9 18 6-6-6-6"/>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -108,18 +107,6 @@ const EmojiPicker = ({ onSelect }) => {
     return <emoji-picker ref={ref} class="light"></emoji-picker>;
 };
 
-// Scanner Component
-const Scanner = ({ onScan }) => {
-    useEffect(() => {
-        const scanner = new Html5Qrcode("reader");
-        scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (decodedText) => {
-            scanner.stop().then(() => onScan(decodedText));
-        }, () => {});
-        return () => { try { scanner.stop(); } catch(e){} };
-    }, [onScan]);
-    return <div id="reader" style={{ width: '100%' }}></div>;
-};
-
 // --- 6. APP ---
 function App() {
     const [user, setUser] = useState(null);
@@ -136,8 +123,9 @@ function App() {
 
     // UI
     const [search, setSearch] = useState('');
-    const [collapsedLades, setCollapsedLades] = useState(new Set());
+    const [collapsedLades, setCollapsedLades] = useState(new Set()); // Start leeg, wordt gevuld bij laden
     const [editingItem, setEditingItem] = useState(null);
+    const [isDataLoaded, setIsDataLoaded] = useState(false);
     
     // Modals
     const [showAddModal, setShowAddModal] = useState(false);
@@ -145,14 +133,12 @@ function App() {
     const [showSwitchAccount, setShowSwitchAccount] = useState(false);
     const [showBeheerModal, setShowBeheerModal] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [showScanner, setShowScanner] = useState(false);
 
     // Form
     const [formData, setFormData] = useState({
         naam: '', aantal: 1, eenheid: 'stuks', vriezerId: '', ladeId: '', categorie: 'Vlees', 
         ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
     });
-    const [newUnit, setNewUnit] = useState('');
     
     // Beheer Form
     const [newLocatieNaam, setNewLocatieNaam] = useState('');
@@ -166,16 +152,13 @@ function App() {
                 setUser(u);
                 setBeheerdeUserId(u.uid);
                 
-                // Get user settings (units)
                 db.collection('users').doc(u.uid).onSnapshot(doc => {
                     if(doc.exists) setCustomUnits(doc.data().customUnits || []);
                 });
 
-                // Check Admin
                 const adminDoc = await db.collection('admins').doc(u.uid).get();
                 setIsAdmin(adminDoc.exists);
 
-                // Auto-switch check
                 const vCheck = await db.collection('vriezers').where('userId', '==', u.uid).limit(1).get();
                 if (vCheck.empty && !adminDoc.exists) {
                     const shares = await db.collection('shares').where("sharedWithEmail", "==", u.email).where("status", "==", "accepted").limit(1).get();
@@ -187,34 +170,49 @@ function App() {
         });
     }, []);
 
-    // Data Listeners
+    // Data Listeners & Initiele Collapse
     useEffect(() => {
         if (!beheerdeUserId) return;
         const unsubV = db.collection('vriezers').where('userId', '==', beheerdeUserId).onSnapshot(s => setVriezers(s.docs.map(d => ({id: d.id, ...d.data(), type: d.data().type||'vriezer'}))));
-        const unsubL = db.collection('lades').where('userId', '==', beheerdeUserId).onSnapshot(s => setLades(s.docs.map(d => ({id: d.id, ...d.data()}))));
+        const unsubL = db.collection('lades').where('userId', '==', beheerdeUserId).onSnapshot(s => {
+            const loadedLades = s.docs.map(d => ({id: d.id, ...d.data()}));
+            setLades(loadedLades);
+            // Standaard alles dicht (alle IDs toevoegen aan collapsed set)
+            if (!isDataLoaded && loadedLades.length > 0) {
+                setCollapsedLades(new Set(loadedLades.map(l => l.id)));
+                setIsDataLoaded(true);
+            }
+        });
         const unsubI = db.collection('items').where('userId', '==', beheerdeUserId).onSnapshot(s => setItems(s.docs.map(d => ({id: d.id, ...d.data()}))));
         return () => { unsubV(); unsubL(); unsubI(); };
-    }, [beheerdeUserId]);
+    }, [beheerdeUserId, isDataLoaded]);
 
     // Derived
     const alleEenheden = [...STANDAARD_EENHEDEN, ...customUnits];
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
     const alerts = items.filter(i => getDagenOud(i.ingevrorenOp) > 180);
 
+    // Filter lades voor huidig formulier (alleen tonen als vriezerId is geselecteerd)
+    const formLades = formData.vriezerId 
+        ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
+        : [];
+
     // --- HANDLERS ---
     const handleLogin = async () => { try { await auth.signInAnonymously(); } catch(e){ alert(e.message); } };
     
-    const handleScan = async (code) => {
-        setShowScanner(false);
-        try {
-            const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
-            const data = await res.json();
-            if(data.product && data.product.product_name) {
-                setFormData(prev => ({...prev, naam: data.product.product_name}));
-            } else {
-                alert("Product niet gevonden");
-            }
-        } catch(e) { alert("Scan fout"); }
+    // Bij openen add modal, reset of set defaults
+    const handleOpenAdd = () => {
+        setEditingItem(null);
+        // Probeer eerste locatie van huidige tab te pakken als default
+        const defaultLoc = filteredLocaties.length > 0 ? filteredLocaties[0].id : '';
+        setFormData({
+            naam: '', aantal: 1, eenheid: 'stuks', 
+            vriezerId: defaultLoc, 
+            ladeId: '', 
+            categorie: 'Vlees', 
+            ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
+        });
+        setShowAddModal(true);
     };
 
     const handleSaveItem = async (e) => {
@@ -230,7 +228,6 @@ function App() {
             emoji: formData.emoji || getEmojiForCategory(formData.categorie)
         };
 
-        // Check if new unit entered manually
         if(formData.eenheid && !alleEenheden.includes(formData.eenheid)) {
             const newUnits = [...customUnits, formData.eenheid];
             await db.collection('users').doc(beheerdeUserId).set({customUnits: newUnits}, {merge: true});
@@ -242,7 +239,7 @@ function App() {
                 setEditingItem(null);
             } else {
                 await db.collection('items').add(data);
-                setFormData(prev => ({...prev, naam: '', aantal: 1, emoji: ''})); // Keep location/date
+                setFormData(prev => ({...prev, naam: '', aantal: 1, emoji: ''})); // Reset deels
             }
             setShowAddModal(false);
         } catch(err) { alert(err.message); }
@@ -296,7 +293,7 @@ function App() {
                 <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
                     <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">Mijn Voorraad</h1>
                     <div className="flex gap-2">
-                        <button onClick={() => setShowBeheerModal(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100"><Icon path={Icons.Settings}/></button>
+                        <button onClick={() => { setSelectedLocatieForBeheer(null); setShowBeheerModal(true); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100"><Icon path={Icons.Settings}/></button>
                         {isAdmin && <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600"><Icon path={Icons.Users}/></button>}
                         <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 border relative"><Icon path={Icons.Info}/>{alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}</button>
                     </div>
@@ -375,7 +372,7 @@ function App() {
             </main>
 
             {/* FAB */}
-            <button onClick={() => { setEditingItem(null); setFormData({...formData, naam: '', aantal: 1, emoji: ''}); setShowAddModal(true); }} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40"><Icon path={Icons.Plus} size={28}/></button>
+            <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40"><Icon path={Icons.Plus} size={28}/></button>
 
             {/* Add/Edit Modal */}
             <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken" : "Toevoegen"}>
@@ -384,7 +381,6 @@ function App() {
                         <button type="button" onClick={() => setShowEmojiPicker(true)} className="w-12 h-12 flex-shrink-0 border rounded-lg flex items-center justify-center text-2xl bg-gray-50">{formData.emoji || '🏷️'}</button>
                         <div className="relative flex-grow">
                             <input type="text" placeholder="Productnaam" className="w-full h-12 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={formData.naam} onChange={e => setFormData({...formData, naam: e.target.value})} required />
-                            <button type="button" onClick={() => setShowScanner(true)} className="absolute right-2 top-2 p-2 text-gray-400 hover:text-gray-600"><Icon path={Icons.Scan}/></button>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -396,7 +392,7 @@ function App() {
                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Lade</label>
                         <select className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.ladeId} onChange={e => setFormData({...formData, ladeId: e.target.value})} required>
                             <option value="" disabled>Kies...</option>
-                            {lades.filter(l => l.vriezerId === formData.vriezerId).map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
+                            {formLades.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
                         </select></div>
                     </div>
                     <div className="flex gap-4 items-end">
@@ -425,11 +421,6 @@ function App() {
                 <EmojiPicker onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
             </Modal>
 
-            {/* Scanner Modal */}
-            <Modal isOpen={showScanner} onClose={() => setShowScanner(false)} title="Scan Barcode">
-                <Scanner onScan={handleScan} />
-            </Modal>
-
             {/* Beheer Modal */}
             <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Beheer Locaties">
                 <div className="space-y-6">
@@ -446,7 +437,7 @@ function App() {
                     {selectedLocatieForBeheer && (
                         <div className="pt-4 border-t">
                             <h4 className="font-bold text-gray-700 mb-2">Lades</h4>
-                            <ul className="space-y-2 mb-3">{lades.filter(l => l.vriezerId === selectedLocatieForBeheer).map(l => (
+                            <ul className="space-y-2 mb-3">{lades.filter(l => l.vriezerId === selectedLocatieForBeheer).sort((a,b)=>a.naam.localeCompare(b.naam)).map(l => (
                                 <li key={l.id} className="flex justify-between p-2 bg-gray-50 rounded items-center"><span>{l.naam}</span><button onClick={() => handleDeleteLade(l.id)} className="text-red-500"><Icon path={Icons.Trash2}/></button></li>
                             ))}</ul>
                             <form onSubmit={handleAddLade} className="flex gap-2"><input className="flex-grow border p-2 rounded" placeholder="Nieuwe lade" value={newLadeNaam} onChange={e=>setNewLadeNaam(e.target.value)} required /><button className="bg-green-600 text-white px-3 rounded">+</button></form>
@@ -458,8 +449,8 @@ function App() {
             {/* Updates Modal */}
             <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen">
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
-                <h4 className="font-bold text-blue-600 mb-2">Versie 2.2</h4>
-                <ul className="list-disc pl-5"><li>Alle functies hersteld!</li><li>Emoji kiezer, THT datum, scanner & eigen eenheden.</li></ul>
+                <h4 className="font-bold text-blue-600 mb-2">Versie 2.3</h4>
+                <ul className="list-disc pl-5"><li>Alle functies hersteld!</li><li>Emoji kiezer werkt weer.</li><li>Alles start ingeklapt.</li><li>Lades in beheer gesorteerd.</li></ul>
             </Modal>
         </div>
     );
