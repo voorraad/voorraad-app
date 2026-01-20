@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '2.6'; 
+const APP_VERSION = '2.7'; 
 const STANDAARD_CATEGORIEEN = ["Geen", "Vlees", "Vis", "Groenten", "Fruit", "Brood", "IJs", "Restjes", "Saus", "Friet", "Pizza", "Ander"];
 const BASIS_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
 
@@ -76,8 +76,12 @@ const formatDate = (timestamp) => {
 };
 
 const toInputDate = (timestamp) => {
-    if (!timestamp) return new Date().toISOString().split('T')[0];
+    // Return empty string if no timestamp provided to keep input empty
+    if (!timestamp) return ''; 
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    // Simple check for valid date
+    if (isNaN(date.getTime())) return '';
+    
     const offset = date.getTimezoneOffset();
     const localDate = new Date(date.getTime() - (offset*60*1000));
     return localDate.toISOString().split('T')[0];
@@ -89,7 +93,6 @@ const getEmojiForCategory = (cat) => {
 };
 
 const getStatusColor = (dagen) => {
-    // Tailwind classes voor rand en achtergrond
     if (dagen > 180) return 'border-l-4 border-red-500 bg-red-50'; // Rood
     if (dagen > 90) return 'border-l-4 border-yellow-400 bg-yellow-50'; // Oranje
     return 'border-l-4 border-green-400 bg-white'; // Groen
@@ -116,7 +119,8 @@ const Badge = ({ type, text }) => {
         minor: "bg-blue-100 text-blue-700",
         patch: "bg-green-100 text-green-700",
         major: "bg-purple-100 text-purple-700",
-        alert: "bg-red-100 text-red-700"
+        alert: "bg-red-100 text-red-700",
+        category: "bg-gray-200 text-gray-700" // Nieuwe stijl voor categorie badge
     };
     return (
         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colors[type] || colors.minor}`}>
@@ -219,6 +223,7 @@ function App() {
         const unsubL = db.collection('lades').where('userId', '==', beheerdeUserId).onSnapshot(s => {
             const loadedLades = s.docs.map(d => ({id: d.id, ...d.data()}));
             setLades(loadedLades);
+            // Standaard alles dicht bij eerste keer laden
             if (!isDataLoaded && loadedLades.length > 0) {
                 setCollapsedLades(new Set(loadedLades.map(l => l.id)));
                 setIsDataLoaded(true);
@@ -273,7 +278,9 @@ function App() {
             vriezerId: defaultLoc, 
             ladeId: '', 
             categorie: 'Vlees', 
-            ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
+            ingevrorenOp: new Date().toISOString().split('T')[0], 
+            houdbaarheidsDatum: '', // Expliciet leeg bij nieuw item
+            emoji: ''
         });
         setShowAddModal(true);
     };
@@ -286,6 +293,7 @@ function App() {
             aantal: parseFloat(formData.aantal),
             ladeNaam: lade ? lade.naam : '',
             ingevrorenOp: new Date(formData.ingevrorenOp),
+            // Opslaan als null indien leeg
             houdbaarheidsDatum: formData.houdbaarheidsDatum ? new Date(formData.houdbaarheidsDatum) : null,
             userId: beheerdeUserId,
             emoji: formData.emoji || getEmojiForCategory(formData.categorie)
@@ -309,7 +317,10 @@ function App() {
         setEditingItem(item);
         setFormData({
             naam: item.naam, aantal: item.aantal, eenheid: item.eenheid, vriezerId: item.vriezerId, ladeId: item.ladeId, categorie: item.categorie,
-            ingevrorenOp: toInputDate(item.ingevrorenOp), houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), emoji: item.emoji
+            ingevrorenOp: toInputDate(item.ingevrorenOp), 
+            // Gebruik toInputDate helper die nu lege string teruggeeft voor null/ongeldig
+            houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), 
+            emoji: item.emoji
         });
         setShowAddModal(true);
     };
@@ -425,13 +436,21 @@ function App() {
                                                         return (
                                                             <li key={item.id} className={`flex items-center justify-between p-3 ${colorClass} border-b last:border-0`}>
                                                                 <div className="flex items-center gap-3 overflow-hidden">
-                                                                    <span className="text-2xl">{item.emoji||'📦'}</span>
-                                                                    <div>
-                                                                        <p className="font-medium text-gray-900">{item.naam}</p>
-                                                                        <p className="text-xs text-gray-500">{item.aantal} {item.eenheid} • {formatDate(item.ingevrorenOp)} {item.houdbaarheidsDatum ? `• THT: ${formatDate(item.houdbaarheidsDatum)}` : ''}</p>
+                                                                    <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
+                                                                    <div className="min-w-0">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <p className="font-medium text-gray-900 truncate">{item.naam}</p>
+                                                                            {item.categorie && item.categorie !== "Geen" && (
+                                                                                <Badge type="category" text={item.categorie} />
+                                                                            )}
+                                                                        </div>
+                                                                        <p className="text-xs text-gray-500">
+                                                                            {item.aantal} {item.eenheid} • {formatDate(item.ingevrorenOp)}
+                                                                            {item.houdbaarheidsDatum ? ` • THT: ${formatDate(item.houdbaarheidsDatum)}` : ''}
+                                                                        </p>
                                                                     </div>
                                                                 </div>
-                                                                <div className="flex items-center gap-1">
+                                                                <div className="flex items-center gap-1 flex-shrink-0">
                                                                     <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 rounded-lg hover:bg-blue-100"><Icon path={Icons.Edit2} size={16}/></button>
                                                                     <button onClick={()=>handleDelete(item.id, item.naam)} className="p-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100"><Icon path={Icons.Trash2} size={16}/></button>
                                                                 </div>
@@ -549,17 +568,17 @@ function App() {
                 
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 2.6</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 2.7</h4>
                         <ul className="space-y-2">
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Kleuren (versheid) werken weer op álle items.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Automatische waarschuwing bij items over datum.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Scanner verwijderd en emoji picker verbeterd.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Categorie badges toegevoegd bij producten.</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>THT datum blijft leeg indien niet ingevuld bij bewerken.</span></li>
                         </ul>
                     </div>
                     <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 2.5</h4>
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 2.6</h4>
                         <ul className="space-y-2 text-sm text-gray-500">
-                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Eigen eenheden beheren via Instellingen.</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Kleuren (versheid) werken weer op álle items.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Automatische waarschuwing bij items over datum.</span></li>
                         </ul>
                     </div>
                 </div>
