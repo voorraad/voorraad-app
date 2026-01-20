@@ -1,1222 +1,492 @@
-// Stap 1: Initialiseer Firebase
+const { useState, useEffect, useMemo } = React;
+
+// --- 1. FIREBASE CONFIGURATIE ---
 const firebaseConfig = typeof __firebase_config !== 'undefined' 
     ? JSON.parse(__firebase_config) 
     : {
-  apiKey: "AIzaSyB9KRUbVBknnDDkkWF2Z5nRskmY-9CkD24",
-  authDomain: "vriezer-app.firebaseapp.com",
-  projectId: "vriezer-app",
-  storageBucket: "vriezer-app.firebasestorage.app",
-  messagingSenderId: "788492326775",
-  appId: "1:788492326775:web:c2cd85deac708b44f27372"
+        apiKey: "", // Wordt door de omgeving ingevuld
+        authDomain: "vriezer-app.firebaseapp.com",
+        projectId: "vriezer-app",
+        storageBucket: "vriezer-app.firebasestorage.app",
+        messagingSenderId: "788492326775",
+        appId: "1:788492326775:web:c2cd85deac708b44f27372"
     };
 
-// Initialiseer Firebase
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-// Collectie referenties
-const itemsCollectieBasis = db.collection('items');
-const ladesCollectieBasis = db.collection('lades');
-const vriezersCollectieBasis = db.collection('vriezers');
-const usersCollectie = db.collection('users');
-const adminsCollectie = db.collection('admins');
-const sharesCollectie = db.collection('shares');
-const shoppingListCollectie = db.collection('shoppingList');
-const weekMenuCollectie = db.collection('weekmenu');
-const historyCollectie = db.collection('history');
+// --- 2. CONFIGURATIE DATA ---
+const APP_VERSION = '2.0';
+const CATEGORIEEN = ["Geen", "Vlees", "Vis", "Groenten", "Fruit", "Brood", "IJs", "Restjes", "Saus", "Friet", "Pizza", "Ander"];
+const EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
 
-// ---
-// GLOBALE VARIABELEN
-// ---
-const APP_VERSION = '1.3'; // Huidige versie voor update-melding
-let alleVriezers = [];
-let alleLades = [];
-let alleItems = []; 
-let currentUser = null; 
-let geselecteerdeVriezerId = null;
-let geselecteerdeVriezerNaam = null;
-let userUnits = []; 
+// --- 3. ICOON COMPONENTEN (SVG) ---
+const Icon = ({ path, size = 20, className = "" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        {path}
+    </svg>
+);
 
-// CONFIGURATIE PER LOCATIE TYPE (Vriezer vs Voorraad)
-const configPerType = {
-    'vriezer': {
-        categories: ["Geen", "Vlees", "Vis", "Groenten", "Fruit", "Brood", "IJs", "Restjes", "Saus", "Friet", "Pizza", "Ander"],
-        units: ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos"]
-    },
-    'voorraad': {
-        categories: ["Geen", "Pasta", "Rijst", "Conserven", "Saus", "Kruiden", "Bakproducten", "Snacks", "Drank", "Huishoud", "Ander"],
-        units: ["stuks", "pak", "fles", "blik", "pot", "zak", "kg", "liter", "doos"]
-    },
-    // Fallback voor onbekende types
-    'default': {
-        categories: ["Geen", "Ander"],
-        units: ["stuks"]
-    }
+const Icons = {
+    Plus: <path d="M5 12h14M12 5v14"/>,
+    Search: <path d="m21 21-4.3-4.3M11 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12z"/>,
+    Snowflake: <path d="M2 12h20M12 2v20m-8.5-6L12 12 8.5 8.5m7 7L12 12l3.5-3.5"/>,
+    Box: <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.3 7 12 12l8.7-5M12 12v10"/>,
+    Trash2: <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/>,
+    Edit2: <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>,
+    X: <path d="M18 6 6 18M6 6l12 12"/>,
+    Info: <path d="M12 16v-4M12 8h.01M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10z"/>,
+    LogOut: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>,
+    Users: <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>,
+    Check: <path d="M20 6 9 17l-5-5"/>,
+    Alert: <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3zM12 9v4M12 17h.01"/>
 };
 
-const defaultUnits = configPerType['vriezer'].units; // Initiele fallback
+// --- 4. HULPFUNCTIES ---
+const getDagenOud = (timestamp) => {
+    if (!timestamp) return 0;
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const diff = new Date() - date;
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
+};
 
-// VARIABELE VOOR TABBLADEN
-let activeTab = 'vriezer'; // Default: Vriezer
+const formatDate = (timestamp) => {
+    if (!timestamp) return '-';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString('nl-BE');
+};
 
-// Listeners
-let vriezersListener = null;
-let ladesListener = null;
-let itemsListener = null; 
-let userListListener = null;
-let sharesOwnerListener = null;
-let pendingSharesListener = null;
-let acceptedSharesListener = null;
-let shoppingListListener = null;
-let weekMenuListener = null;
-let historyListener = null;
-let vriezerBeheerListener = null;
-let ladeBeheerListener = null;
+const toInputDate = (timestamp) => {
+    if (!timestamp) return new Date().toISOString().split('T')[0];
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const offset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - (offset*60*1000));
+    return localDate.toISOString().split('T')[0];
+};
 
-// Admin & Data Scheiding
-let isAdmin = false;
-let beheerdeUserId = null; 
-let beheerdeUserEmail = null;
-let eigenUserId = null; 
-let alleAcceptedShares = [];
+const getStatusColor = (dagen) => {
+    if (dagen > 180) return 'border-l-4 border-red-500 bg-red-50';
+    if (dagen > 90) return 'border-l-4 border-yellow-400 bg-yellow-50';
+    return 'border-l-4 border-green-400 bg-white';
+};
 
-let isEersteNotificatieCheck = true;
-let isMoveMode = false;
-let selectedItemIds = new Set();
+// --- 5. UI COMPONENTEN ---
+const Modal = ({ isOpen, onClose, title, children }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto modal-animate" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center p-4 border-b border-gray-100">
+                    <h3 className="text-lg font-bold text-gray-800">{title}</h3>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                        <Icon path={Icons.X} className="text-gray-500" />
+                    </button>
+                </div>
+                <div className="p-4 space-y-4">
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
+};
 
-// --- Snelkoppelingen naar elementen ---
-const form = document.getElementById('add-item-form');
-const vriezerSelect = document.getElementById('item-vriezer'); 
-const schuifSelect = document.getElementById('item-schuif'); 
-const itemDatum = document.getElementById('item-datum');
-const itemHoudbaarheid = document.getElementById('item-houdbaarheid'); // NIEUW
-const itemCategorie = document.getElementById('item-categorie');
-const itemEmoji = document.getElementById('item-emoji');
-const itemEenheid = document.getElementById('item-eenheid'); 
-
-const editModal = document.getElementById('edit-modal');
-const editForm = document.getElementById('edit-item-form');
-const editId = document.getElementById('edit-item-id');
-const editNaam = document.getElementById('edit-item-naam');
-const editAantal = document.getElementById('edit-item-aantal');
-const editEenheid = document.getElementById('edit-item-eenheid');
-const editVriezer = document.getElementById('edit-item-vriezer');
-const editSchuif = document.getElementById('edit-item-schuif');
-const editDatum = document.getElementById('edit-item-datum');
-const editHoudbaarheid = document.getElementById('edit-item-houdbaarheid'); // NIEUW
-const editCategorie = document.getElementById('edit-item-categorie');
-const editEmoji = document.getElementById('edit-item-emoji');
-
-const btnCancel = document.getElementById('btn-cancel');
-const logoutBtn = document.getElementById('logout-btn');
-const searchBar = document.getElementById('search-bar');
-const printBtn = document.getElementById('print-btn'); 
-const dashboard = document.getElementById('dashboard'); 
-const feedbackMessage = document.getElementById('feedback-message');
-const scanBtn = document.getElementById('scan-btn');
-const scanModal = document.getElementById('scan-modal');
-const stopScanBtn = document.getElementById('btn-stop-scan');
-const scannerContainerId = "barcode-scanner-container";
-const manualEanBtn = document.getElementById('manual-ean-btn');
-let html5QrCode;
-const vriezerLijstenContainer = document.getElementById('vriezer-lijsten-container');
-const vriezerBeheerModal = document.getElementById('vriezer-beheer-modal');
-const sluitBeheerKnop = document.getElementById('btn-sluit-beheer');
-const addVriezerForm = document.getElementById('add-vriezer-form');
-const vriezerBeheerLijst = document.getElementById('vriezer-beheer-lijst');
-const ladesBeheerTitel = document.getElementById('lades-beheer-titel');
-const addLadeForm = document.getElementById('add-lade-form');
-const ladesBeheerHr = document.getElementById('lades-beheer-hr');
-const ladeBeheerLijst = document.getElementById('lade-beheer-lijst');
-const btnToggleAlles = document.getElementById('btn-toggle-alles');
-
-// Wissel Account & Profiel
-const switchAccountKnop = document.getElementById('switch-account-knop');
-const switchAccountModal = document.getElementById('switch-account-modal');
-const sluitSwitchAccountKnop = document.getElementById('btn-sluit-switch-account');
-const adminUserLijst = document.getElementById('admin-user-lijst');
-const userSharedLijst = document.getElementById('user-shared-lijst');
-const adminSwitchSection = document.getElementById('admin-switch-section');
-const userSwitchSection = document.getElementById('user-switch-section');
-const switchAccountTitel = document.getElementById('switch-account-titel');
-const switchTerugKnop = document.getElementById('switch-terug-knop');
-const profileBtn = document.getElementById('profile-btn');
-const profileImg = document.getElementById('profile-img');
-const profileIcon = profileBtn.querySelector('i'); 
-const profileModal = document.getElementById('profile-modal');
-const sluitProfileModalKnop = document.getElementById('btn-sluit-profile');
-const profileModalImg = document.getElementById('profile-modal-img');
-const profileModalIcon = profileModal.querySelector('.profile-header i');
-const profileEmailEl = document.getElementById('profile-email');
-const profileVriezerBeheerBtn = document.getElementById('profile-vriezer-beheer-btn');
-const profileShoppingListBtn = document.getElementById('profile-shopping-list-btn'); 
-const exportDataBtn = document.getElementById('export-data-btn');
-const profileShareBtn = document.getElementById('profile-share-btn');
-const profileHistoryBtn = document.getElementById('profile-history-btn'); 
-
-// Overige Modals & What's New
-const whatsNewModal = document.getElementById('whats-new-modal');
-const sluitWhatsNewKnop = document.getElementById('btn-sluit-whats-new');
-const btnWhatsNew = document.getElementById('btn-whats-new');
-const combinedAlertsContainer = document.getElementById('combined-alerts-container');
-const combinedAlertsList = document.getElementById('combined-alerts-list');
-
-// OUDE NOTIFICATIE MODAL ELEMENTEN (verwijderd uit HTML, maar referenties opruimen indien nodig)
-const shareModal = document.getElementById('share-modal');
-const sluitShareKnop = document.getElementById('btn-sluit-share');
-const shareInviteForm = document.getElementById('share-invite-form');
-const shareHuidigeLijst = document.getElementById('share-huidige-lijst');
-const acceptShareModal = document.getElementById('accept-share-modal');
-const acceptShareLijst = document.getElementById('accept-share-lijst');
-const sluitAcceptShareKnop = document.getElementById('btn-sluit-accept-share');
-const shoppingListModal = document.getElementById('shopping-list-modal');
-const sluitShoppingListKnop = document.getElementById('btn-sluit-shopping-list');
-const addShoppingItemForm = document.getElementById('add-shopping-item-form');
-const shoppingItemNaam = document.getElementById('shopping-item-naam');
-const shoppingListUl = document.getElementById('shopping-list');
-const clearCheckedShoppingItemsBtn = document.getElementById('btn-clear-checked-shopping-items');
-const profileWeekmenuBtn = document.getElementById('profile-weekmenu-btn');
-const weekmenuModal = document.getElementById('weekmenu-modal');
-const sluitWeekmenuKnop = document.getElementById('btn-sluit-weekmenu');
-const addWeekmenuForm = document.getElementById('add-weekmenu-form');
-const weekmenuDatumInput = document.getElementById('weekmenu-datum');
-const weekmenuGerechtInput = document.getElementById('weekmenu-gerecht');
-const weekmenuLinkInput = document.getElementById('weekmenu-link');
-const weekmenuListUl = document.getElementById('weekmenu-list');
-const clearOldWeekmenuBtn = document.getElementById('btn-clear-old-weekmenu');
-const historyModal = document.getElementById('history-modal');
-const sluitHistoryKnop = document.getElementById('btn-sluit-history');
-const historyListUl = document.getElementById('history-list');
-const btnClearHistory = document.getElementById('btn-clear-history');
-
-// Bulk Actie
-const btnToggleMode = document.getElementById('btn-toggle-mode');
-const bulkActionBar = document.getElementById('bulk-action-bar');
-const bulkCountSpan = document.getElementById('bulk-count');
-const btnBulkMove = document.getElementById('btn-bulk-move');
-const bulkTargetVriezer = document.getElementById('bulk-target-vriezer');
-const bulkTargetLade = document.getElementById('bulk-target-lade');
-
-// QR & Move Purchased
-const qrModal = document.getElementById('qr-modal');
-const sluitQrKnop = document.getElementById('btn-sluit-qr');
-const qrCanvas = document.getElementById('qr-canvas');
-const qrLadeNaam = document.getElementById('qr-lade-naam');
-const btnPrintQr = document.getElementById('btn-print-qr');
-const movePurchasedModal = document.getElementById('move-purchased-modal');
-const movePurchasedForm = document.getElementById('move-purchased-form');
-const btnCancelMovePurchased = document.getElementById('btn-cancel-move-purchased');
-const movePurchasedNaamSpan = document.getElementById('move-purchased-naam');
-const movePurchasedTempId = document.getElementById('move-purchased-temp-id');
-const movePurchasedItemNaam = document.getElementById('move-purchased-item-naam');
-const movePurchasedVriezer = document.getElementById('move-purchased-vriezer');
-const movePurchasedLade = document.getElementById('move-purchased-lade');
-const movePurchasedAantal = document.getElementById('move-purchased-aantal');
-const movePurchasedEenheid = document.getElementById('move-purchased-eenheid');
-const movePurchasedCategorie = document.getElementById('move-purchased-categorie');
-const movePurchasedEmoji = document.getElementById('move-purchased-emoji');
-
-// --- TABS LOGICA ---
-const tabButtons = document.querySelectorAll('.tab-btn');
-tabButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-        const tab = btn.dataset.tab;
-        switchTab(tab);
-    });
-});
-
-function switchTab(tabName) {
-    activeTab = tabName;
-    
-    // Update knop styles
-    tabButtons.forEach(btn => {
-        if(btn.dataset.tab === tabName) btn.classList.add('active');
-        else btn.classList.remove('active');
-    });
-    
-    // Her-render lijsten en dashboard
-    renderDynamischeLijsten();
-    vulToevoegVriezerDropdown(); 
-    // Zorg dat de bulk dropdown óók de juiste locaties krijgt
-    renderBulkDropdowns();
-    updateDashboard();
-}
-
-// --- HELPER FUNCTIES (Emoji & Formatting) ---
-function showModal(modalElement) { if (modalElement) modalElement.classList.add('show'); }
-function hideModal(modalElement) { if (modalElement) modalElement.classList.remove('show'); }
-
-function showFeedback(message, type = 'success') {
-    feedbackMessage.textContent = message;
-    feedbackMessage.className = 'feedback';
-    feedbackMessage.classList.add(type);
-    feedbackMessage.classList.add('show');
-    setTimeout(() => { feedbackMessage.classList.remove('show'); }, 3000);
-}
-
-function formatAantal(aantal, eenheid) {
-    if (!eenheid || eenheid === 'stuks') return `${aantal}x`;
-    return `${aantal}x ${eenheid}`;
-}
-
-function formatDatum(timestamp) {
-    if (!timestamp) return 'Onbekend';
-    return timestamp.toDate().toLocaleDateString('nl-BE');
-}
-
-// Helper om datum correct naar input value (YYYY-MM-DD) te zetten zonder UTC verschuiving
-function toInputDate(timestamp) {
-    if (!timestamp) return '';
-    const d = timestamp.toDate();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-// Emoji mapping per categorie (Uitgebreid voor Voorraad)
-function getEmojiForCategory(categorie) {
-    const emojis = {
-        // Vriezer
-        "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", 
-        "Brood": "🍞", "IJs": "🍦", "Restjes": "🥡", "Saus": "🥫", 
-        "Friet": "🍟", "Pizza": "🍕",
-        // Voorraad
-        "Pasta": "🍝", "Rijst": "🍚", "Conserven": "🥫", "Kruiden": "🌿",
-        "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", "Huishoud": "🧻",
-        // Algemeen
-        "Ander": "📦", "Geen": "🔳"
+const Badge = ({ type, text }) => {
+    const colors = {
+        minor: "bg-blue-100 text-blue-700",
+        patch: "bg-green-100 text-green-700",
+        major: "bg-purple-100 text-purple-700",
+        alert: "bg-red-100 text-red-700"
     };
-    return emojis[categorie] || "📦";
-}
+    return (
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${colors[type] || colors.minor}`}>
+            {text}
+        </span>
+    );
+};
 
-function updateEmojiField(selectElement, inputElement) {
-    const cat = selectElement.value;
-    const emoji = getEmojiForCategory(cat);
-    inputElement.value = emoji;
-}
+// --- 6. HOOFD APPLICATIE ---
+function App() {
+    // User State
+    const [user, setUser] = useState(null);
+    const [beheerdeUserId, setBeheerdeUserId] = useState(null);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [usersList, setUsersList] = useState([]); // Voor admin switch
 
-function handleAantalKlik(e) {
-    const target = e.target.closest('.aantal-btn');
-    if (!target) return;
-    const wrapper = target.parentElement;
-    const input = wrapper.querySelector('input[type="number"]');
-    if (!input) return;
-    const action = target.dataset.action;
-    const step = parseFloat(input.step) || 1;
-    let currentValue = parseFloat(input.value) || 0;
-    if (action === 'plus') currentValue += step;
-    else if (action === 'minus') currentValue -= step;
-    const min = parseFloat(input.min) || 0;
-    if (currentValue < min) currentValue = min;
-    input.value = currentValue;
-}
-
-// --- DYNAMISCHE DROPDOWNS (CATEGORIE/EENHEID PER TYPE) ---
-function updateFormOptions(locatieSelect, categorieSelect, eenheidSelect) {
-    const selectedLocatieId = locatieSelect.value;
-    if (!selectedLocatieId) return;
-
-    // Zoek het type van de geselecteerde locatie
-    const locatie = alleVriezers.find(v => v.id === selectedLocatieId);
-    // Standaard type 'vriezer' als er geen type is
-    const type = (locatie && locatie.type) ? locatie.type : 'vriezer';
+    // Data State
+    const [activeTab, setActiveTab] = useState('vriezer');
+    const [items, setItems] = useState([]);
+    const [vriezers, setVriezers] = useState([]);
+    const [lades, setLades] = useState([]);
     
-    // Haal config op, fallback naar default als type onbekend is
-    const config = configPerType[type] || configPerType['default'];
+    // UI State
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [showWhatsNew, setShowWhatsNew] = useState(false);
+    const [showSwitchAccount, setShowSwitchAccount] = useState(false);
+    const [editingItem, setEditingItem] = useState(null);
 
-    // 1. Update Categorieën
-    const huidigeCat = categorieSelect.value;
-    categorieSelect.innerHTML = '';
-    config.categories.forEach(cat => {
-        const opt = document.createElement('option');
-        opt.value = cat;
-        opt.textContent = cat;
-        categorieSelect.appendChild(opt);
-    });
-    // Herstel selectie indien mogelijk
-    if (config.categories.includes(huidigeCat)) {
-        categorieSelect.value = huidigeCat;
-    } else {
-        categorieSelect.value = "Geen";
-    }
-
-    // 2. Update Eenheden (Combineer standaard config met user custom units indien van toepassing)
-    // Opmerking: Hier gebruiken we de config units.
-    const huidigeEenheid = eenheidSelect.value;
-    eenheidSelect.innerHTML = '';
-    
-    // Voeg type-specifieke eenheden toe
-    config.units.forEach(unit => {
-        const opt = document.createElement('option');
-        opt.value = unit;
-        opt.textContent = unit.charAt(0).toUpperCase() + unit.slice(1);
-        eenheidSelect.appendChild(opt);
-    });
-    
-    // Voeg ook algemene custom user units toe die nog niet in de lijst staan (optioneel)
-    userUnits.forEach(u => {
-        if (!config.units.includes(u)) {
-            const opt = document.createElement('option');
-            opt.value = u;
-            opt.textContent = u + " (Eigen)";
-            eenheidSelect.appendChild(opt);
-        }
+    // Form State
+    const [formData, setFormData] = useState({
+        naam: '', aantal: 1, eenheid: 'stuks', vriezerId: '', ladeId: '', categorie: 'Vlees', 
+        ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: ''
     });
 
-    if (huidigeEenheid && (config.units.includes(huidigeEenheid) || userUnits.includes(huidigeEenheid))) {
-        eenheidSelect.value = huidigeEenheid;
-    } else {
-        eenheidSelect.value = config.units[0];
-    }
-}
+    // --- AUTH & DATA FETCHING ---
+    useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged(async (u) => {
+            if (u) {
+                setUser(u);
+                setBeheerdeUserId(u.uid); // Standaard eigen account
+                
+                // Check Admin
+                const adminDoc = await db.collection('admins').doc(u.uid).get();
+                setIsAdmin(adminDoc.exists);
 
-// Event Listeners voor dropdown updates
-vriezerSelect.addEventListener('change', () => {
-    updateLadeDropdown(vriezerSelect.value, schuifSelect, true);
-    updateFormOptions(vriezerSelect, itemCategorie, itemEenheid);
-});
-
-editVriezer.addEventListener('change', () => {
-    updateLadeDropdown(editVriezer.value, editSchuif, true);
-    updateFormOptions(editVriezer, editCategorie, editEenheid);
-});
-
-movePurchasedVriezer.addEventListener('change', () => {
-    updateLadeDropdown(movePurchasedVriezer.value, movePurchasedLade, true);
-    updateFormOptions(movePurchasedVriezer, movePurchasedCategorie, movePurchasedEenheid);
-});
-
-
-// --- Scanner ---
-function startScanner() {
-    html5QrCode = new Html5Qrcode(scannerContainerId);
-    showModal(scanModal);
-    html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 150 } },
-        onScanSuccess,
-        onScanFailure
-    ).catch(err => {
-        showFeedback("Camera niet gevonden.", "error");
-        sluitScanner();
-    });
-}
-
-function sluitScanner() {
-    if (html5QrCode) {
-        html5QrCode.stop().then(() => hideModal(scanModal)).catch(() => hideModal(scanModal));
-    } else {
-        hideModal(scanModal);
-    }
-}
-
-function onScanSuccess(decodedText) {
-    sluitScanner();
-    if (decodedText.includes("ladeFilter=")) {
-        try {
-            const url = new URL(decodedText);
-            const ladeId = url.searchParams.get("ladeFilter");
-            if (ladeId) {
-                const gevondenLade = alleLades.find(l => l.id === ladeId);
-                if (gevondenLade) {
-                    const parentVriezer = alleVriezers.find(v => v.id === gevondenLade.vriezerId);
-                    if (parentVriezer && parentVriezer.type) {
-                        switchTab(parentVriezer.type);
+                // Check of we direct moeten switchen (geen eigen vriezers)
+                const vriezersCheck = await db.collection('vriezers').where('userId', '==', u.uid).limit(1).get();
+                if (vriezersCheck.empty && !adminDoc.exists) {
+                    const shares = await db.collection('shares').where("sharedWithEmail", "==", u.email).where("status", "==", "accepted").limit(1).get();
+                    if (!shares.empty) {
+                        setBeheerdeUserId(shares.docs[0].data().ownerId);
                     }
-                    window.pendingLadeFilter = ladeId;
-                    renderDynamischeLijsten();
-                    showFeedback(`Gevonden: ${gevondenLade.naam}`, 'success');
-                } else {
-                    showFeedback("Locatie onbekend.", "error");
                 }
+            } else {
+                setUser(null);
+                setItems([]);
             }
-        } catch (e) { console.error(e); }
-    } else {
-        fetchProductFromOFF(decodedText);
-    }
-}
-function onScanFailure(error) {}
-
-async function fetchProductFromOFF(ean) {
-    if (!ean || ean.length < 8) { showFeedback("Ongeldige EAN.", "error"); return; }
-    try {
-        const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${ean}.json`);
-        const data = await response.json();
-        if (data.status === 1 && data.product && data.product.product_name) {
-            document.getElementById('item-naam').value = data.product.product_name;
-            showFeedback(`Product: ${data.product.product_name}`, "success");
-        } else { showFeedback("Niet gevonden.", "error"); }
-    } catch (error) { showFeedback("API Fout.", "error"); }
-}
-
-// --- AUTH & INIT ---
-auth.onAuthStateChanged((user) => {
-    if (user) {
-        currentUser = user; eigenUserId = user.uid; beheerdeUserId = user.uid; beheerdeUserEmail = user.email || "Jezelf";
-        isEersteNotificatieCheck = true; alleAcceptedShares = [];
-        registreerGebruiker(user);
-        
-        // Eerst admin checken, dan eventueel auto-switchen als het geen admin is
-        checkAdminStatusAndAutoSwitch(user.uid);
-        
-        if (user.photoURL) {
-            profileImg.src = user.photoURL; profileImg.style.display = 'block'; profileIcon.style.display = 'none';
-            profileModalImg.src = user.photoURL; profileModalImg.style.display = 'block'; profileModalIcon.style.display = 'none';
-        } else {
-            profileImg.style.display = 'none'; profileIcon.style.display = 'block';
-            profileModalImg.style.display = 'none'; profileModalIcon.style.display = 'block';
-        }
-        profileEmailEl.textContent = user.email || 'Geen e-mail';
-        itemDatum.value = new Date().toISOString().split('T')[0];
-        
-        startAlleDataListeners();
-        startPendingSharesListener();
-        checkUrlForLadeFilter();
-    } else {
-        currentUser = null; eigenUserId = null; beheerdeUserId = null; isAdmin = false;
-        stopAlleDataListeners();
-        window.location.replace('index.html');
-    }
-});
-
-function checkUrlForLadeFilter() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const ladeId = urlParams.get('ladeFilter');
-    if (ladeId) window.pendingLadeFilter = ladeId;
-}
-
-async function registreerGebruiker(user) {
-    try { await usersCollectie.doc(user.uid).set({ email: user.email||'Onbekend', displayName: user.displayName||user.email, laatstGezien: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }); } catch (e) {}
-}
-
-async function checkAdminStatusAndAutoSwitch(uid) {
-    // 1. Check Admin
-    try { const doc = await adminsCollectie.doc(uid).get(); isAdmin = doc.exists; } catch (e) { isAdmin = false; }
-    
-    if(isAdmin) { 
-        switchAccountKnop.style.display = 'inline-flex'; 
-        adminSwitchSection.style.display = 'block'; 
-        userSwitchSection.style.display = 'none'; 
-        startAdminUserListener(); 
-    } else { 
-        adminSwitchSection.style.display = 'none'; 
-        userSwitchSection.style.display = 'block'; 
-        switchAccountKnop.style.display = 'none'; // ALTIJD verbergen voor niet-admins
-        startAcceptedSharesListener(); 
-        
-        // 2. AUTO-SWITCH CHECK (Alleen voor niet-admins)
-        // Check of gebruiker eigen vriezers heeft
-        const eigenVriezers = await vriezersCollectieBasis.where('userId', '==', uid).limit(1).get();
-        
-        if (eigenVriezers.empty) {
-            // Geen eigen vriezers, zoek naar shares
-            const shares = await sharesCollectie.where("sharedWithEmail", "==", currentUser.email).where("status", "==", "accepted").limit(1).get();
-            if (!shares.empty) {
-                const share = shares.docs[0].data();
-                console.log("Auto-switching naar gedeeld account:", share.ownerEmail);
-                schakelBeheer(share.ownerId, share.ownerEmail);
-            }
-        }
-    }
-    updateSwitchAccountUI();
-}
-
-function schakelBeheer(naarUserId, naarUserEmail) {
-    if (beheerdeUserId === naarUserId) return;
-    beheerdeUserId = naarUserId; beheerdeUserEmail = naarUserEmail || 'Onbekende';
-    isEersteNotificatieCheck = true;
-    stopAlleDataListeners();
-    vriezerLijstenContainer.innerHTML = ''; dashboard.innerHTML = '';
-    startAlleDataListeners();
-    updateSwitchAccountUI();
-    hideModal(switchAccountModal);
-    showFeedback(`Beheer nu: ${beheerdeUserEmail}`, 'success');
-}
-
-function updateSwitchAccountUI() {
-    if (beheerdeUserId === eigenUserId) {
-        switchAccountTitel.textContent = 'Je beheert je eigen voorraad.'; switchAccountTitel.style.color = '#555'; switchTerugKnop.style.display = 'none';
-        startPendingSharesListener(); if(isAdmin) startAdminUserListener(); else startAcceptedSharesListener(); startShoppingListListener();
-    } else {
-        switchAccountTitel.textContent = `LET OP: Je beheert ${beheerdeUserEmail}!`; switchAccountTitel.style.color = '#FF6B6B'; switchTerugKnop.style.display = 'block';
-        if (pendingSharesListener) pendingSharesListener(); if (acceptedSharesListener) acceptedSharesListener(); if (shoppingListListener) shoppingListListener();
-    }
-}
-
-// --- DATA LISTENERS ---
-function startAlleDataListeners() {
-    if (!beheerdeUserId) return;
-    stopAlleDataListeners();
-
-    usersCollectie.doc(beheerdeUserId).onSnapshot((doc) => {
-        if (doc.exists) { userUnits = doc.data().customUnits || []; } 
-        else { userUnits = []; }
-        renderUnitBeheerLijst();
-    });
-
-    vriezersListener = vriezersCollectieBasis.where('userId', '==', beheerdeUserId).orderBy('naam').onSnapshot((snapshot) => {
-        alleVriezers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), type: doc.data().type || 'vriezer' }));
-        vulToevoegVriezerDropdown();
-        renderBulkDropdowns();
-        renderDynamischeLijsten();
-    });
-
-    ladesListener = ladesCollectieBasis.where('userId', '==', beheerdeUserId).orderBy('naam').onSnapshot((snapshot) => {
-        alleLades = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        updateLadeDropdown(vriezerSelect.value, schuifSelect, false);
-        renderDynamischeLijsten();
-    });
-
-    itemsListener = itemsCollectieBasis.where("userId", "==", beheerdeUserId).onSnapshot((snapshot) => {
-        alleItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderDynamischeLijsten();
-        updateDashboard();
-        if (isEersteNotificatieCheck && alleItems.length > 0 && beheerdeUserId === eigenUserId) { 
-            // NIEUWE FUNCTIE: Check updates EN notificaties samen
-            checkUpdatesAndAlerts(); 
-            isEersteNotificatieCheck = false; 
-        }
-    });
-
-    if (beheerdeUserId === eigenUserId) { startShoppingListListener(); startWeekMenuListener(); }
-}
-
-function stopAlleDataListeners() {
-    if (vriezersListener) { vriezersListener(); vriezersListener = null; }
-    if (ladesListener) { ladesListener(); ladesListener = null; }
-    if (itemsListener) { itemsListener(); itemsListener = null; }
-    if (userListListener) { userListListener(); userListListener = null; }
-    if (sharesOwnerListener) { sharesOwnerListener(); sharesOwnerListener = null; }
-    if (pendingSharesListener) { pendingSharesListener(); pendingSharesListener = null; }
-    if (acceptedSharesListener) { acceptedSharesListener(); acceptedSharesListener = null; }
-    if (shoppingListListener) { shoppingListListener(); shoppingListListener = null; }
-    if (weekMenuListener) { weekMenuListener(); weekMenuListener = null; }
-    if (historyListener) { historyListener(); historyListener = null; }
-}
-
-function startAdminUserListener() {
-    if (userListListener) userListListener();
-    userListListener = usersCollectie.orderBy("email").onSnapshot((snapshot) => {
-        adminUserLijst.innerHTML = '';
-        snapshot.docs.forEach(doc => {
-            const user = { id: doc.id, ...doc.data() };
-            if (user.id === eigenUserId) return;
-            const li = document.createElement('li');
-            li.dataset.id = user.id; li.dataset.email = user.email || user.displayName;
-            li.innerHTML = `<div class="user-info"><span>${user.displayName || user.email}</span><small>${user.email}</small></div>`;
-            li.addEventListener('click', () => schakelBeheer(li.dataset.id, li.dataset.email));
-            adminUserLijst.appendChild(li);
+            setLoading(false);
         });
-    });
-}
+        return () => unsubscribe();
+    }, []);
 
-function startAcceptedSharesListener() {
-    if (acceptedSharesListener) acceptedSharesListener();
-    acceptedSharesListener = sharesCollectie.where("sharedWithId", "==", eigenUserId).where("status", "==", "accepted").onSnapshot((snapshot) => {
-        alleAcceptedShares = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        userSharedLijst.innerHTML = '';
-        if (alleAcceptedShares.length > 0) {
-            // Check verwijderd: Knop wordt nu enkel nog door checkAdminStatusAndAutoSwitch() beheerd
-            alleAcceptedShares.forEach(share => {
-                const li = document.createElement('li');
-                li.dataset.id = share.ownerId; li.dataset.email = share.ownerEmail;
-                li.innerHTML = `<div class="user-info"><span>${share.ownerEmail}</span><small>Rol: ${share.role}</small></div>`;
-                li.addEventListener('click', () => schakelBeheer(li.dataset.id, li.dataset.email));
-                userSharedLijst.appendChild(li);
+    // Data Listeners
+    useEffect(() => {
+        if (!beheerdeUserId) return;
+
+        const unsubVriezers = db.collection('vriezers').where('userId', '==', beheerdeUserId).onSnapshot(snap => {
+            setVriezers(snap.docs.map(d => ({ id: d.id, ...d.data(), type: d.data().type || 'vriezer' })));
+        });
+
+        const unsubLades = db.collection('lades').where('userId', '==', beheerdeUserId).onSnapshot(snap => {
+            setLades(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+
+        const unsubItems = db.collection('items').where('userId', '==', beheerdeUserId).onSnapshot(snap => {
+            setItems(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+
+        return () => { unsubVriezers(); unsubLades(); unsubItems(); };
+    }, [beheerdeUserId]);
+
+    // Admin User List Listener
+    useEffect(() => {
+        if (isAdmin) {
+            return db.collection('users').orderBy('email').onSnapshot(snap => {
+                setUsersList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
             });
-        } else {
-            // Ook hier niet nodig om te verbergen, staat standaard verborgen
-            userSharedLijst.innerHTML = '<li><i>Niemand deelt met jou.</i></li>';
         }
-    });
-}
+    }, [isAdmin]);
 
-function startPendingSharesListener() {
-    if (pendingSharesListener) pendingSharesListener();
-    pendingSharesListener = sharesCollectie.where("sharedWithEmail", "==", currentUser.email).where("status", "==", "pending").onSnapshot((snapshot) => {
-        const pending = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        acceptShareLijst.innerHTML = '';
-        if (pending.length > 0) {
-            pending.forEach(share => {
-                const li = document.createElement('li'); li.dataset.id = share.id;
-                li.innerHTML = `
-                    <div class="invite-info"><strong>${share.ownerEmail}</strong><small>wil delen (${share.role}).</small></div>
-                    <div class="invite-buttons"><button class="btn-accept" data-action="accept">Accepteren</button><button class="btn-decline" data-action="decline">Weigeren</button></div>
-                `;
-                acceptShareLijst.appendChild(li);
-            });
-            showModal(acceptShareModal);
-        } else {
-            hideModal(acceptShareModal);
-        }
-    });
-}
-
-function startSharesOwnerListener() {
-    if (sharesOwnerListener) sharesOwnerListener();
-    shareHuidigeLijst.innerHTML = '<li><i>Laden...</i></li>';
-    sharesOwnerListener = sharesCollectie.where("ownerId", "==", eigenUserId).onSnapshot((snapshot) => {
-        const shares = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        shareHuidigeLijst.innerHTML = '';
-        if (shares.length > 0) {
-            shares.forEach(share => {
-                const li = document.createElement('li'); li.dataset.id = share.id;
-                li.innerHTML = `<div class="user-info"><span>${share.sharedWithEmail}</span><small>${share.status} (${share.role})</small></div><div class="item-buttons"><button class="delete-btn"><i class="fas fa-trash-alt"></i></button></div>`;
-                shareHuidigeLijst.appendChild(li);
-            });
-        } else {
-            shareHuidigeLijst.innerHTML = '<li><i>Je deelt nog met niemand.</i></li>';
-        }
-    });
-}
-
-// --- UI RENDERING ---
-
-function vulToevoegVriezerDropdown() {
-    const geselecteerdeId = vriezerSelect.value;
-    vriezerSelect.innerHTML = '<option value="" disabled>Kies een locatie...</option>';
-    
-    // Filter alleen locaties die bij de actieve tab horen
-    const relevanteLocaties = alleVriezers.filter(v => v.type === activeTab);
-    
-    relevanteLocaties.forEach(vriezer => {
-        const option = document.createElement('option');
-        option.value = vriezer.id; 
-        option.textContent = vriezer.naam; 
-        vriezerSelect.appendChild(option);
-    });
-    
-    if (geselecteerdeId && relevanteLocaties.some(v => v.id === geselecteerdeId)) {
-        vriezerSelect.value = geselecteerdeId;
-    } else {
-        vriezerSelect.value = "";
-    }
-    // Trigger update voor lades en opties
-    updateLadeDropdown(vriezerSelect.value, schuifSelect, false);
-    updateFormOptions(vriezerSelect, itemCategorie, itemEenheid);
-}
-
-function updateLadeDropdown(vriezerId, ladeSelectElement, resetSelectie) {
-    const geselecteerdeLadeId = resetSelectie ? "" : ladeSelectElement.value;
-    ladeSelectElement.innerHTML = '<option value="" disabled>Kies een lade...</option>';
-    if (!vriezerId) { ladeSelectElement.innerHTML = '<option value="" disabled>Kies eerst locatie...</option>'; ladeSelectElement.value = ""; return; }
-    
-    const gefilterdeLades = alleLades.filter(lade => lade.vriezerId === vriezerId);
-    gefilterdeLades.sort((a, b) => a.naam.localeCompare(b.naam));
-    gefilterdeLades.forEach(lade => {
-        const option = document.createElement('option'); option.value = lade.id; option.textContent = lade.naam; ladeSelectElement.appendChild(option);
-    });
-    
-    if (geselecteerdeLadeId && gefilterdeLades.some(l => l.id === geselecteerdeLadeId)) ladeSelectElement.value = geselecteerdeLadeId;
-    else ladeSelectElement.value = "";
-}
-
-function renderDynamischeLijsten() {
-    const openLadeIds = new Set();
-    document.querySelectorAll('.lade-group:not(.collapsed)').forEach(group => openLadeIds.add(group.dataset.ladeId));
-    if (window.pendingLadeFilter) openLadeIds.add(window.pendingLadeFilter);
-    
-    vriezerLijstenContainer.innerHTML = ''; 
-    const zichtbareVriezers = alleVriezers.filter(v => v.type === activeTab);
-    zichtbareVriezers.sort((a, b) => a.naam.localeCompare(b.naam));
-
-    if (zichtbareVriezers.length === 0) {
-        vriezerLijstenContainer.innerHTML = `<div style="text-align:center; width:100%; padding:20px; color:#777;">
-            Nog geen ${activeTab} locaties. <br>Ga naar Beheer om er een toe te voegen.
-        </div>`;
-        return;
-    }
-
-    zichtbareVriezers.forEach(vriezer => {
-        const kolomDiv = document.createElement('div');
-        kolomDiv.className = 'vriezer-kolom';
-        // CRUCIAL CHANGE: Add the ID as a data attribute for searching
-        kolomDiv.dataset.vriezerId = vriezer.id; 
-        
-        // Bereken totaal items voor deze specifieke locatie
-        const vriezerItems = alleItems.filter(item => item.vriezerId === vriezer.id);
-        kolomDiv.innerHTML = `<h2>${vriezer.naam} <small style="font-size:0.6em; color:#777;">(${vriezerItems.length} items)</small></h2>`;
-
-        const vriezerLades = alleLades.filter(lade => lade.vriezerId === vriezer.id).sort((a, b) => a.naam.localeCompare(b.naam));
-
-        // Filters (Lade & Categorie)
-        const filterContainer = document.createElement('div'); filterContainer.className = 'lade-filter-container';
-        const ladeFilterGroup = document.createElement('div'); ladeFilterGroup.className = 'filter-group';
-        const ladeFilterSelect = document.createElement('select'); 
-        ladeFilterSelect.id = `filter-lade-${vriezer.id}`; ladeFilterSelect.className = 'lade-filter-select';
-        ladeFilterSelect.innerHTML = '<option value="all">Alle lades</option>';
-        vriezerLades.forEach(lade => { ladeFilterSelect.innerHTML += `<option value="${lade.id}">${lade.naam}</option>`; });
-        
-        if (window.pendingLadeFilter) { 
-             const checkLade = vriezerLades.find(l => l.id === window.pendingLadeFilter);
-             if (checkLade) { ladeFilterSelect.value = window.pendingLadeFilter; setTimeout(() => kolomDiv.scrollIntoView({ behavior: 'smooth' }), 300); }
-        }
-        ladeFilterSelect.addEventListener('change', updateItemVisibility); 
-        ladeFilterGroup.appendChild(ladeFilterSelect); filterContainer.appendChild(ladeFilterGroup);
-
-        const catFilterGroup = document.createElement('div'); catFilterGroup.className = 'filter-group';
-        const catFilterSelect = document.createElement('select'); 
-        catFilterSelect.id = `filter-categorie-${vriezer.id}`; catFilterSelect.className = 'lade-filter-select';
-        // Haal categorieën op uit config voor dit type
-        const typeConfig = configPerType[vriezer.type] || configPerType['default'];
-        let catOptions = `<option value="all">Alle categorieën</option>`;
-        typeConfig.categories.forEach(c => catOptions += `<option value="${c}">${c}</option>`);
-        catFilterSelect.innerHTML = catOptions;
-        
-        catFilterSelect.addEventListener('change', updateItemVisibility); 
-        catFilterGroup.appendChild(catFilterSelect); filterContainer.appendChild(catFilterGroup);
-        kolomDiv.appendChild(filterContainer);
-        
-        // Render Lades en Items
-        vriezerLades.forEach(lade => {
-            const ladeGroup = document.createElement('div');
-            ladeGroup.className = 'lade-group'; ladeGroup.dataset.ladeId = lade.id; 
-            if (window.pendingLadeFilter && window.pendingLadeFilter === lade.id) ladeGroup.classList.remove('collapsed');
-            else if (!openLadeIds.has(lade.id)) ladeGroup.classList.add('collapsed');
-
-            const ladeHeader = document.createElement('button'); ladeHeader.className = 'lade-header';
-            ladeHeader.dataset.ladeId = lade.id; ladeHeader.dataset.ladeNaam = lade.naam;
-            ladeHeader.innerHTML = `<h3>${lade.naam}</h3> <i class="fas fa-chevron-down chevron"></i>`;
-
-            const ladeContent = document.createElement('div'); ladeContent.className = 'lade-content';
-            const ladeUl = document.createElement('ul'); ladeUl.dataset.vriezerId = vriezer.id; 
+    // Check Updates & Alerts bij start
+    useEffect(() => {
+        if (items.length > 0) {
+            const lastVersion = localStorage.getItem('app_version');
+            const hasAlerts = items.some(i => getDagenOud(i.ingevrorenOp) > 180);
             
-            const ladeItems = vriezerItems.filter(item => item.ladeId === lade.id).sort((a, b) => a.naam.localeCompare(b.naam));
-            ladeItems.forEach(item => {
-                const li = document.createElement('li');
-                li.dataset.id = item.id; li.dataset.ladeId = item.ladeId; li.dataset.vriezerId = item.vriezerId; li.dataset.categorie = item.categorie || 'Geen';
-                
-                let diffDagen = 0;
-                if (item.ingevrorenOp) {
-                    diffDagen = Math.ceil(Math.abs(new Date() - item.ingevrorenOp.toDate()) / (1000 * 60 * 60 * 24));
-                    if (diffDagen > 180) li.classList.add('item-old'); else if (diffDagen > 90) li.classList.add('item-medium'); else li.classList.add('item-fresh');
-                }
-                
-                const emoji = item.emoji || getEmojiForCategory(item.categorie || 'Geen');
-                const isChecked = selectedItemIds.has(item.id) ? 'checked' : '';
-                
-                // NIEUWE DATUM WEERGAVE
-                let datumTekst = `In: ${formatDatum(item.ingevrorenOp)}`;
-                if (item.houdbaarheidsDatum) {
-                    datumTekst += ` | THT: ${formatDatum(item.houdbaarheidsDatum)}`;
-                } else {
-                    datumTekst += ` (${diffDagen}d)`;
-                }
+            if (lastVersion !== APP_VERSION || (hasAlerts && !sessionStorage.getItem('seen_alerts'))) {
+                setShowWhatsNew(true);
+                localStorage.setItem('app_version', APP_VERSION);
+                sessionStorage.setItem('seen_alerts', 'true');
+            }
+        }
+    }, [items]);
 
-                li.innerHTML = `
-                    <input type="checkbox" class="bulk-checkbox" data-id="${item.id}" ${isChecked}>
-                    <div class="item-text">
-                        <strong><span class="emoji-icon">${emoji}</span>${item.naam} (${formatAantal(item.aantal, item.eenheid)})</strong>
-                        <small class="item-categorie">Cat: ${item.categorie || 'Geen'}</small>
-                        <small class="item-datum">${datumTekst}</small>
-                    </div>
-                    <div class="item-buttons">
-                        <button class="edit-btn" title="Bewerken"><i class="fas fa-pencil-alt"></i></button>
-                        <button class="delete-btn" title="Verwijder"><i class="fas fa-trash-alt"></i></button>
-                    </div>
-                `;
-                li.querySelector('.bulk-checkbox').addEventListener('change', (e) => {
-                    if (e.target.checked) selectedItemIds.add(item.id); else selectedItemIds.delete(item.id); 
-                    updateBulkActionBar();
-                });
-                ladeUl.appendChild(li);
-            });
-            ladeContent.appendChild(ladeUl); ladeGroup.appendChild(ladeHeader); ladeGroup.appendChild(ladeContent); kolomDiv.appendChild(ladeGroup);
-        });
-        vriezerLijstenContainer.appendChild(kolomDiv);
-    });
-    
-    if (window.pendingLadeFilter) { setTimeout(() => { updateItemVisibility(); window.pendingLadeFilter = null; }, 100); } 
-    else { 
-        const kanBewerken = (beheerdeUserId === eigenUserId) || (alleAcceptedShares.find(s => s.ownerId === beheerdeUserId && s.role === 'editor'));
-        if (kanBewerken) initDragAndDrop(); 
-        updateItemVisibility(); 
-    }
-    if (isMoveMode) { document.body.classList.add('move-mode'); bulkActionBar.classList.add('visible'); }
-}
+    // --- FILTERS ---
+    const filteredLocaties = vriezers.filter(l => l.type === activeTab);
+    const alerts = items.filter(i => getDagenOud(i.ingevrorenOp) > 180);
 
-function updateDashboard() {
-    dashboard.innerHTML = '';
-    
-    // Alleen zichtbare locaties tellen voor het overzicht
-    const tabVriezers = alleVriezers.filter(v => v.type === activeTab);
-    const tabVriezerIds = tabVriezers.map(v => v.id);
-    const visibleItems = alleItems.filter(i => tabVriezerIds.includes(i.vriezerId));
-
-    let totaalSpan = document.createElement('strong');
-    totaalSpan.textContent = `Totaal ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}: ${visibleItems.length}`;
-    dashboard.appendChild(totaalSpan);
-
-    // Totaal PER locatie (zoals gevraagd)
-    tabVriezers.forEach(vriezer => {
-        const vriezerItems = alleItems.filter(item => item.vriezerId === vriezer.id);
-        let vriezerSpan = document.createElement('span');
-        vriezerSpan.textContent = `${vriezer.naam}: ${vriezerItems.length}`;
-        dashboard.appendChild(vriezerSpan);
-    });
-}
-
-function initDragAndDrop() {
-    const lijsten = document.querySelectorAll('.lade-content ul');
-    const onDragEnd = (event) => {
-        const itemEl = event.item; const itemId = itemEl.dataset.id; const oldLadeId = itemEl.dataset.ladeId;
-        const newUL = event.to; const newVriezerId = newUL.dataset.vriezerId; 
-        const ladeContentDiv = newUL.parentElement; const ladeHeaderBtn = ladeContentDiv.previousElementSibling;
-        const newLadeId = ladeHeaderBtn.dataset.ladeId; const newLadeNaam = ladeHeaderBtn.dataset.ladeNaam;
-        if (oldLadeId === newLadeId) return; 
-        itemsCollectieBasis.doc(itemId).update({ vriezerId: newVriezerId, ladeId: newLadeId, ladeNaam: newLadeNaam })
-        .then(() => { showFeedback('Item verplaatst!', 'success'); logHistoryAction("Verplaatst", `Item naar ${newLadeNaam}`); })
-        .catch((err) => showFeedback(`Fout: ${err.message}`, 'error'));
+    // --- HANDLERS ---
+    const handleLogin = async () => {
+        // In een echte app: Google Auth Provider. Hier anoniem voor demo/gemak als fallback
+        try {
+            await auth.signInAnonymously();
+        } catch (e) {
+            alert("Login fout: " + e.message);
+        }
     };
-    lijsten.forEach(lijst => { new Sortable(lijst, { animation: 150, group: 'vriezer-items', handle: '.item-text', ghostClass: 'sortable-ghost', chosenClass: 'sortable-chosen', onEnd: onDragEnd }); });
-}
 
-itemCategorie.addEventListener('change', () => updateEmojiField(itemCategorie, itemEmoji));
-editCategorie.addEventListener('change', () => updateEmojiField(editCategorie, editEmoji));
-movePurchasedCategorie.addEventListener('change', () => updateEmojiField(movePurchasedCategorie, movePurchasedEmoji));
-
-form.addEventListener('submit', (e) => {
-    e.preventDefault(); 
-    const kanBewerken = (beheerdeUserId === eigenUserId) || (alleAcceptedShares.find(s => s.ownerId === beheerdeUserId && s.role === 'editor'));
-    if (!kanBewerken) { showFeedback("Geen rechten.", "error"); return; }
-    
-    const vId = vriezerSelect.value; const lId = schuifSelect.value;
-    if (!vId || !lId) { showFeedback("Selecteer locatie & lade.", "error"); return; }
-    
-    const lNaam = schuifSelect.options[schuifSelect.selectedIndex].text;
-    const naam = document.getElementById('item-naam').value;
-    const emoji = itemEmoji.value || getEmojiForCategory(itemCategorie.value);
-
-    // DATUMS VERWERKEN
-    const invriesOp = new Date(itemDatum.value + "T00:00:00");
-    let houdbaarTot = null;
-    if (itemHoudbaarheid.value) {
-        houdbaarTot = new Date(itemHoudbaarheid.value + "T00:00:00");
-    }
-
-    itemsCollectieBasis.add({
-        naam: naam, aantal: parseFloat(document.getElementById('item-aantal').value), eenheid: document.getElementById('item-eenheid').value,
-        ingevrorenOp: invriesOp, houdbaarheidsDatum: houdbaarTot, 
-        categorie: itemCategorie.value, emoji: emoji, 
-        userId: beheerdeUserId, vriezerId: vId, ladeId: lId, ladeNaam: lNaam 
-    })
-    .then(() => {
-        showFeedback(`'${naam}' toegevoegd!`, 'success');
-        if (document.getElementById('remember-drawer-check').checked) {
-            document.getElementById('item-naam').value = ''; document.getElementById('item-aantal').value = 1; itemEmoji.value = ""; document.getElementById('item-naam').focus();
-        } else {
-            form.reset(); itemDatum.value = new Date().toISOString().split('T')[0]; 
-            // Reset dropdowns naar correcte waarden voor huidige selectie
-            updateFormOptions(vriezerSelect, itemCategorie, itemEenheid);
-            itemEmoji.value = ""; document.getElementById('item-aantal').value = 1; 
-            vriezerSelect.value = ""; schuifSelect.innerHTML = '<option value="" disabled selected>Kies eerst een locatie...</option>';
+    const handleAddItem = async (e) => {
+        e.preventDefault();
+        const lade = lades.find(l => l.id === formData.ladeId);
+        
+        try {
+            await db.collection('items').add({
+                ...formData,
+                aantal: parseFloat(formData.aantal),
+                ladeNaam: lade ? lade.naam : '',
+                ingevrorenOp: new Date(formData.ingevrorenOp),
+                houdbaarheidsDatum: formData.houdbaarheidsDatum ? new Date(formData.houdbaarheidsDatum) : null,
+                userId: beheerdeUserId,
+                emoji: '📦' // Simpel houden voor nu
+            });
+            setShowAddModal(false);
+            setFormData({ ...formData, naam: '', aantal: 1 });
+        } catch (err) {
+            alert("Fout: " + err.message);
         }
-    }).catch(err => showFeedback(err.message, 'error'));
-});
+    };
 
-vriezerLijstenContainer.addEventListener('click', (e) => {
-    if (e.target.closest('.lade-header')) { e.target.closest('.lade-header').parentElement.classList.toggle('collapsed'); return; }
-    const kanBewerken = (beheerdeUserId === eigenUserId) || (alleAcceptedShares.find(s => s.ownerId === beheerdeUserId && s.role === 'editor'));
-    if (!kanBewerken && beheerdeUserId !== eigenUserId) return;
-    
-    const li = e.target.closest('li'); if (!li) return;
-    const id = li.dataset.id; const item = alleItems.find(i => i.id === id); if (!item) return;
-
-    if (e.target.closest('.delete-btn')) {
-        if (!kanBewerken) { showFeedback("Geen rechten.", "error"); return; }
-        if (confirm(`Verwijder '${item.naam}'?`)) {
-             if (parseFloat(item.aantal) <= 1 && beheerdeUserId === eigenUserId && confirm("Toevoegen aan boodschappenlijst?")) addShoppingItem(item.naam);
-             itemsCollectieBasis.doc(id).delete().then(() => { showFeedback('Verwijderd.', 'success'); logHistoryAction("Verwijderd", item.naam); });
+    const handleDelete = async (id, naam) => {
+        if (confirm(`Verwijder '${naam}'?`)) {
+            await db.collection('items').doc(id).delete();
         }
-    } else if (e.target.closest('.edit-btn')) {
-        if (!kanBewerken) { showFeedback("Geen rechten.", "error"); return; }
-        editId.value = id; editNaam.value = item.naam; editAantal.value = item.aantal; 
-        editVriezer.innerHTML = ''; 
-        alleVriezers.forEach(v => { const opt = document.createElement('option'); opt.value = v.id; opt.textContent = v.naam; if(v.id === item.vriezerId) opt.selected = true; editVriezer.appendChild(opt); });
-        
-        // Eerst options updaten, dan waarden zetten
-        updateFormOptions(editVriezer, editCategorie, editEenheid);
-        editEenheid.value = item.eenheid || 'stuks';
-        editCategorie.value = item.categorie || 'Geen'; 
-        
-        editEmoji.value = item.emoji || getEmojiForCategory(item.categorie || 'Geen');
-        updateLadeDropdown(item.vriezerId, editSchuif, false); editSchuif.value = item.ladeId;
-        
-        // CORRIGEERDE DATUM LOGICA BIJ BEWERKEN (GEEN -1 DAG)
-        editDatum.value = toInputDate(item.ingevrorenOp);
-        editHoudbaarheid.value = toInputDate(item.houdbaarheidsDatum);
-        
-        showModal(editModal);
-    }
-});
+    };
 
-editForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const lNaam = editSchuif.options[editSchuif.selectedIndex].text;
-    
-    // DATUM LOGICA BIJ BEWERKEN: GEWOON DE INPUT GEBRUIKEN (Correctie gebruiker)
-    const nieuweInvriesDatum = new Date(editDatum.value + "T00:00:00");
-    // nieuweInvriesDatum.setDate(nieuweInvriesDatum.getDate() - 1); // VERWIJDERD
-
-    let nieuweHoudbaarheid = null;
-    if (editHoudbaarheid.value) {
-        nieuweHoudbaarheid = new Date(editHoudbaarheid.value + "T00:00:00");
-    }
-
-    itemsCollectieBasis.doc(editId.value).update({
-        naam: editNaam.value, aantal: parseFloat(editAantal.value), eenheid: editEenheid.value, vriezerId: editVriezer.value,
-        ladeId: editSchuif.value, ladeNaam: lNaam, 
-        ingevrorenOp: nieuweInvriesDatum, 
-        houdbaarheidsDatum: nieuweHoudbaarheid,
-        categorie: editCategorie.value, emoji: editEmoji.value
-    }).then(() => { hideModal(editModal); showFeedback('Bijgewerkt!', 'success'); });
-});
-btnCancel.addEventListener('click', () => hideModal(editModal));
-
-// --- BEHEER ---
-profileVriezerBeheerBtn.addEventListener('click', () => { hideModal(profileModal); showModal(vriezerBeheerModal); laadVriezersBeheer(); });
-sluitBeheerKnop.addEventListener('click', () => {
-    hideModal(vriezerBeheerModal); if (vriezerBeheerListener) vriezerBeheerListener(); if (ladeBeheerListener) ladeBeheerListener();
-    ladeBeheerLijst.innerHTML = ''; addLadeForm.style.display = 'none'; ladesBeheerHr.style.display = 'none'; geselecteerdeVriezerId = null;
-});
-addVriezerForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    vriezersCollectieBasis.add({ naam: document.getElementById('vriezer-naam').value, type: document.getElementById('vriezer-type').value, userId: beheerdeUserId })
-    .then(() => { showFeedback("Locatie toegevoegd!", "success"); addVriezerForm.reset(); }).catch(err => showFeedback(err.message, "error"));
-});
-function laadVriezersBeheer() {
-    if (vriezerBeheerListener) vriezerBeheerListener();
-    vriezerBeheerListener = vriezersCollectieBasis.where("userId", "==", beheerdeUserId).orderBy("naam").onSnapshot(snapshot => {
-        vriezerBeheerLijst.innerHTML = '';
-        snapshot.docs.forEach(doc => {
-            const v = { id: doc.id, ...doc.data() };
-            const typeLabel = v.type ? `(${v.type})` : '(vriezer)';
-            const li = document.createElement('li'); li.dataset.id = v.id; li.dataset.naam = v.naam; if(v.id === geselecteerdeVriezerId) li.classList.add('selected');
-            li.innerHTML = `<span>${v.naam} <small>${typeLabel}</small></span><input type="text" value="${v.naam}" class="beheer-naam-input"><div class="item-buttons"><button class="edit-btn"><i class="fas fa-pencil-alt"></i></button><button class="delete-btn"><i class="fas fa-trash-alt"></i></button></div>`;
-            vriezerBeheerLijst.appendChild(li);
+    const openEdit = (item) => {
+        setEditingItem(item);
+        setFormData({
+            naam: item.naam,
+            aantal: item.aantal,
+            eenheid: item.eenheid,
+            vriezerId: item.vriezerId,
+            ladeId: item.ladeId,
+            categorie: item.categorie,
+            ingevrorenOp: toInputDate(item.ingevrorenOp),
+            houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum)
         });
-    });
-}
-addLadeForm.addEventListener('submit', (e) => {
-    e.preventDefault(); if (!geselecteerdeVriezerId) return;
-    ladesCollectieBasis.add({ naam: document.getElementById('lade-naam').value, vriezerId: geselecteerdeVriezerId, userId: beheerdeUserId })
-    .then(() => { showFeedback("Lade toegevoegd!", "success"); addLadeForm.reset(); });
-});
-function laadLadesBeheer(vriezerId) {
-    if (ladeBeheerListener) ladeBeheerListener();
-    ladeBeheerLijst.innerHTML = '<i>Laden...</i>';
-    ladeBeheerListener = ladesCollectieBasis.where("vriezerId", "==", vriezerId).orderBy("naam").onSnapshot(snapshot => {
-        ladeBeheerLijst.innerHTML = '';
-        snapshot.docs.forEach(doc => {
-            const l = { id: doc.id, ...doc.data() };
-            const li = document.createElement('li'); li.dataset.id = l.id; li.dataset.naam = l.naam;
-            li.innerHTML = `<span>${l.naam}</span><input type="text" value="${l.naam}" class="beheer-naam-input"><div class="item-buttons"><button class="qr-btn"><i class="fas fa-qrcode"></i></button><button class="edit-btn"><i class="fas fa-pencil-alt"></i></button><button class="delete-btn"><i class="fas fa-trash-alt"></i></button></div>`;
-            ladeBeheerLijst.appendChild(li);
-        });
-    });
-}
-vriezerBeheerLijst.addEventListener('click', (e) => {
-    const li = e.target.closest('li'); if (!li) return;
-    const vId = li.dataset.id; const vNaam = li.dataset.naam;
-    if (e.target.closest('.delete-btn')) handleVerwijderVriezer(vId, vNaam);
-    else if (e.target.closest('.edit-btn')) handleHernoem(li, vriezersCollectieBasis);
-    else {
-        geselecteerdeVriezerId = vId; ladesBeheerTitel.textContent = `Lades voor: ${vNaam}`;
-        addLadeForm.style.display = 'grid'; ladesBeheerHr.style.display = 'block';
-        document.querySelectorAll('#vriezer-beheer-lijst li').forEach(el => el.classList.remove('selected'));
-        li.classList.add('selected'); laadLadesBeheer(vId);
-    }
-});
-ladeBeheerLijst.addEventListener('click', (e) => {
-    const li = e.target.closest('li'); if (!li) return;
-    const id = li.dataset.id; const naam = li.dataset.naam;
-    if (e.target.closest('.delete-btn')) handleVerwijderLade(id, naam); else if (e.target.closest('.edit-btn')) handleHernoem(li, ladesCollectieBasis); else if (e.target.closest('.qr-btn')) toonQrCode(id, naam);
-});
-function handleHernoem(li, col) {
-    const input = li.querySelector('.beheer-naam-input'); const btn = li.querySelector('.edit-btn');
-    if (li.classList.contains('edit-mode')) { col.doc(li.dataset.id).update({ naam: input.value }).then(() => { li.classList.remove('edit-mode'); btn.innerHTML = '<i class="fas fa-pencil-alt"></i>'; }); } 
-    else { li.classList.add('edit-mode'); input.focus(); btn.innerHTML = '<i class="fas fa-save"></i>'; }
-}
-async function handleVerwijderVriezer(id, naam) {
-    const chk = await ladesCollectieBasis.where("vriezerId", "==", id).limit(1).get();
-    if (!chk.empty) return showFeedback("Maak locatie eerst leeg.", "error");
-    if (confirm(`Verwijder ${naam}?`)) vriezersCollectieBasis.doc(id).delete().then(() => { if(id===geselecteerdeVriezerId) sluitBeheerKnop.click(); showFeedback("Verwijderd", "success"); });
-}
-async function handleVerwijderLade(id, naam) {
-    const chk = await itemsCollectieBasis.where("ladeId", "==", id).limit(1).get();
-    if (!chk.empty) return showFeedback("Maak lade eerst leeg.", "error");
-    if (confirm(`Verwijder ${naam}?`)) ladesCollectieBasis.doc(id).delete().then(() => showFeedback("Verwijderd", "success"));
-}
-function toonQrCode(id, naam) {
-    const qrUrl = `${window.location.origin}${window.location.pathname}?ladeFilter=${id}`;
-    new QRious({ element: qrCanvas, value: qrUrl, size: 250 });
-    qrLadeNaam.textContent = naam; showModal(qrModal);
-}
-btnPrintQr.addEventListener('click', () => window.print());
-sluitQrKnop.addEventListener('click', () => hideModal(qrModal));
+        setShowAddModal(true);
+    };
 
-// --- ACCOUNT & OVERIG ---
-switchAccountKnop.addEventListener('click', () => showModal(switchAccountModal));
-sluitSwitchAccountKnop.addEventListener('click', () => hideModal(switchAccountModal));
-switchTerugKnop.addEventListener('click', () => schakelBeheer(eigenUserId, "Jezelf"));
-userSharedLijst.addEventListener('click', (e) => { const li = e.target.closest('li'); if(li) schakelBeheer(li.dataset.id, li.dataset.email); });
-if(adminUserLijst) adminUserLijst.addEventListener('click', (e) => { const li = e.target.closest('li'); if(li) schakelBeheer(li.dataset.id, li.dataset.email); });
+    const handleUpdate = async (e) => {
+        e.preventDefault();
+        const lade = lades.find(l => l.id === formData.ladeId);
+        try {
+            await db.collection('items').doc(editingItem.id).update({
+                ...formData,
+                aantal: parseFloat(formData.aantal),
+                ladeNaam: lade ? lade.naam : '',
+                ingevrorenOp: new Date(formData.ingevrorenOp), // Correcte datum, geen offset bug
+                houdbaarheidsDatum: formData.houdbaarheidsDatum ? new Date(formData.houdbaarheidsDatum) : null
+            });
+            setShowAddModal(false);
+            setEditingItem(null);
+        } catch (err) {
+            alert("Update fout: " + err.message);
+        }
+    };
 
-searchBar.addEventListener('input', updateItemVisibility);
-function updateItemVisibility() {
-    const term = searchBar.value.toLowerCase();
-    document.querySelectorAll('.vriezer-kolom').forEach(kolom => {
-        // FIX: Gebruik data-attribute ipv textContent split
-        const vId = kolom.dataset.vriezerId;
-        if(!vId) return;
-        
-        const lFilter = document.getElementById(`filter-lade-${vId}`)?.value || 'all';
-        const cFilter = document.getElementById(`filter-categorie-${vId}`)?.value || 'all';
-        let ladeVisibleCount = {};
-
-        kolom.querySelectorAll('li').forEach(li => {
-            const lId = li.dataset.ladeId; const cat = li.dataset.categorie;
-            const matchL = (lFilter === 'all' || lFilter === lId);
-            const matchC = (cFilter === 'all' || cFilter === cat);
-            const matchS = li.querySelector('.item-text strong').textContent.toLowerCase().includes(term);
-            if (matchL && matchC && matchS) { li.style.display = 'flex'; ladeVisibleCount[lId] = true; } 
-            else { li.style.display = 'none'; }
-        });
-        kolom.querySelectorAll('.lade-group').forEach(grp => {
-            const hasItems = ladeVisibleCount[grp.dataset.ladeId];
-            if ((lFilter === 'all' && (hasItems || (term==='' && cFilter==='all'))) || (lFilter === grp.dataset.ladeId)) {
-                grp.style.display = 'block';
-                if (term !== '' && hasItems) grp.classList.remove('collapsed');
-            } else grp.style.display = 'none';
-        });
-    });
-}
-btnToggleAlles.addEventListener('click', () => {
-    const alle = vriezerLijstenContainer.querySelectorAll('.lade-group');
-    if (alle.length===0) return;
-    const closed = vriezerLijstenContainer.querySelector('.lade-group.collapsed');
-    alle.forEach(l => closed ? l.classList.remove('collapsed') : l.classList.add('collapsed'));
-    btnToggleAlles.innerHTML = closed ? '<i class="fas fa-minus-square"></i> Alles Sluiten' : '<i class="fas fa-plus-square"></i> Alles Openen';
-});
-
-// Eenheden Beheer Lijst
-function renderUnitBeheerLijst() {
-    const eenheidBeheerLijst = document.getElementById('eenheid-beheer-lijst'); if(!eenheidBeheerLijst) return;
-    eenheidBeheerLijst.innerHTML = '';
-    userUnits.forEach(unit => {
-        const li = document.createElement('li');
-        li.innerHTML = `<span>${unit}</span><div class="item-buttons"><button class="delete-btn" onclick="verwijderEenheid('${unit}')"><i class="fas fa-trash-alt"></i></button></div>`;
-        li.style.display = 'flex'; li.style.justifyContent = 'space-between'; li.style.padding = '8px'; li.style.marginBottom='5px'; li.style.background='#fff'; li.style.border='1px solid #eee';
-        eenheidBeheerLijst.appendChild(li);
-    });
-}
-document.getElementById('add-eenheid-form').addEventListener('submit', (e) => {
-    e.preventDefault(); const input = document.getElementById('eenheid-naam'); const val = input.value.trim().toLowerCase();
-    if(val && !userUnits.includes(val)) {
-        const updated = [...userUnits, val].sort();
-        usersCollectie.doc(eigenUserId).update({ customUnits: updated }).then(() => { input.value=''; showFeedback("Toegevoegd", "success"); });
-    }
-});
-window.verwijderEenheid = function(unit) {
-    if(beheerdeUserId !== eigenUserId) return showFeedback("Alleen eigen account.", "error");
-    if(!confirm(`Verwijder '${unit}'?`)) return;
-    const updated = userUnits.filter(u => u !== unit);
-    usersCollectie.doc(eigenUserId).update({ customUnits: updated });
-};
-
-// Rest van de knoppen en logica (zoals eerder gedefinieerd)
-printBtn.addEventListener('click', () => { hideModal(profileModal); window.print(); });
-logoutBtn.addEventListener('click', () => { if(confirm("Uitloggen?")) auth.signOut(); });
-scanBtn.addEventListener('click', startScanner);
-stopScanBtn.addEventListener('click', sluitScanner);
-manualEanBtn.addEventListener('click', () => { const e = prompt("EAN:"); if(e) fetchProductFromOFF(e.trim()); });
-form.addEventListener('click', handleAantalKlik); editModal.addEventListener('click', handleAantalKlik); movePurchasedModal.addEventListener('click', handleAantalKlik);
-profileBtn.addEventListener('click', () => showModal(profileModal)); sluitProfileModalKnop.addEventListener('click', () => hideModal(profileModal));
-exportDataBtn.addEventListener('click', () => {
-    const data = JSON.stringify({ vriezers: alleVriezers, lades: alleLades, items: alleItems.map(i => ({...i, ingevrorenOp: i.ingevrorenOp?.toDate().toISOString()})) }, null, 2);
-    const blob = new Blob([data], {type:'application/json'}); const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `backup_${new Date().toISOString().split('T')[0]}.json`;
-    a.click(); URL.revokeObjectURL(url);
-});
-
-// NIEUW: Gecombineerde Start Logica (Updates & Alerts)
-function checkUpdatesAndAlerts() {
-    // 1. Check houdbaarheid
-    const DAGEN_OUD = 180;
-    const oudeItems = alleItems.filter(item => {
-        if (!item.ingevrorenOp) return false;
-        return Math.ceil(Math.abs(new Date() - item.ingevrorenOp.toDate()) / (1000 * 60 * 60 * 24)) > DAGEN_OUD;
-    });
-
-    // 2. Check versie
-    const lastSeenVersion = localStorage.getItem('app_version');
-    const isNewVersion = lastSeenVersion !== APP_VERSION;
-
-    // Reset of toon alert box in de modal
-    if (oudeItems.length > 0) {
-        combinedAlertsList.innerHTML = '';
-        oudeItems.slice(0, 5).forEach(item => {
-            const li = document.createElement('li');
-            const dagen = Math.ceil(Math.abs(new Date() - item.ingevrorenOp.toDate()) / (1000 * 60 * 60 * 24));
-            li.innerHTML = `<span>${item.naam} <small>(${item.ladeNaam})</small></span> <span class="alert-days">${dagen}d oud</span>`;
-            combinedAlertsList.appendChild(li);
-        });
-        combinedAlertsContainer.style.display = 'block';
-    } else {
-        combinedAlertsContainer.style.display = 'none';
+    // Render Login
+    if (!user) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
+                <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
+                    <h1 className="text-2xl font-bold text-blue-600 mb-4">Mijn Voorraad</h1>
+                    <p className="text-gray-500 mb-6">Log in om je vriezer te beheren.</p>
+                    <button onClick={handleLogin} className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition">
+                        Start (Anoniem/Auto)
+                    </button>
+                </div>
+            </div>
+        );
     }
 
-    // 3. Toon de modal als er iets te melden is (nieuwe versie OF alerts)
-    // Maar alleen automatisch als we het nog niet gezien hebben deze sessie OF als het een nieuwe versie is
-    if (isNewVersion || (oudeItems.length > 0 && !sessionStorage.getItem('alerts_seen'))) {
-        showModal(whatsNewModal);
-        // Sla op dat we het gezien hebben
-        localStorage.setItem('app_version', APP_VERSION);
-        sessionStorage.setItem('alerts_seen', 'true');
-    }
+    return (
+        <div className="min-h-screen bg-gray-50 pb-24 font-sans text-gray-800">
+            {/* HEADER */}
+            <header className="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-200">
+                <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
+                    <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">
+                        Mijn Voorraad
+                    </h1>
+                    <div className="flex gap-2">
+                        {isAdmin && (
+                            <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200">
+                                <Icon path={Icons.Users} size={20} />
+                            </button>
+                        )}
+                        <button 
+                            onClick={() => setShowWhatsNew(true)}
+                            className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 border border-gray-200 text-gray-600 hover:bg-blue-50 relative"
+                        >
+                            <Icon path={Icons.Info} size={20} />
+                            {alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
+                        </button>
+                        <button onClick={() => auth.signOut()} className="w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100">
+                            <Icon path={Icons.LogOut} size={18} />
+                        </button>
+                    </div>
+                </div>
+                
+                {/* TABS */}
+                <div className="max-w-3xl mx-auto px-4 pb-0 flex space-x-6 border-b border-gray-100">
+                    <button onClick={() => setActiveTab('vriezer')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'vriezer' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'}`}>
+                        <Icon path={Icons.Snowflake} size={18} /> Vriezer
+                    </button>
+                    <button onClick={() => setActiveTab('voorraad')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500'}`}>
+                        <Icon path={Icons.Box} size={18} /> Voorraad
+                    </button>
+                </div>
+            </header>
+
+            <main className="max-w-3xl mx-auto p-4 space-y-6">
+                {/* DASHBOARD */}
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                    <div className="flex-shrink-0 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm text-sm">
+                        <span className="font-bold text-gray-800">{items.filter(i => {
+                            const v = vriezers.find(v => v.id === i.vriezerId);
+                            return v && v.type === activeTab;
+                        }).length}</span> totaal
+                    </div>
+                    {filteredLocaties.map(loc => (
+                        <div key={loc.id} className="flex-shrink-0 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm text-sm">
+                            <span className="font-bold text-gray-800">{items.filter(i => i.vriezerId === loc.id).length}</span> {loc.naam}
+                        </div>
+                    ))}
+                </div>
+
+                {/* SEARCH */}
+                <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Icon path={Icons.Search} className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                        type="text"
+                        className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm transition-all"
+                        placeholder="Zoek een product..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+
+                {/* LIST */}
+                <div className="space-y-8">
+                    {filteredLocaties.map(vriezer => (
+                        <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                {vriezer.naam}
+                            </h2>
+                            <div className="space-y-4">
+                                {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b) => a.naam.localeCompare(b.naam)).map(lade => {
+                                    const ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
+                                    if (ladeItems.length === 0 && search) return null;
+
+                                    return (
+                                        <div key={lade.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                                            <div className="bg-gray-50/50 px-4 py-2 border-b border-gray-100">
+                                                <h3 className="font-semibold text-gray-700 text-sm">{lade.naam}</h3>
+                                            </div>
+                                            <ul className="divide-y divide-gray-50">
+                                                {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
+                                                ladeItems.map(item => {
+                                                    const dagen = getDagenOud(item.ingevrorenOp);
+                                                    return (
+                                                        <li key={item.id} className={`group flex items-center justify-between p-3 hover:bg-gray-50 transition-colors ${getStatusColor(dagen)}`}>
+                                                            <div className="flex items-center gap-3 overflow-hidden">
+                                                                <span className="text-2xl">{item.emoji || '📦'}</span>
+                                                                <div className="min-w-0">
+                                                                    <p className="font-medium text-gray-900 truncate">{item.naam}</p>
+                                                                    <p className="text-xs text-gray-500 flex items-center gap-1 flex-wrap">
+                                                                        <span className="font-semibold text-blue-600 bg-blue-50 px-1.5 rounded">{item.aantal} {item.eenheid}</span>
+                                                                        <span>• {item.categorie}</span>
+                                                                        <span>• {formatDate(item.ingevrorenOp)}</span>
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <button onClick={() => openEdit(item)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"><Icon path={Icons.Edit2} size={16}/></button>
+                                                                <button onClick={() => handleDelete(item.id, item.naam)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Icon path={Icons.Trash2} size={16}/></button>
+                                                            </div>
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </main>
+
+            {/* FAB */}
+            <button 
+                onClick={() => { setEditingItem(null); setFormData({...formData, naam: '', aantal: 1}); setShowAddModal(true); }}
+                className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all z-40"
+            >
+                <Icon path={Icons.Plus} size={28} />
+            </button>
+
+            {/* ADD/EDIT MODAL */}
+            <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken" : "Toevoegen"}>
+                <form onSubmit={editingItem ? handleUpdate : handleAddItem} className="space-y-4">
+                    <input 
+                        type="text" placeholder="Productnaam" className="w-full h-12 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        value={formData.naam} onChange={e => setFormData({...formData, naam: e.target.value})} required
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                        <select className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.vriezerId} onChange={e => setFormData({...formData, vriezerId: e.target.value})} required>
+                            <option value="" disabled>Locatie...</option>
+                            {filteredLocaties.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
+                        </select>
+                        <select className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.ladeId} onChange={e => setFormData({...formData, ladeId: e.target.value})} required>
+                            <option value="" disabled>Lade...</option>
+                            {lades.filter(l => l.vriezerId === formData.vriezerId).map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex gap-4">
+                        <input type="number" className="w-24 text-center p-3 border border-gray-300 rounded-lg" value={formData.aantal} onChange={e => setFormData({...formData, aantal: e.target.value})} />
+                        <select className="flex-grow p-3 bg-white border border-gray-300 rounded-lg" value={formData.eenheid} onChange={e => setFormData({...formData, eenheid: e.target.value})}>
+                            {EENHEDEN.map(e => <option key={e} value={e}>{e}</option>)}
+                        </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <select className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
+                            {CATEGORIEEN.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <input type="date" className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required />
+                    </div>
+                    <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md">{editingItem ? "Opslaan" : "Toevoegen"}</button>
+                </form>
+            </Modal>
+
+            {/* UPDATES & ALERTS MODAL */}
+            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen">
+                {alerts.length > 0 && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg mb-6">
+                        <h4 className="text-red-800 font-bold flex items-center gap-2"><Icon path={Icons.Alert} size={18}/> Let op!</h4>
+                        <ul className="mt-2 text-sm text-red-700 space-y-1">
+                            {alerts.slice(0,5).map(item => (
+                                <li key={item.id} className="flex justify-between"><span>{item.naam}</span><span className="font-bold">{getDagenOud(item.ingevrorenOp)}d oud</span></li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+                <h4 className="text-blue-600 font-bold border-b border-gray-100 pb-2 mb-3">Versie 2.0</h4>
+                <ul className="space-y-3">
+                    <li className="flex gap-3"><Badge type="major" text="Nieuw" /><span className="text-sm">Compleet nieuw React design.</span></li>
+                    <li className="flex gap-3"><Badge type="patch" text="Fix" /><span className="text-sm">Datum bug opgelost.</span></li>
+                </ul>
+            </Modal>
+
+            {/* ADMIN SWITCH MODAL */}
+            <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel Account">
+                <ul className="divide-y divide-gray-100">
+                    {usersList.map(u => (
+                        <li key={u.id} className="p-3 hover:bg-gray-50 cursor-pointer flex justify-between" onClick={() => { setBeheerdeUserId(u.id); setShowSwitchAccount(false); }}>
+                            <span className="font-medium">{u.email}</span>
+                            {u.id === beheerdeUserId && <Icon path={Icons.Check} className="text-blue-500"/>}
+                        </li>
+                    ))}
+                </ul>
+            </Modal>
+        </div>
+    );
 }
 
-// Oude functie `checkHoudbaarheidNotificaties` is vervangen door `checkUpdatesAndAlerts`.
-// `sluitNotificatieKnop` is niet meer nodig (modal verwijderd).
-
-// What's New Logic (Handmatige knop)
-btnWhatsNew.addEventListener('click', () => {
-    // Forceer check zodat de alert box up-to-date is, ook bij handmatig openen
-    checkUpdatesAndAlerts(); 
-    // Altijd openen bij klik, ook als er geen alerts/nieuws is (dan zie je gewoon changelog)
-    showModal(whatsNewModal);
-});
-sluitWhatsNewKnop.addEventListener('click', () => hideModal(whatsNewModal));
-
-profileShareBtn.addEventListener('click', () => { hideModal(profileModal); showModal(shareModal); startSharesOwnerListener(); });
-sluitShareKnop.addEventListener('click', () => hideModal(shareModal));
-shareInviteForm.addEventListener('submit', (e) => { e.preventDefault(); sharesCollectie.add({ ownerId: eigenUserId, ownerEmail: currentUser.email, sharedWithEmail: document.getElementById('share-email').value, role: document.getElementById('share-role').value, status: 'pending' }).then(() => { showFeedback("Uitgenodigd!", "success"); shareInviteForm.reset(); }); });
-shareHuidigeLijst.addEventListener('click', (e) => { if(e.target.closest('.delete-btn')) sharesCollectie.doc(e.target.closest('li').dataset.id).delete(); });
-sluitAcceptShareKnop.addEventListener('click', () => hideModal(acceptShareModal));
-acceptShareLijst.addEventListener('click', (e) => { const btn = e.target.closest('button'); if(!btn) return; const id = btn.closest('li').dataset.id; if(btn.dataset.action === 'accept') sharesCollectie.doc(id).update({ status: 'accepted', sharedWithId: eigenUserId }); else sharesCollectie.doc(id).delete(); });
-profileShoppingListBtn.addEventListener('click', () => { hideModal(profileModal); showModal(shoppingListModal); });
-sluitShoppingListKnop.addEventListener('click', () => hideModal(shoppingListModal));
-function startShoppingListListener() { if (shoppingListListener) shoppingListListener(); shoppingListListener = shoppingListCollectie.where("userId", "==", eigenUserId).orderBy("createdAt", "desc").onSnapshot(snap => { shoppingListUl.innerHTML = ''; snap.docs.forEach(doc => { const i = {id: doc.id, ...doc.data()}; const li = document.createElement('li'); li.dataset.id = i.id; li.dataset.naam = i.naam; if(i.checked) li.classList.add('checked'); li.innerHTML = `<input type="checkbox" class="shopping-item-checkbox" ${i.checked?'checked':''}><span class="shopping-item-name">${i.naam}</span><div class="item-buttons"><button class="btn-purchased"><i class="fas fa-check"></i></button><button class="delete-btn"><i class="fas fa-trash-alt"></i></button></div>`; shoppingListUl.appendChild(li); }); }); }
-addShoppingItemForm.addEventListener('submit', (e) => { e.preventDefault(); addShoppingItem(shoppingItemNaam.value); shoppingItemNaam.value=''; });
-async function addShoppingItem(naam) { shoppingListCollectie.add({ userId: eigenUserId, naam: naam, checked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); }
-shoppingListUl.addEventListener('click', (e) => { const li = e.target.closest('li'); if(!li) return; if(e.target.classList.contains('shopping-item-checkbox')) shoppingListCollectie.doc(li.dataset.id).update({ checked: e.target.checked }); else if(e.target.closest('.delete-btn')) shoppingListCollectie.doc(li.dataset.id).delete(); else if(e.target.closest('.btn-purchased')) { movePurchasedTempId.value = li.dataset.id; movePurchasedItemNaam.value = li.dataset.naam; movePurchasedNaamSpan.textContent = li.dataset.naam; movePurchasedVriezer.innerHTML = vriezerSelect.innerHTML; hideModal(shoppingListModal); showModal(movePurchasedModal); } });
-clearCheckedShoppingItemsBtn.addEventListener('click', async () => { const q = await shoppingListCollectie.where("userId", "==", eigenUserId).where("checked", "==", true).get(); const b = db.batch(); q.docs.forEach(d => b.delete(d.ref)); b.commit(); });
-movePurchasedForm.addEventListener('submit', (e) => { e.preventDefault(); const lNaam = movePurchasedLade.options[movePurchasedLade.selectedIndex].text; itemsCollectieBasis.add({ naam: movePurchasedItemNaam.value, aantal: parseFloat(movePurchasedAantal.value), eenheid: movePurchasedEenheid.value, vriezerId: movePurchasedVriezer.value, ladeId: movePurchasedLade.value, ladeNaam: lNaam, userId: eigenUserId, ingevrorenOp: new Date(), categorie: movePurchasedCategorie.value, emoji: movePurchasedEmoji.value }).then(() => shoppingListCollectie.doc(movePurchasedTempId.value).delete()).then(() => { showFeedback("Opgeborgen!", "success"); hideModal(movePurchasedModal); movePurchasedForm.reset(); }); });
-movePurchasedVriezer.addEventListener('change', () => { updateLadeDropdown(movePurchasedVriezer.value, movePurchasedLade, true); updateFormOptions(movePurchasedVriezer, movePurchasedCategorie, movePurchasedEenheid); });
-btnCancelMovePurchased.addEventListener('click', () => { hideModal(movePurchasedModal); showModal(shoppingListModal); });
-profileWeekmenuBtn.addEventListener('click', () => { hideModal(profileModal); if(!weekmenuDatumInput.value) weekmenuDatumInput.value=new Date().toISOString().split('T')[0]; showModal(weekmenuModal); });
-sluitWeekmenuKnop.addEventListener('click', () => hideModal(weekmenuModal));
-function startWeekMenuListener() { if (weekMenuListener) weekMenuListener(); weekMenuListener = weekMenuCollectie.where("userId", "==", eigenUserId).orderBy("datum", "asc").onSnapshot(snap => { weekmenuListUl.innerHTML = ''; if (snap.empty) { weekmenuListUl.innerHTML = '<li><i>Niets gepland.</i></li>'; return; } snap.docs.forEach(doc => { const item = {id: doc.id, ...doc.data()}; const li = document.createElement('li'); const datumKort = new Date(item.datum).toLocaleDateString('nl-BE', { weekday: 'short', day: '2-digit', month: '2-digit' }); let linkHtml = ''; if (item.link) { linkHtml = `<a href="${item.link}" target="_blank" class="btn-purchased" style="background-color:#4A90E2; text-decoration:none;"><i class="fas fa-link"></i></a>`; } li.innerHTML = `<div style="display:flex; flex-direction:column; width: 100%;"><small style="color:#888; font-weight:bold;">${datumKort}</small><span class="shopping-item-name">${item.gerecht}</span></div><div class="item-buttons">${linkHtml}<button class="delete-btn"><i class="fas fa-trash-alt"></i></button></div>`; li.querySelector('.delete-btn').addEventListener('click', () => weekMenuCollectie.doc(item.id).delete()); weekmenuListUl.appendChild(li); }); }); }
-addWeekmenuForm.addEventListener('submit', (e) => { e.preventDefault(); weekMenuCollectie.add({ userId: eigenUserId, datum: weekmenuDatumInput.value, gerecht: weekmenuGerechtInput.value, link: weekmenuLinkInput.value || null, createdAt: firebase.firestore.FieldValue.serverTimestamp() }).then(() => { showFeedback("Ingepland!", "success"); weekmenuGerechtInput.value = ''; weekmenuLinkInput.value = ''; }); });
-clearOldWeekmenuBtn.addEventListener('click', async () => { const vandaag = new Date().toISOString().split('T')[0]; const q = await weekMenuCollectie.where("userId", "==", eigenUserId).where("datum", "<", vandaag).get(); const b = db.batch(); q.docs.forEach(d => b.delete(d.ref)); b.commit(); showFeedback("Oude items verwijderd.", "success"); });
-profileHistoryBtn.addEventListener('click', () => { hideModal(profileModal); showModal(historyModal); startHistoryListener(); });
-sluitHistoryKnop.addEventListener('click', () => hideModal(historyModal));
-function startHistoryListener() { if (historyListener) historyListener(); historyListener = historyCollectie.where("userId", "==", eigenUserId).orderBy("timestamp", "desc").limit(50).onSnapshot(snap => { historyListUl.innerHTML = ''; if (snap.empty) { historyListUl.innerHTML = '<li><i>Geen geschiedenis.</i></li>'; return; } snap.docs.forEach(doc => { const data = doc.data(); const time = data.timestamp ? data.timestamp.toDate().toLocaleString('nl-BE') : '?'; const li = document.createElement('li'); li.innerHTML = `<div class="user-info"><span>${data.actie}: ${data.details}</span><small>${time}</small></div>`; historyListUl.appendChild(li); }); }); }
-function logHistoryAction(a, d) { historyCollectie.add({ userId: eigenUserId, actie: a, details: d, timestamp: firebase.firestore.FieldValue.serverTimestamp() }); }
-btnClearHistory.addEventListener('click', async () => { if(!confirm("Geschiedenis wissen?")) return; const q = await historyCollectie.where("userId", "==", eigenUserId).get(); const b = db.batch(); q.docs.forEach(d => b.delete(d.ref)); b.commit(); });
-function renderBulkDropdowns() { bulkTargetVriezer.innerHTML = vriezerSelect.innerHTML; bulkTargetVriezer.value = ""; bulkTargetLade.innerHTML = '<option disabled selected>Kies eerst locatie...</option>'; }
-bulkTargetVriezer.addEventListener('change', () => updateLadeDropdown(bulkTargetVriezer.value, bulkTargetLade, true));
-btnToggleMode.addEventListener('click', () => { isMoveMode = !isMoveMode; if(isMoveMode) { document.body.classList.add('move-mode'); bulkActionBar.classList.add('visible'); btnToggleMode.classList.add('active'); btnToggleMode.innerHTML = '<i class="fas fa-times"></i> Stop Modus'; selectedItemIds.clear(); } else { document.body.classList.remove('move-mode'); bulkActionBar.classList.remove('visible'); btnToggleMode.classList.remove('active'); btnToggleMode.innerHTML = '<i class="fas fa-bolt"></i> Verplaatsmodus'; document.querySelectorAll('.bulk-checkbox').forEach(c => c.checked = false); } });
-btnBulkMove.addEventListener('click', async () => { if(selectedItemIds.size === 0 || !bulkTargetVriezer.value || !bulkTargetLade.value) { return showFeedback("Selecteer items en doel.", "error"); } const ln = bulkTargetLade.options[bulkTargetLade.selectedIndex].text; const b = db.batch(); selectedItemIds.forEach(id => { b.update(itemsCollectieBasis.doc(id), { vriezerId: bulkTargetVriezer.value, ladeId: bulkTargetLade.value, ladeNaam: ln }); }); await b.commit(); showFeedback("Verplaatst!", "success"); btnToggleMode.click(); logHistoryAction("Bulk Verplaatsing", `${selectedItemIds.size} items`); });
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
