@@ -59,7 +59,7 @@ const Icons = {
     ChevronDown: <path d="m6 9 6 6 6-6"/>,
     ChevronRight: <path d="m9 18 6-6-6-6"/>,
     Scan: <g><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="8" height="8" x="8" y="8" rx="1"/></g>,
-    User: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+    User: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -92,7 +92,6 @@ const getEmojiForCategory = (cat) => {
 };
 
 const getStatusColor = (dagen) => {
-    // Alleen border, geen background meer zoals gevraagd
     if (dagen > 180) return 'border-l-4 border-red-500'; 
     if (dagen > 90) return 'border-l-4 border-yellow-400';
     return 'border-l-4 border-green-400';
@@ -173,7 +172,7 @@ function App() {
     const [showSwitchAccount, setShowSwitchAccount] = useState(false);
     const [showBeheerModal, setShowBeheerModal] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [showProfileMenu, setShowProfileMenu] = useState(false); // Nieuw
+    const [showProfileMenu, setShowProfileMenu] = useState(false); 
     const [beheerTab, setBeheerTab] = useState('locaties');
 
     // Form
@@ -410,7 +409,7 @@ function App() {
                         {/* Profiel Knop met Popover */}
                         <div className="relative">
                             <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 hover:border-blue-500 transition-colors">
-                                {user.photoURL ? <img src={user.photoURL} alt="Profiel" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500"><Icon path={Icons.Users} size={20}/></div>}
+                                {user.photoURL ? <img src={user.photoURL} alt="Profiel" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500"><Icon path={Icons.User} size={20}/></div>}
                             </button>
                             {showProfileMenu && (
                                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -468,14 +467,14 @@ function App() {
                                                 </h3>
                                             </div>
                                             {!isCollapsed && (
-                                                <ul className="space-y-2 p-2"> 
+                                                <ul className="block"> 
                                                     {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
                                                     ladeItems.map(item => {
                                                         const dagen = getDagenOud(item.ingevrorenOp);
                                                         const colorClass = getStatusColor(dagen);
                                                         
                                                         return (
-                                                            <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass} shadow-sm rounded-md`}>
+                                                            <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass} border-b border-gray-100 last:border-b-0`}>
                                                                 <div className="flex items-center gap-3 overflow-hidden">
                                                                     <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
                                                                     <div className="min-w-0">
