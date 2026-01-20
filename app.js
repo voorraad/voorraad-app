@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '3.0'; 
+const APP_VERSION = '3.1'; 
 const STANDAARD_CATEGORIEEN = ["Geen", "Vlees", "Vis", "Groenten", "Fruit", "Brood", "IJs", "Restjes", "Saus", "Friet", "Pizza", "Ander"];
 const BASIS_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
 
@@ -91,9 +91,10 @@ const getEmojiForCategory = (cat) => {
 };
 
 const getStatusColor = (dagen) => {
-    if (dagen > 180) return 'border-l-4 border-red-500 bg-red-50'; // Rood
-    if (dagen > 90) return 'border-l-4 border-yellow-400 bg-yellow-50'; // Oranje
-    return 'border-l-4 border-green-400 bg-white'; // Groen
+    // Alleen border, geen background meer zoals gevraagd
+    if (dagen > 180) return 'border-l-4 border-red-500'; 
+    if (dagen > 90) return 'border-l-4 border-yellow-400';
+    return 'border-l-4 border-green-400';
 };
 
 // --- 5. COMPONENTEN ---
@@ -425,7 +426,7 @@ function App() {
                                                         const colorClass = getStatusColor(dagen);
                                                         
                                                         return (
-                                                            <li key={item.id} className={`flex items-center justify-between p-3 ${colorClass} border-b last:border-0`}>
+                                                            <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass} border-b border-gray-100 last:border-b-0`}>
                                                                 <div className="flex items-center gap-3 overflow-hidden">
                                                                     <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
                                                                     <div className="min-w-0">
@@ -559,16 +560,17 @@ function App() {
                 
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 3.0</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 3.1</h4>
                         <ul className="space-y-2">
-                            <li className="flex gap-2"><Badge type="major" text="Major" /><span>Kleurcodering (versheid) volledig opgelost.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Waarschuwingsvenster opent automatisch bij rood.</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Kleurcodering (versheid) definitief opgelost voor alle producten.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Achtergrondkleur verwijderd, enkel linkerrand toont status.</span></li>
                         </ul>
                     </div>
                     <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 2.8</h4>
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 3.0</h4>
                         <ul className="space-y-2 text-sm text-gray-500">
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Kleurcodering bugfixes.</span></li>
+                            <li className="flex gap-2"><Badge type="major" text="Major" /><span>Kleurcodering (versheid) volledig opgelost.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Waarschuwingsvenster opent automatisch bij rood.</span></li>
                         </ul>
                     </div>
                 </div>
