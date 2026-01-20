@@ -141,12 +141,10 @@ const Badge = ({ type, text }) => {
         patch: "bg-green-100 text-green-700",
         major: "bg-purple-100 text-purple-700",
         alert: "bg-red-100 text-red-700",
+        category: "bg-gray-200 text-gray-700" 
     };
-    // Als type een kleurcode is uit BADGE_COLORS
-    const colorClass = BADGE_COLORS[type] || colors[type] || "bg-gray-200 text-gray-700";
-
     return (
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colorClass}`}>
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colors[type] || colors.minor}`}>
             {text}
         </span>
     );
@@ -533,7 +531,7 @@ function App() {
         <div className="min-h-screen bg-gray-50 pb-24 font-sans text-gray-800">
             {/* Header */}
             <header className="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-200 print:hidden">
-                <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
+                <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
                     <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">Mijn Voorraad</h1>
                     <div className="flex gap-2 relative">
                         <button onClick={() => { setSelectedLocatieForBeheer(null); setBeheerdeUserId(beheerdeUserId); setShowBeheerModal(true); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"><Icon path={Icons.Settings}/></button>
@@ -570,7 +568,7 @@ function App() {
                         </div>
                     </div>
                 </div>
-                <div className="max-w-3xl mx-auto px-4 flex space-x-6 border-b border-gray-100">
+                <div className="max-w-7xl mx-auto px-4 flex space-x-6 border-b border-gray-100">
                     <button onClick={() => setActiveTab('vriezer')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='vriezer' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'}`}><Icon path={Icons.Snowflake}/> Vriezer</button>
                     {!hiddenTabs.includes('voorraad') && (
                         <button onClick={() => setActiveTab('voorraad')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500'}`}><Icon path={Icons.Box}/> Voorraad</button>
