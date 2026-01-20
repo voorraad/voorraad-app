@@ -24,6 +24,61 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
     <!-- Emoji Picker Lib (Lichtgewicht) -->
     <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
+
+    <style>
+        /* Extra styling voor de footer en whats-new */
+        .footer-bar {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            color: #999;
+            font-size: 0.85em;
+            padding-bottom: 10px;
+        }
+
+        .footer-btn {
+            background: none;
+            border: none;
+            color: #4A90E2;
+            cursor: pointer;
+            padding: 5px;
+            font-size: inherit;
+            text-decoration: none;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .footer-btn:hover {
+            color: #357ABD;
+            text-decoration: underline;
+        }
+
+        .whats-new-list {
+            list-style-type: disc;
+            padding-left: 20px;
+            margin-top: 10px;
+            color: #333;
+        }
+        
+        .whats-new-list li {
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .version-badge {
+            background-color: #eee;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            color: #666;
+        }
+    </style>
 </head>
 <body>
 
@@ -143,6 +198,14 @@
         
         <div class="vriezer-container" id="vriezer-lijsten-container">
             <!-- Dynamisch gevuld -->
+        </div>
+
+        <!-- NIEUW: Footer Bar -->
+        <div class="footer-bar">
+            <button id="btn-whats-new" class="footer-btn">
+                <i class="fas fa-gift"></i> Wat is er nieuw?
+            </button>
+            <span class="version-badge">v1.2</span>
         </div>
     </div>
 
@@ -564,6 +627,32 @@
                 </button>
             </div>
             <ul id="weekmenu-list" class="shopping-list"></ul>
+        </div>
+    </div>
+
+    <!-- NIEUW: Wat is er nieuw Modal -->
+    <div id="whats-new-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Wat is er nieuw?</h2>
+                <button type="button" id="btn-sluit-whats-new" class="btn-cancel">Sluiten</button>
+            </div>
+            
+            <div style="margin-top: 10px;">
+                <h3 style="color: #4A90E2; border-bottom: 1px solid #eee; padding-bottom: 5px;">Versie 1.2</h3>
+                <ul class="whats-new-list">
+                    <li><strong>Gedeelde Vriezers:</strong> Als je zelf geen vriezer hebt maar er wel een met je gedeeld is, kom je daar nu direct in terecht. Geen gedoe meer met 'Wissel Account'!</li>
+                    <li><strong>Datum Bugfix:</strong> Probleem opgelost waarbij de datum 1 dag terug sprong als je een item bewerkte.</li>
+                    <li><strong>Datums:</strong> We tonen nu duidelijk 'Invriesdatum' en 'THT' (Houdbaarheidsdatum) apart.</li>
+                    <li><strong>Admin:</strong> De knop 'Wissel Account' is nu alleen zichtbaar voor beheerders (admins).</li>
+                </ul>
+                
+                <h3 style="color: #4A90E2; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 20px;">Versie 1.1</h3>
+                <ul class="whats-new-list">
+                    <li><strong>Weekmenu:</strong> Plan je maaltijden voor de komende dagen.</li>
+                    <li><strong>Barcode Scanner:</strong> Scan producten om snel de naam in te vullen.</li>
+                </ul>
+            </div>
         </div>
     </div>
     
