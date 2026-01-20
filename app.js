@@ -185,6 +185,11 @@ const sluitHistoryKnop = document.getElementById('btn-sluit-history');
 const historyListUl = document.getElementById('history-list');
 const btnClearHistory = document.getElementById('btn-clear-history');
 
+// What's New
+const btnWhatsNew = document.getElementById('btn-whats-new');
+const whatsNewModal = document.getElementById('whats-new-modal');
+const sluitWhatsNewKnop = document.getElementById('btn-sluit-whats-new');
+
 // Bulk Actie
 const btnToggleMode = document.getElementById('btn-toggle-mode');
 const bulkActionBar = document.getElementById('bulk-action-bar');
@@ -1138,6 +1143,10 @@ function checkHoudbaarheidNotificaties() {
     }
 }
 sluitNotificatieKnop.addEventListener('click', () => hideModal(notificatieModal));
+// What's New Logic
+btnWhatsNew.addEventListener('click', () => showModal(whatsNewModal));
+sluitWhatsNewKnop.addEventListener('click', () => hideModal(whatsNewModal));
+
 profileShareBtn.addEventListener('click', () => { hideModal(profileModal); showModal(shareModal); startSharesOwnerListener(); });
 sluitShareKnop.addEventListener('click', () => hideModal(shareModal));
 shareInviteForm.addEventListener('submit', (e) => { e.preventDefault(); sharesCollectie.add({ ownerId: eigenUserId, ownerEmail: currentUser.email, sharedWithEmail: document.getElementById('share-email').value, role: document.getElementById('share-role').value, status: 'pending' }).then(() => { showFeedback("Uitgenodigd!", "success"); shareInviteForm.reset(); }); });
