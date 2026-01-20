@@ -29,6 +29,7 @@ const historyCollectie = db.collection('history');
 // ---
 // GLOBALE VARIABELEN
 // ---
+const APP_VERSION = '1.3'; // Huidige versie voor update-melding
 let alleVriezers = [];
 let alleLades = [];
 let alleItems = []; 
@@ -154,10 +155,14 @@ const exportDataBtn = document.getElementById('export-data-btn');
 const profileShareBtn = document.getElementById('profile-share-btn');
 const profileHistoryBtn = document.getElementById('profile-history-btn'); 
 
-// Overige Modals
-const notificatieModal = document.getElementById('notificatie-modal');
-const notificatieLijst = document.getElementById('notificatie-lijst');
-const sluitNotificatieKnop = document.getElementById('btn-sluit-notificatie');
+// Overige Modals & What's New
+const whatsNewModal = document.getElementById('whats-new-modal');
+const sluitWhatsNewKnop = document.getElementById('btn-sluit-whats-new');
+const btnWhatsNew = document.getElementById('btn-whats-new');
+const combinedAlertsContainer = document.getElementById('combined-alerts-container');
+const combinedAlertsList = document.getElementById('combined-alerts-list');
+
+// OUDE NOTIFICATIE MODAL ELEMENTEN (verwijderd uit HTML, maar referenties opruimen indien nodig)
 const shareModal = document.getElementById('share-modal');
 const sluitShareKnop = document.getElementById('btn-sluit-share');
 const shareInviteForm = document.getElementById('share-invite-form');
@@ -184,11 +189,6 @@ const historyModal = document.getElementById('history-modal');
 const sluitHistoryKnop = document.getElementById('btn-sluit-history');
 const historyListUl = document.getElementById('history-list');
 const btnClearHistory = document.getElementById('btn-clear-history');
-
-// What's New
-const btnWhatsNew = document.getElementById('btn-whats-new');
-const whatsNewModal = document.getElementById('whats-new-modal');
-const sluitWhatsNewKnop = document.getElementById('btn-sluit-whats-new');
 
 // Bulk Actie
 const btnToggleMode = document.getElementById('btn-toggle-mode');
@@ -573,7 +573,11 @@ function startAlleDataListeners() {
         alleItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         renderDynamischeLijsten();
         updateDashboard();
-        if (isEersteNotificatieCheck && alleItems.length > 0 && beheerdeUserId === eigenUserId) { checkHoudbaarheidNotificaties(); isEersteNotificatieCheck = false; }
+        if (isEersteNotificatieCheck && alleItems.length > 0 && beheerdeUserId === eigenUserId) { 
+            // NIEUWE FUNCTIE: Check updates EN notificaties samen
+            checkUpdatesAndAlerts(); 
+            isEersteNotificatieCheck = false; 
+        }
     });
 
     if (beheerdeUserId === eigenUserId) { startShoppingListListener(); startWeekMenuListener(); }
@@ -1136,15 +1140,54 @@ exportDataBtn.addEventListener('click', () => {
     const a = document.createElement('a'); a.href = url; a.download = `backup_${new Date().toISOString().split('T')[0]}.json`;
     a.click(); URL.revokeObjectURL(url);
 });
-function checkHoudbaarheidNotificaties() {
-    const DAGEN_OUD = 180; const oudeItems = alleItems.filter(item => { if (!item.ingevrorenOp) return false; return Math.ceil(Math.abs(new Date() - item.ingevrorenOp.toDate()) / (1000 * 60 * 60 * 24)) > DAGEN_OUD; });
+
+// NIEUW: Gecombineerde Start Logica (Updates & Alerts)
+function checkUpdatesAndAlerts() {
+    // 1. Check houdbaarheid
+    const DAGEN_OUD = 180;
+    const oudeItems = alleItems.filter(item => {
+        if (!item.ingevrorenOp) return false;
+        return Math.ceil(Math.abs(new Date() - item.ingevrorenOp.toDate()) / (1000 * 60 * 60 * 24)) > DAGEN_OUD;
+    });
+
+    // 2. Check versie
+    const lastSeenVersion = localStorage.getItem('app_version');
+    const isNewVersion = lastSeenVersion !== APP_VERSION;
+
+    // Reset of toon alert box in de modal
     if (oudeItems.length > 0) {
-        notificatieLijst.innerHTML = ''; oudeItems.slice(0, 5).forEach(item => { const li = document.createElement('li'); const dagen = Math.ceil(Math.abs(new Date() - item.ingevrorenOp.toDate()) / (1000 * 60 * 60 * 24)); li.textContent = `${item.naam} (${item.ladeNaam}) - ${dagen} dagen oud`; notificatieLijst.appendChild(li); }); showModal(notificatieModal);
+        combinedAlertsList.innerHTML = '';
+        oudeItems.slice(0, 5).forEach(item => {
+            const li = document.createElement('li');
+            const dagen = Math.ceil(Math.abs(new Date() - item.ingevrorenOp.toDate()) / (1000 * 60 * 60 * 24));
+            li.innerHTML = `<span>${item.naam} <small>(${item.ladeNaam})</small></span> <span class="alert-days">${dagen}d oud</span>`;
+            combinedAlertsList.appendChild(li);
+        });
+        combinedAlertsContainer.style.display = 'block';
+    } else {
+        combinedAlertsContainer.style.display = 'none';
+    }
+
+    // 3. Toon de modal als er iets te melden is (nieuwe versie OF alerts)
+    // Maar alleen automatisch als we het nog niet gezien hebben deze sessie OF als het een nieuwe versie is
+    if (isNewVersion || (oudeItems.length > 0 && !sessionStorage.getItem('alerts_seen'))) {
+        showModal(whatsNewModal);
+        // Sla op dat we het gezien hebben
+        localStorage.setItem('app_version', APP_VERSION);
+        sessionStorage.setItem('alerts_seen', 'true');
     }
 }
-sluitNotificatieKnop.addEventListener('click', () => hideModal(notificatieModal));
-// What's New Logic
-btnWhatsNew.addEventListener('click', () => showModal(whatsNewModal));
+
+// Oude functie `checkHoudbaarheidNotificaties` is vervangen door `checkUpdatesAndAlerts`.
+// `sluitNotificatieKnop` is niet meer nodig (modal verwijderd).
+
+// What's New Logic (Handmatige knop)
+btnWhatsNew.addEventListener('click', () => {
+    // Forceer check zodat de alert box up-to-date is, ook bij handmatig openen
+    checkUpdatesAndAlerts(); 
+    // Altijd openen bij klik, ook als er geen alerts/nieuws is (dan zie je gewoon changelog)
+    showModal(whatsNewModal);
+});
 sluitWhatsNewKnop.addEventListener('click', () => hideModal(whatsNewModal));
 
 profileShareBtn.addEventListener('click', () => { hideModal(profileModal); showModal(shareModal); startSharesOwnerListener(); });
