@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '2.3';
+const APP_VERSION = '2.4'; // Versie opgehoogd voor nieuwe meldingen
 const STANDAARD_CATEGORIEEN = ["Geen", "Vlees", "Vis", "Groenten", "Fruit", "Brood", "IJs", "Restjes", "Saus", "Friet", "Pizza", "Ander"];
 const STANDAARD_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
 
@@ -45,7 +45,8 @@ const Icons = {
     Alert: <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3zM12 9v4M12 17h.01"/>,
     Settings: <g><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g>,
     ChevronDown: <path d="m6 9 6 6 6-6"/>,
-    ChevronRight: <path d="m9 18 6-6-6-6"/>
+    ChevronRight: <path d="m9 18 6-6-6-6"/>,
+    Scan: <g><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="8" height="8" x="8" y="8" rx="1"/></g>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -93,6 +94,21 @@ const Modal = ({ isOpen, onClose, title, children }) => {
     );
 };
 
+// Badge Component (Patch, Minor, Major)
+const Badge = ({ type, text }) => {
+    const colors = {
+        minor: "bg-blue-100 text-blue-700",
+        patch: "bg-green-100 text-green-700",
+        major: "bg-purple-100 text-purple-700",
+        alert: "bg-red-100 text-red-700"
+    };
+    return (
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colors[type] || colors.minor}`}>
+            {text}
+        </span>
+    );
+};
+
 // Emoji Picker Component
 const EmojiPicker = ({ onSelect }) => {
     const ref = useRef(null);
@@ -105,6 +121,18 @@ const EmojiPicker = ({ onSelect }) => {
         }
     }, [onSelect]);
     return <emoji-picker ref={ref} class="light"></emoji-picker>;
+};
+
+// Scanner Component
+const Scanner = ({ onScan }) => {
+    useEffect(() => {
+        const scanner = new Html5Qrcode("reader");
+        scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (decodedText) => {
+            scanner.stop().then(() => onScan(decodedText));
+        }, () => {});
+        return () => { try { scanner.stop(); } catch(e){} };
+    }, [onScan]);
+    return <div id="reader" style={{ width: '100%' }}></div>;
 };
 
 // --- 6. APP ---
@@ -123,7 +151,7 @@ function App() {
 
     // UI
     const [search, setSearch] = useState('');
-    const [collapsedLades, setCollapsedLades] = useState(new Set()); // Start leeg, wordt gevuld bij laden
+    const [collapsedLades, setCollapsedLades] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     
@@ -133,6 +161,7 @@ function App() {
     const [showSwitchAccount, setShowSwitchAccount] = useState(false);
     const [showBeheerModal, setShowBeheerModal] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showScanner, setShowScanner] = useState(false);
 
     // Form
     const [formData, setFormData] = useState({
@@ -152,13 +181,19 @@ function App() {
                 setUser(u);
                 setBeheerdeUserId(u.uid);
                 
-                db.collection('users').doc(u.uid).onSnapshot(doc => {
-                    if(doc.exists) setCustomUnits(doc.data().customUnits || []);
+                // Init load user specific data (units)
+                const userRef = db.collection('users').doc(u.uid);
+                userRef.get().then(doc => {
+                    if(doc.exists) {
+                        setCustomUnits(doc.data().customUnits || []);
+                    }
                 });
 
+                // Check Admin
                 const adminDoc = await db.collection('admins').doc(u.uid).get();
                 setIsAdmin(adminDoc.exists);
 
+                // Auto-switch check
                 const vCheck = await db.collection('vriezers').where('userId', '==', u.uid).limit(1).get();
                 if (vCheck.empty && !adminDoc.exists) {
                     const shares = await db.collection('shares').where("sharedWithEmail", "==", u.email).where("status", "==", "accepted").limit(1).get();
@@ -170,14 +205,14 @@ function App() {
         });
     }, []);
 
-    // Data Listeners & Initiele Collapse
+    // Data Listeners
     useEffect(() => {
         if (!beheerdeUserId) return;
         const unsubV = db.collection('vriezers').where('userId', '==', beheerdeUserId).onSnapshot(s => setVriezers(s.docs.map(d => ({id: d.id, ...d.data(), type: d.data().type||'vriezer'}))));
         const unsubL = db.collection('lades').where('userId', '==', beheerdeUserId).onSnapshot(s => {
             const loadedLades = s.docs.map(d => ({id: d.id, ...d.data()}));
             setLades(loadedLades);
-            // Standaard alles dicht (alle IDs toevoegen aan collapsed set)
+            // Standaard alles dicht (alle IDs toevoegen aan collapsed set) bij eerste keer
             if (!isDataLoaded && loadedLades.length > 0) {
                 setCollapsedLades(new Set(loadedLades.map(l => l.id)));
                 setIsDataLoaded(true);
@@ -187,12 +222,22 @@ function App() {
         return () => { unsubV(); unsubL(); unsubI(); };
     }, [beheerdeUserId, isDataLoaded]);
 
+    // Admin Users List Listener (FIX: Haalt nu correct alle users op voor switch)
+    useEffect(() => {
+        if (isAdmin) {
+            const unsubUsers = db.collection('users').orderBy('email').onSnapshot(snap => {
+                setUsersList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            });
+            return () => unsubUsers();
+        }
+    }, [isAdmin]);
+
     // Derived
     const alleEenheden = [...STANDAARD_EENHEDEN, ...customUnits];
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
     const alerts = items.filter(i => getDagenOud(i.ingevrorenOp) > 180);
 
-    // Filter lades voor huidig formulier (alleen tonen als vriezerId is geselecteerd)
+    // Filter lades voor huidig formulier
     const formLades = formData.vriezerId 
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
         : [];
@@ -200,10 +245,9 @@ function App() {
     // --- HANDLERS ---
     const handleLogin = async () => { try { await auth.signInAnonymously(); } catch(e){ alert(e.message); } };
     
-    // Bij openen add modal, reset of set defaults
+    // Bij openen add modal
     const handleOpenAdd = () => {
         setEditingItem(null);
-        // Probeer eerste locatie van huidige tab te pakken als default
         const defaultLoc = filteredLocaties.length > 0 ? filteredLocaties[0].id : '';
         setFormData({
             naam: '', aantal: 1, eenheid: 'stuks', 
@@ -213,6 +257,19 @@ function App() {
             ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
         });
         setShowAddModal(true);
+    };
+
+    const handleScan = async (code) => {
+        setShowScanner(false);
+        try {
+            const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
+            const data = await res.json();
+            if(data.product && data.product.product_name) {
+                setFormData(prev => ({...prev, naam: data.product.product_name}));
+            } else {
+                alert("Product niet gevonden");
+            }
+        } catch(e) { alert("Scan fout"); }
     };
 
     const handleSaveItem = async (e) => {
@@ -228,9 +285,11 @@ function App() {
             emoji: formData.emoji || getEmojiForCategory(formData.categorie)
         };
 
+        // FIX: Nieuwe eenheden correct opslaan
         if(formData.eenheid && !alleEenheden.includes(formData.eenheid)) {
             const newUnits = [...customUnits, formData.eenheid];
-            await db.collection('users').doc(beheerdeUserId).set({customUnits: newUnits}, {merge: true});
+            setCustomUnits(newUnits); // Update local state for direct feedback
+            await db.collection('users').doc(beheerdeUserId).set({ customUnits: newUnits }, { merge: true });
         }
 
         try {
@@ -381,6 +440,7 @@ function App() {
                         <button type="button" onClick={() => setShowEmojiPicker(true)} className="w-12 h-12 flex-shrink-0 border rounded-lg flex items-center justify-center text-2xl bg-gray-50">{formData.emoji || '🏷️'}</button>
                         <div className="relative flex-grow">
                             <input type="text" placeholder="Productnaam" className="w-full h-12 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={formData.naam} onChange={e => setFormData({...formData, naam: e.target.value})} required />
+                            <button type="button" onClick={() => setShowScanner(true)} className="absolute right-2 top-2 p-2 text-gray-400 hover:text-gray-600"><Icon path={Icons.Scan}/></button>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -421,6 +481,11 @@ function App() {
                 <EmojiPicker onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
             </Modal>
 
+            {/* Scanner Modal */}
+            <Modal isOpen={showScanner} onClose={() => setShowScanner(false)} title="Scan Barcode">
+                <Scanner onScan={handleScan} />
+            </Modal>
+
             {/* Beheer Modal */}
             <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Beheer Locaties">
                 <div className="space-y-6">
@@ -449,8 +514,24 @@ function App() {
             {/* Updates Modal */}
             <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen">
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
-                <h4 className="font-bold text-blue-600 mb-2">Versie 2.3</h4>
-                <ul className="list-disc pl-5"><li>Alle functies hersteld!</li><li>Emoji kiezer werkt weer.</li><li>Alles start ingeklapt.</li><li>Lades in beheer gesorteerd.</li></ul>
+                <h4 className="font-bold text-blue-600 mb-2">Versie 2.4</h4>
+                <ul className="space-y-2">
+                    <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Wissel Account voor admins werkt weer.</span></li>
+                    <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Eigen eenheden aanmaken hersteld.</span></li>
+                    <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Nieuwe badge stijl in updates.</span></li>
+                </ul>
+            </Modal>
+
+            {/* Switch Account Modal (Admin) */}
+            <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel Account">
+                <ul className="divide-y divide-gray-100">
+                    {usersList.map(u => (
+                        <li key={u.id} className="p-3 hover:bg-gray-50 cursor-pointer flex justify-between" onClick={() => { setBeheerdeUserId(u.id); setShowSwitchAccount(false); }}>
+                            <span className="font-medium">{u.email || u.displayName}</span>
+                            {u.id === beheerdeUserId && <Icon path={Icons.Check} className="text-blue-500"/>}
+                        </li>
+                    ))}
+                </ul>
             </Modal>
         </div>
     );
