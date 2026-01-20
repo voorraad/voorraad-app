@@ -72,6 +72,11 @@ const getEmojiForCategory = (cat) => {
     const emojis = { "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", "Brood": "🍞", "IJs": "🍦", "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" };
     return emojis[cat] || "📦";
 };
+const getStatusColor = (dagen) => {
+    if (dagen > 180) return 'border-l-4 border-red-500 bg-red-50';
+    if (dagen > 90) return 'border-l-4 border-yellow-400 bg-yellow-50';
+    return 'border-l-4 border-green-400 bg-white';
+};
 
 // --- 5. COMPONENTEN ---
 const Modal = ({ isOpen, onClose, title, children }) => {
