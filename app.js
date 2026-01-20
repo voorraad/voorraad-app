@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '4.5'; 
+const APP_VERSION = '4.6'; 
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -325,14 +325,6 @@ function App() {
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
         : [];
     
-    // Dynamische grid klasse berekenen
-    const gridClass = (() => {
-        const count = filteredLocaties.length;
-        if (count === 1) return 'grid-cols-1';
-        if (count === 2) return 'grid-cols-1 md:grid-cols-2';
-        return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
-    })();
-
     // --- HANDLERS ---
     const handleGoogleLogin = async () => { 
         try { 
@@ -602,7 +594,7 @@ function App() {
                 </div>
 
                 {/* Lijsten Grid Container */}
-                <div className={`grid gap-6 items-start ${gridClass}`}>
+                <div className={`grid gap-6 items-start ${filteredLocaties.length === 1 ? 'grid-cols-1' : filteredLocaties.length === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
                     {filteredLocaties.map(vriezer => (
                         <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
                             <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">{vriezer.naam}</h2>
