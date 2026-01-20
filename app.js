@@ -19,9 +19,22 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '2.4'; // Versie opgehoogd voor nieuwe meldingen
+const APP_VERSION = '2.5'; 
 const STANDAARD_CATEGORIEEN = ["Geen", "Vlees", "Vis", "Groenten", "Fruit", "Brood", "IJs", "Restjes", "Saus", "Friet", "Pizza", "Ander"];
-const STANDAARD_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
+// Deze standaard eenheden worden aangevuld met de custom eenheden van de gebruiker
+const BASIS_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
+
+// Een simpele lijst met veelgebruikte emojis voor de picker
+const POPULAIRE_EMOJIS = [
+    "🥩", "🍗", "🍖", "🥓", "🍔", "🍟", "🍕", "🌭", "🥪", "🌮", 
+    "🥗", "🥦", "🌽", "🥕", "🍅", "🍆", "🥔", "🥒", "🍄", "🥜", 
+    "🍞", "🥐", "🥖", "🥨", "🥞", "🧇", "🧀", "🥚", "🧈", 
+    "🐟", "🐠", "🐡", "🦐", "🦞", "🦀", "🦑", "🐙", "🍣", 
+    "🍦", "🍧", "🍨", "🍩", "🍪", "🎂", "🍰", "🧁", "🥧", "🍫", 
+    "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🍒", "🍑", 
+    "🥛", "☕", "🍵", "🧃", "🥤", "🍺", "🍷", "🥃", "🧊", "🥄", 
+    "🥡", "🥫", "🧂", "🧊", "❄️", "🧊", "🏷️", "📦", "🛒", "🛍️"
+];
 
 // --- 3. ICOON COMPONENTEN (SVG) ---
 const Icon = ({ path, size = 20, className = "" }) => (
@@ -52,15 +65,19 @@ const Icons = {
 // --- 4. HULPFUNCTIES ---
 const getDagenOud = (timestamp) => {
     if (!timestamp) return 0;
+    // Check of het een Firestore Timestamp is of een datum string/object
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    const diff = new Date() - date;
+    const now = new Date();
+    const diff = now - date;
     return Math.floor(diff / (1000 * 60 * 60 * 24));
 };
+
 const formatDate = (timestamp) => {
     if (!timestamp) return '-';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleDateString('nl-BE');
 };
+
 const toInputDate = (timestamp) => {
     if (!timestamp) return new Date().toISOString().split('T')[0];
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -68,14 +85,16 @@ const toInputDate = (timestamp) => {
     const localDate = new Date(date.getTime() - (offset*60*1000));
     return localDate.toISOString().split('T')[0];
 };
+
 const getEmojiForCategory = (cat) => {
     const emojis = { "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", "Brood": "🍞", "IJs": "🍦", "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" };
     return emojis[cat] || "📦";
 };
+
 const getStatusColor = (dagen) => {
-    if (dagen > 180) return 'border-l-4 border-red-500 bg-red-50';
-    if (dagen > 90) return 'border-l-4 border-yellow-400 bg-yellow-50';
-    return 'border-l-4 border-green-400 bg-white';
+    if (dagen > 180) return 'border-l-4 border-red-500 bg-red-50'; // Rood: > 180 dagen (ca. 6 maanden)
+    if (dagen > 90) return 'border-l-4 border-yellow-400 bg-yellow-50'; // Oranje: > 90 dagen (ca. 3 maanden)
+    return 'border-l-4 border-green-400 bg-white'; // Groen: Vers
 };
 
 // --- 5. COMPONENTEN ---
@@ -94,7 +113,6 @@ const Modal = ({ isOpen, onClose, title, children }) => {
     );
 };
 
-// Badge Component (Patch, Minor, Major)
 const Badge = ({ type, text }) => {
     const colors = {
         minor: "bg-blue-100 text-blue-700",
@@ -109,30 +127,16 @@ const Badge = ({ type, text }) => {
     );
 };
 
-// Emoji Picker Component
-const EmojiPicker = ({ onSelect }) => {
-    const ref = useRef(null);
-    useEffect(() => {
-        const el = ref.current;
-        if(el) {
-            const handleEmoji = (e) => onSelect(e.detail.unicode);
-            el.addEventListener('emoji-click', handleEmoji);
-            return () => el.removeEventListener('emoji-click', handleEmoji);
-        }
-    }, [onSelect]);
-    return <emoji-picker ref={ref} class="light"></emoji-picker>;
-};
-
-// Scanner Component
-const Scanner = ({ onScan }) => {
-    useEffect(() => {
-        const scanner = new Html5Qrcode("reader");
-        scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (decodedText) => {
-            scanner.stop().then(() => onScan(decodedText));
-        }, () => {});
-        return () => { try { scanner.stop(); } catch(e){} };
-    }, [onScan]);
-    return <div id="reader" style={{ width: '100%' }}></div>;
+const EmojiGrid = ({ onSelect }) => {
+    return (
+        <div className="grid grid-cols-8 gap-2 p-2">
+            {POPULAIRE_EMOJIS.map(emoji => (
+                <button key={emoji} onClick={() => onSelect(emoji)} className="text-2xl hover:bg-gray-100 p-1 rounded transition-colors text-center">
+                    {emoji}
+                </button>
+            ))}
+        </div>
+    );
 };
 
 // --- 6. APP ---
@@ -161,7 +165,7 @@ function App() {
     const [showSwitchAccount, setShowSwitchAccount] = useState(false);
     const [showBeheerModal, setShowBeheerModal] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [showScanner, setShowScanner] = useState(false);
+    const [beheerTab, setBeheerTab] = useState('locaties'); // 'locaties' of 'eenheden'
 
     // Form
     const [formData, setFormData] = useState({
@@ -173,27 +177,18 @@ function App() {
     const [newLocatieNaam, setNewLocatieNaam] = useState('');
     const [selectedLocatieForBeheer, setSelectedLocatieForBeheer] = useState(null);
     const [newLadeNaam, setNewLadeNaam] = useState('');
+    const [newUnitNaam, setNewUnitNaam] = useState('');
 
     // --- AUTH & SETUP ---
     useEffect(() => {
-        auth.onAuthStateChanged(async (u) => {
+        const unsubscribe = auth.onAuthStateChanged(async (u) => {
             if (u) {
                 setUser(u);
                 setBeheerdeUserId(u.uid);
                 
-                // Init load user specific data (units)
-                const userRef = db.collection('users').doc(u.uid);
-                userRef.get().then(doc => {
-                    if(doc.exists) {
-                        setCustomUnits(doc.data().customUnits || []);
-                    }
-                });
-
-                // Check Admin
                 const adminDoc = await db.collection('admins').doc(u.uid).get();
                 setIsAdmin(adminDoc.exists);
 
-                // Auto-switch check
                 const vCheck = await db.collection('vriezers').where('userId', '==', u.uid).limit(1).get();
                 if (vCheck.empty && !adminDoc.exists) {
                     const shares = await db.collection('shares').where("sharedWithEmail", "==", u.email).where("status", "==", "accepted").limit(1).get();
@@ -203,7 +198,17 @@ function App() {
                 setUser(null);
             }
         });
+        return () => unsubscribe();
     }, []);
+
+    // Custom Units ophalen (als beheerdeUserId bekend is)
+    useEffect(() => {
+        if(!beheerdeUserId) return;
+        const unsub = db.collection('users').doc(beheerdeUserId).onSnapshot(doc => {
+            if(doc.exists) setCustomUnits(doc.data().customUnits || []);
+        });
+        return () => unsub();
+    }, [beheerdeUserId]);
 
     // Data Listeners
     useEffect(() => {
@@ -212,7 +217,7 @@ function App() {
         const unsubL = db.collection('lades').where('userId', '==', beheerdeUserId).onSnapshot(s => {
             const loadedLades = s.docs.map(d => ({id: d.id, ...d.data()}));
             setLades(loadedLades);
-            // Standaard alles dicht (alle IDs toevoegen aan collapsed set) bij eerste keer
+            // Standaard alles dicht bij eerste keer laden
             if (!isDataLoaded && loadedLades.length > 0) {
                 setCollapsedLades(new Set(loadedLades.map(l => l.id)));
                 setIsDataLoaded(true);
@@ -222,7 +227,7 @@ function App() {
         return () => { unsubV(); unsubL(); unsubI(); };
     }, [beheerdeUserId, isDataLoaded]);
 
-    // Admin Users List Listener (FIX: Haalt nu correct alle users op voor switch)
+    // Admin Users List Listener
     useEffect(() => {
         if (isAdmin) {
             const unsubUsers = db.collection('users').orderBy('email').onSnapshot(snap => {
@@ -233,7 +238,7 @@ function App() {
     }, [isAdmin]);
 
     // Derived
-    const alleEenheden = [...STANDAARD_EENHEDEN, ...customUnits];
+    const alleEenheden = [...BASIS_EENHEDEN, ...customUnits].sort();
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
     const alerts = items.filter(i => getDagenOud(i.ingevrorenOp) > 180);
 
@@ -259,19 +264,6 @@ function App() {
         setShowAddModal(true);
     };
 
-    const handleScan = async (code) => {
-        setShowScanner(false);
-        try {
-            const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
-            const data = await res.json();
-            if(data.product && data.product.product_name) {
-                setFormData(prev => ({...prev, naam: data.product.product_name}));
-            } else {
-                alert("Product niet gevonden");
-            }
-        } catch(e) { alert("Scan fout"); }
-    };
-
     const handleSaveItem = async (e) => {
         e.preventDefault();
         const lade = lades.find(l => l.id === formData.ladeId);
@@ -285,20 +277,14 @@ function App() {
             emoji: formData.emoji || getEmojiForCategory(formData.categorie)
         };
 
-        // FIX: Nieuwe eenheden correct opslaan
-        if(formData.eenheid && !alleEenheden.includes(formData.eenheid)) {
-            const newUnits = [...customUnits, formData.eenheid];
-            setCustomUnits(newUnits); // Update local state for direct feedback
-            await db.collection('users').doc(beheerdeUserId).set({ customUnits: newUnits }, { merge: true });
-        }
-
         try {
             if(editingItem) {
                 await db.collection('items').doc(editingItem.id).update(data);
                 setEditingItem(null);
             } else {
                 await db.collection('items').add(data);
-                setFormData(prev => ({...prev, naam: '', aantal: 1, emoji: ''})); // Reset deels
+                // Reset deels, behoud locatie
+                setFormData(prev => ({...prev, naam: '', aantal: 1, emoji: ''})); 
             }
             setShowAddModal(false);
         } catch(err) { alert(err.message); }
@@ -315,7 +301,7 @@ function App() {
         setShowAddModal(true);
     };
 
-    // Beheer Handlers
+    // Beheer Locaties Handlers
     const handleAddLocatie = async (e) => {
         e.preventDefault();
         await db.collection('vriezers').add({ naam: newLocatieNaam, type: activeTab, userId: beheerdeUserId });
@@ -335,6 +321,23 @@ function App() {
         if(confirm("Verwijderen?")) await db.collection('lades').doc(id).delete();
     };
 
+    // Beheer Eenheden Handlers
+    const handleAddUnit = async (e) => {
+        e.preventDefault();
+        const naam = newUnitNaam.trim().toLowerCase();
+        if(naam && !alleEenheden.includes(naam)) {
+            const updated = [...customUnits, naam];
+            await db.collection('users').doc(beheerdeUserId).set({customUnits: updated}, {merge:true});
+            setNewUnitNaam('');
+        }
+    };
+    const handleDeleteUnit = async (unit) => {
+        if(confirm(`Verwijder eenheid '${unit}'?`)) {
+            const updated = customUnits.filter(u => u !== unit);
+            await db.collection('users').doc(beheerdeUserId).set({customUnits: updated}, {merge:true});
+        }
+    };
+
     const toggleLade = (id) => {
         const newSet = new Set(collapsedLades);
         if(newSet.has(id)) newSet.delete(id); else newSet.add(id);
@@ -352,7 +355,7 @@ function App() {
                 <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
                     <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">Mijn Voorraad</h1>
                     <div className="flex gap-2">
-                        <button onClick={() => { setSelectedLocatieForBeheer(null); setShowBeheerModal(true); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100"><Icon path={Icons.Settings}/></button>
+                        <button onClick={() => { setSelectedLocatieForBeheer(null); setBeheerdeUserId(beheerdeUserId); setShowBeheerModal(true); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100"><Icon path={Icons.Settings}/></button>
                         {isAdmin && <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600"><Icon path={Icons.Users}/></button>}
                         <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 border relative"><Icon path={Icons.Info}/>{alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}</button>
                     </div>
@@ -404,7 +407,7 @@ function App() {
                                                     ladeItems.map(item => {
                                                         const dagen = getDagenOud(item.ingevrorenOp);
                                                         return (
-                                                            <li key={item.id} className={`flex items-center justify-between p-3 ${getStatusColor(dagen)}`}>
+                                                            <li key={item.id} className={`flex items-center justify-between p-3 border-l-4 ${getStatusColor(dagen)}`}>
                                                                 <div className="flex items-center gap-3 overflow-hidden">
                                                                     <span className="text-2xl">{item.emoji||'📦'}</span>
                                                                     <div>
@@ -440,7 +443,6 @@ function App() {
                         <button type="button" onClick={() => setShowEmojiPicker(true)} className="w-12 h-12 flex-shrink-0 border rounded-lg flex items-center justify-center text-2xl bg-gray-50">{formData.emoji || '🏷️'}</button>
                         <div className="relative flex-grow">
                             <input type="text" placeholder="Productnaam" className="w-full h-12 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={formData.naam} onChange={e => setFormData({...formData, naam: e.target.value})} required />
-                            <button type="button" onClick={() => setShowScanner(true)} className="absolute right-2 top-2 p-2 text-gray-400 hover:text-gray-600"><Icon path={Icons.Scan}/></button>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -458,8 +460,9 @@ function App() {
                     <div className="flex gap-4 items-end">
                         <input type="number" step="0.25" className="w-24 text-center h-12 border border-gray-300 rounded-lg" value={formData.aantal} onChange={e => setFormData({...formData, aantal: e.target.value})} />
                         <div className="flex-grow relative">
-                            <input list="eenheden" className="w-full h-12 px-3 border border-gray-300 rounded-lg" value={formData.eenheid} onChange={e => setFormData({...formData, eenheid: e.target.value})} placeholder="Eenheid" />
-                            <datalist id="eenheden">{alleEenheden.map(e => <option key={e} value={e}/>)}</datalist>
+                            <select className="w-full h-12 px-3 border border-gray-300 rounded-lg bg-white" value={formData.eenheid} onChange={e => setFormData({...formData, eenheid: e.target.value})}>
+                                {alleEenheden.map(e => <option key={e} value={e}>{e}</option>)}
+                            </select>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -478,48 +481,72 @@ function App() {
 
             {/* Emoji Modal */}
             <Modal isOpen={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} title="Kies Emoji">
-                <EmojiPicker onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
-            </Modal>
-
-            {/* Scanner Modal */}
-            <Modal isOpen={showScanner} onClose={() => setShowScanner(false)} title="Scan Barcode">
-                <Scanner onScan={handleScan} />
+                <EmojiGrid onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
             </Modal>
 
             {/* Beheer Modal */}
-            <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Beheer Locaties">
-                <div className="space-y-6">
-                    <div>
-                        <h4 className="font-bold text-gray-700 mb-2">Locaties</h4>
-                        <ul className="space-y-2 mb-3">{filteredLocaties.map(l => (
-                            <li key={l.id} className="flex justify-between p-2 bg-gray-50 rounded items-center">
-                                <span onClick={() => setSelectedLocatieForBeheer(l.id)} className={`cursor-pointer ${selectedLocatieForBeheer===l.id?'text-blue-600 font-bold':''}`}>{l.naam}</span>
-                                <button onClick={() => handleDeleteLocatie(l.id)} className="text-red-500"><Icon path={Icons.Trash2}/></button>
-                            </li>
-                        ))}</ul>
-                        <form onSubmit={handleAddLocatie} className="flex gap-2"><input className="flex-grow border p-2 rounded" placeholder="Nieuwe locatie" value={newLocatieNaam} onChange={e=>setNewLocatieNaam(e.target.value)} required /><button className="bg-blue-600 text-white px-3 rounded">+</button></form>
-                    </div>
-                    {selectedLocatieForBeheer && (
-                        <div className="pt-4 border-t">
-                            <h4 className="font-bold text-gray-700 mb-2">Lades</h4>
-                            <ul className="space-y-2 mb-3">{lades.filter(l => l.vriezerId === selectedLocatieForBeheer).sort((a,b)=>a.naam.localeCompare(b.naam)).map(l => (
-                                <li key={l.id} className="flex justify-between p-2 bg-gray-50 rounded items-center"><span>{l.naam}</span><button onClick={() => handleDeleteLade(l.id)} className="text-red-500"><Icon path={Icons.Trash2}/></button></li>
-                            ))}</ul>
-                            <form onSubmit={handleAddLade} className="flex gap-2"><input className="flex-grow border p-2 rounded" placeholder="Nieuwe lade" value={newLadeNaam} onChange={e=>setNewLadeNaam(e.target.value)} required /><button className="bg-green-600 text-white px-3 rounded">+</button></form>
-                        </div>
-                    )}
+            <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen">
+                <div className="flex border-b mb-4">
+                    <button onClick={() => setBeheerTab('locaties')} className={`flex-1 py-2 font-medium ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500'}`}>Locaties</button>
+                    <button onClick={() => setBeheerTab('eenheden')} className={`flex-1 py-2 font-medium ${beheerTab==='eenheden'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500'}`}>Eenheden</button>
                 </div>
+
+                {beheerTab === 'locaties' ? (
+                    <div className="space-y-6">
+                        <div>
+                            <h4 className="font-bold text-gray-700 mb-2">Locaties</h4>
+                            <ul className="space-y-2 mb-3">{filteredLocaties.map(l => (
+                                <li key={l.id} className="flex justify-between p-2 bg-gray-50 rounded items-center">
+                                    <span onClick={() => setSelectedLocatieForBeheer(l.id)} className={`cursor-pointer ${selectedLocatieForBeheer===l.id?'text-blue-600 font-bold':''}`}>{l.naam}</span>
+                                    <button onClick={() => handleDeleteLocatie(l.id)} className="text-red-500"><Icon path={Icons.Trash2}/></button>
+                                </li>
+                            ))}</ul>
+                            <form onSubmit={handleAddLocatie} className="flex gap-2"><input className="flex-grow border p-2 rounded" placeholder="Nieuwe locatie" value={newLocatieNaam} onChange={e=>setNewLocatieNaam(e.target.value)} required /><button className="bg-blue-600 text-white px-3 rounded">+</button></form>
+                        </div>
+                        {selectedLocatieForBeheer && (
+                            <div className="pt-4 border-t">
+                                <h4 className="font-bold text-gray-700 mb-2">Lades</h4>
+                                <ul className="space-y-2 mb-3">{lades.filter(l => l.vriezerId === selectedLocatieForBeheer).sort((a,b)=>a.naam.localeCompare(b.naam)).map(l => (
+                                    <li key={l.id} className="flex justify-between p-2 bg-gray-50 rounded items-center"><span>{l.naam}</span><button onClick={() => handleDeleteLade(l.id)} className="text-red-500"><Icon path={Icons.Trash2}/></button></li>
+                                ))}</ul>
+                                <form onSubmit={handleAddLade} className="flex gap-2"><input className="flex-grow border p-2 rounded" placeholder="Nieuwe lade" value={newLadeNaam} onChange={e=>setNewLadeNaam(e.target.value)} required /><button className="bg-green-600 text-white px-3 rounded">+</button></form>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div>
+                        <h4 className="font-bold text-gray-700 mb-2">Mijn Eenheden</h4>
+                        <ul className="space-y-2 mb-3">
+                            {customUnits.length === 0 ? <li className="text-gray-400 italic">Geen eigen eenheden.</li> : 
+                            customUnits.map(u => (
+                                <li key={u} className="flex justify-between p-2 bg-gray-50 rounded items-center"><span>{u}</span><button onClick={() => handleDeleteUnit(u)} className="text-red-500"><Icon path={Icons.Trash2}/></button></li>
+                            ))}
+                        </ul>
+                        <form onSubmit={handleAddUnit} className="flex gap-2"><input className="flex-grow border p-2 rounded" placeholder="Nieuwe eenheid" value={newUnitNaam} onChange={e=>setNewUnitNaam(e.target.value)} required /><button className="bg-orange-500 text-white px-3 rounded">+</button></form>
+                    </div>
+                )}
             </Modal>
 
             {/* Updates Modal */}
             <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen">
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
-                <h4 className="font-bold text-blue-600 mb-2">Versie 2.4</h4>
-                <ul className="space-y-2">
-                    <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Wissel Account voor admins werkt weer.</span></li>
-                    <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Eigen eenheden aanmaken hersteld.</span></li>
-                    <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Nieuwe badge stijl in updates.</span></li>
-                </ul>
+                
+                <div className="space-y-4">
+                    <div>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 2.5</h4>
+                        <ul className="space-y-2">
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Kleuren (versheid) werken weer correct.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Eigen eenheden beheren via Instellingen.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Nieuwe, snellere emoji kiezer.</span></li>
+                        </ul>
+                    </div>
+                    <div className="border-t pt-2">
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 2.4</h4>
+                        <ul className="space-y-2 text-sm text-gray-500">
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Wissel Account voor admins hersteld.</span></li>
+                        </ul>
+                    </div>
+                </div>
             </Modal>
 
             {/* Switch Account Modal (Admin) */}
