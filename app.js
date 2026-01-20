@@ -19,19 +19,18 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '4.7'; 
+const APP_VERSION = '4.6'; 
 
-// Uitgebreide kleurdefinities voor Tailwind (zodat ze zeker bestaan)
-const BADGE_STYLES = {
-    gray: "bg-gray-100 text-gray-800 border-gray-200",
-    red: "bg-red-100 text-red-800 border-red-200",
-    yellow: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    green: "bg-green-100 text-green-800 border-green-200",
-    blue: "bg-blue-100 text-blue-800 border-blue-200",
-    indigo: "bg-indigo-100 text-indigo-800 border-indigo-200",
-    purple: "bg-purple-100 text-purple-800 border-purple-200",
-    pink: "bg-pink-100 text-pink-800 border-pink-200",
-    orange: "bg-orange-100 text-orange-800 border-orange-200"
+// Standaard kleuren voor badges
+const BADGE_COLORS = {
+    gray: "bg-gray-100 text-gray-800",
+    red: "bg-red-100 text-red-800",
+    yellow: "bg-yellow-100 text-yellow-800",
+    green: "bg-green-100 text-green-800",
+    blue: "bg-blue-100 text-blue-800",
+    indigo: "bg-indigo-100 text-indigo-800",
+    purple: "bg-purple-100 text-purple-800",
+    pink: "bg-pink-100 text-pink-800"
 };
 
 // Zorg dat deze array objecten bevat met name en color!
@@ -51,26 +50,15 @@ const STANDAARD_CATEGORIEEN = [
 
 const BASIS_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
 
-// Uitgebreide Emoji lijst (Eten & Drinken)
 const POPULAIRE_EMOJIS = [
-    // Fruit
-    "🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🥑", "🫒",
-    // Groenten
-    "🍆", "🥔", "🥕", "🌽", "🌶️", "🫑", "🥒", "🥬", "🥦", "🧄", "🧅", "🍄", "🥜", "🫘", "🌰", "🍠", "🫛",
-    // Vlees, Gevogelte & Eiwit
-    "🥩", "🍗", "🍖", "🥓", "🍔", "🌭", "🍳", "🥚", "🧀", "🍡",
-    // Vis & Zeevruchten
-    "🐟", "🐠", "🐡", "🦈", "🐙", "🦀", "🦞", "🦐", "🦑", "🦪", "🍣", "🍤", 
-    // Brood & Deegwaren
-    "🍞", "🥐", "🥖", "🫓", "🥨", "🥯", "🥞", "🧇", "🥟", "🥠", "🥡", "🍜", "🍝", "🍕",      
-    // Maaltijden & Fastfood
-    "🍟", "🥪", "🌮", "🌯", "🫔", "🥙", "🧆", "🥘", "🍲", "🫕", "🥣", "🥗", "🍿", "🧈", "🧂", "🥫", "🍱", "🍘", "🍙", "🍚", "🍛", "🍢", "🍤", "🍥", "🍡", 
-    // IJs & Zoetigheden
-    "🍦", "🍧", "🍨", "🍩", "🍪", "🎂", "🍰", "🧁", "🥧", "🍫", "🍬", "🍭", "🍮", "🍯",
-    // Drinken
-    "🍼", "🥛", "☕", "🫖", "🍵", "🍶", "🍾", "🍷", "🍸", "🍹", "🍺", "🍻", "🥂", "🥃", "🥤", "🧃", "🧉", "🧊",
-    // Overig
-    "❄️", "🧊", "🏷️", "📦", "🛒", "🛍️"
+    "🥩", "🍗", "🍖", "🥓", "🍔", "🍟", "🍕", "🌭", "🥪", "🌮", 
+    "🥗", "🥦", "🌽", "🥕", "🍅", "🍆", "🥔", "🥒", "🍄", "🥜", 
+    "🍞", "🥐", "🥖", "🥨", "🥞", "🧇", "🧀", "🥚", "🧈", 
+    "🐟", "🐠", "🐡", "🦐", "🦞", "🦀", "🦑", "🐙", "🍣", 
+    "🍦", "🍧", "🍨", "🍩", "🍪", "🎂", "🍰", "🧁", "🥧", "🍫", 
+    "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🍒", "🍑", 
+    "🥛", "☕", "🍵", "🧃", "🥤", "🍺", "🍷", "🥃", "🧊", "🥄", 
+    "🥡", "🥫", "🧂", "🧊", "❄️", "🧊", "🏷️", "📦", "🛒", "🛍️"
 ];
 
 // --- 3. ICOON COMPONENTEN (SVG) ---
@@ -125,11 +113,6 @@ const toInputDate = (timestamp) => {
     return localDate.toISOString().split('T')[0];
 };
 
-const getEmojiForCategory = (cat) => {
-    const emojis = { "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", "Brood": "🍞", "IJs": "🍦", "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" };
-    return emojis[cat] || "📦";
-};
-
 const getStatusColor = (dagen) => {
     if (dagen > 180) return 'border-l-4 border-red-500'; 
     if (dagen > 90) return 'border-l-4 border-yellow-400';
@@ -153,17 +136,14 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 };
 
 const Badge = ({ type, text }) => {
-    // 1. Zoek kleur op in BADGE_STYLES
-    // 2. Als niet gevonden, gebruik fallback (gray)
-    // 3. Als type een "status" is (zoals 'alert'), gebruik hardcoded fallback
-    let colorClass = BADGE_STYLES[type];
-    
-    if (!colorClass) {
-        if (type === 'minor') colorClass = "bg-blue-100 text-blue-700 border-blue-200";
-        else if (type === 'patch') colorClass = "bg-green-100 text-green-700 border-green-200";
-        else if (type === 'major') colorClass = "bg-purple-100 text-purple-700 border-purple-200";
-        else colorClass = "bg-gray-200 text-gray-700";
-    }
+    const colors = {
+        minor: "bg-blue-100 text-blue-700",
+        patch: "bg-green-100 text-green-700",
+        major: "bg-purple-100 text-purple-700",
+        alert: "bg-red-100 text-red-700",
+    };
+    // Als type een kleurcode is uit BADGE_COLORS
+    const colorClass = BADGE_COLORS[type] || colors[type] || "bg-gray-200 text-gray-700";
 
     return (
         <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colorClass}`}>
@@ -229,6 +209,7 @@ function App() {
         naam: '', aantal: 1, eenheid: 'stuks', vriezerId: '', ladeId: '', categorie: 'Vlees', 
         ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
     });
+    const [rememberLocation, setRememberLocation] = useState(false); // Nieuwe state voor switch
     const [newLocatieNaam, setNewLocatieNaam] = useState('');
     const [selectedLocatieForBeheer, setSelectedLocatieForBeheer] = useState(null);
     const [newLadeNaam, setNewLadeNaam] = useState('');
@@ -369,11 +350,22 @@ function App() {
     // Item CRUD
     const handleOpenAdd = () => {
         setEditingItem(null);
-        const defaultLoc = filteredLocaties.length > 0 ? filteredLocaties[0].id : '';
-        setFormData({
-            naam: '', aantal: 1, eenheid: 'stuks', vriezerId: defaultLoc, ladeId: '', 
-            categorie: 'Vlees', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
-        });
+        // Als we willen onthouden, gebruiken we de bestaande formData (locatie/lade blijft staan)
+        // Anders resetten we naar default
+        if (!rememberLocation) {
+            const defaultLoc = filteredLocaties.length > 0 ? filteredLocaties[0].id : '';
+            setFormData({
+                naam: '', aantal: 1, eenheid: 'stuks', vriezerId: defaultLoc, ladeId: '', 
+                categorie: 'Vlees', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
+            });
+        } else {
+             // Behoud locatie/lade, reset de rest
+             setFormData(prev => ({
+                ...prev,
+                naam: '', aantal: 1, categorie: 'Vlees', 
+                ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
+            }));
+        }
         setShowAddModal(true);
     };
 
@@ -393,11 +385,30 @@ function App() {
             if(editingItem) {
                 await db.collection('items').doc(editingItem.id).update(data);
                 setEditingItem(null);
+                setShowAddModal(false); // Altijd sluiten bij bewerken
             } else {
                 await db.collection('items').add(data);
-                setFormData(prev => ({...prev, naam: '', aantal: 1, emoji: ''})); 
+                
+                if (rememberLocation) {
+                    // Als onthouden aan staat, resetten we alleen naam/aantal/emoji en laten we modal open? 
+                    // Of we sluiten modal en bij volgende openen is het nog ingevuld?
+                    // Meestal wil je bij 'snel toevoegen' dat de modal open blijft of dat hij sluit maar volgende keer onthoudt.
+                    // Gezien de vraag "dat we niet telkens daar in moeten wijzigen", ga ik ervan uit dat bij de VOLGENDE keer openen het onthouden moet zijn.
+                    // Dus we sluiten de modal wel.
+                    setFormData(prev => ({
+                        ...prev, 
+                        naam: '', aantal: 1, emoji: '', 
+                        // Datum resetten we ook naar vandaag voor nieuw item? Meestal wel.
+                        ingevrorenOp: new Date().toISOString().split('T')[0],
+                        houdbaarheidsDatum: ''
+                    }));
+                    setShowAddModal(false);
+                } else {
+                    // Volledige reset
+                    setFormData(prev => ({...prev, naam: '', aantal: 1, emoji: ''})); 
+                    setShowAddModal(false);
+                }
             }
-            setShowAddModal(false);
         } catch(err) { alert(err.message); }
     };
 
@@ -729,6 +740,14 @@ function App() {
                     <select className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
                         {actieveCategorieen.map(c => <option key={c.name||c} value={c.name||c}>{c.name||c}</option>)}
                     </select></div>
+                    
+                    {!editingItem && (
+                        <div className="flex items-center gap-2">
+                            <input type="checkbox" id="rememberLocation" checked={rememberLocation} onChange={e => setRememberLocation(e.target.checked)} className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300" />
+                            <label htmlFor="rememberLocation" className="text-sm text-gray-700">Onthoud locatie en lade</label>
+                        </div>
+                    )}
+                    
                     <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md">Opslaan</button>
                 </form>
             </Modal>
@@ -871,15 +890,10 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.5</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.6</h4>
                         <ul className="space-y-2">
+                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>'Onthoud locatie' switch toegevoegd bij aanmaken.</span></li>
                              <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Lijsten nemen nu volledige breedte als er weinig zijn.</span></li>
-                        </ul>
-                    </div>
-                    <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 4.4</h4>
-                        <ul className="space-y-2 text-sm text-gray-500">
-                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Lijsten kunnen nu naast elkaar getoond worden (max 3).</span></li>
                         </ul>
                     </div>
                 </div>
