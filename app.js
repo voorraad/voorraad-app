@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '3.1'; 
+const APP_VERSION = '3.2'; 
 const STANDAARD_CATEGORIEEN = ["Geen", "Vlees", "Vis", "Groenten", "Fruit", "Brood", "IJs", "Restjes", "Saus", "Friet", "Pizza", "Ander"];
 const BASIS_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
 
@@ -419,14 +419,14 @@ function App() {
                                                 </h3>
                                             </div>
                                             {!isCollapsed && (
-                                                <ul className="block"> {/* Removed divide-y class to fix coloring bug */}
+                                                <ul className="block"> 
                                                     {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
                                                     ladeItems.map(item => {
                                                         const dagen = getDagenOud(item.ingevrorenOp);
                                                         const colorClass = getStatusColor(dagen);
                                                         
                                                         return (
-                                                            <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass} border-b border-gray-100 last:border-b-0`}>
+                                                            <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass}`}>
                                                                 <div className="flex items-center gap-3 overflow-hidden">
                                                                     <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
                                                                     <div className="min-w-0">
@@ -560,17 +560,17 @@ function App() {
                 
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 3.1</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 3.2</h4>
                         <ul className="space-y-2">
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Kleurcodering (versheid) definitief opgelost voor alle producten.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Achtergrondkleur verwijderd, enkel linkerrand toont status.</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Onderrand verwijderd bij items voor schoner uiterlijk.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Linkerrand toont nu duidelijk de status.</span></li>
                         </ul>
                     </div>
                     <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 3.0</h4>
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 3.1</h4>
                         <ul className="space-y-2 text-sm text-gray-500">
-                            <li className="flex gap-2"><Badge type="major" text="Major" /><span>Kleurcodering (versheid) volledig opgelost.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Waarschuwingsvenster opent automatisch bij rood.</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Kleurcodering (versheid) definitief opgelost voor alle producten.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Achtergrondkleur verwijderd, enkel linkerrand toont status.</span></li>
                         </ul>
                     </div>
                 </div>
