@@ -4,7 +4,7 @@ const { useState, useEffect, useMemo } = React;
 const firebaseConfig = typeof __firebase_config !== 'undefined' 
     ? JSON.parse(__firebase_config) 
     : {
-        apiKey: "AIzaSyB9KRUbVBknnDDkkWF2Z5nRskmY-9CkD24", // API Key hersteld
+        apiKey: "AIzaSyB9KRUbVBknnDDkkWF2Z5nRskmY-9CkD24", 
         authDomain: "vriezer-app.firebaseapp.com",
         projectId: "vriezer-app",
         storageBucket: "vriezer-app.firebasestorage.app",
@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '2.0';
+const APP_VERSION = '2.1';
 const CATEGORIEEN = ["Geen", "Vlees", "Vis", "Groenten", "Fruit", "Brood", "IJs", "Restjes", "Saus", "Friet", "Pizza", "Ander"];
 const EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
 
@@ -42,7 +42,10 @@ const Icons = {
     LogOut: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>,
     Users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
     Check: <path d="M20 6 9 17l-5-5"/>,
-    Alert: <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3zM12 9v4M12 17h.01"/>
+    Alert: <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3zM12 9v4M12 17h.01"/>,
+    Settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>,
+    ChevronDown: <path d="m6 9 6 6 6-6"/>,
+    ChevronRight: <path d="m9 18 6-6-6-6"/>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -127,7 +130,14 @@ function App() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showWhatsNew, setShowWhatsNew] = useState(false);
     const [showSwitchAccount, setShowSwitchAccount] = useState(false);
+    const [showBeheerModal, setShowBeheerModal] = useState(false); // Voor locaties beheer
+    const [collapsedLades, setCollapsedLades] = useState(new Set()); // Voor inklappen lades
     const [editingItem, setEditingItem] = useState(null);
+
+    // Beheer State
+    const [newLocatieNaam, setNewLocatieNaam] = useState('');
+    const [selectedLocatieForBeheer, setSelectedLocatieForBeheer] = useState(null);
+    const [newLadeNaam, setNewLadeNaam] = useState('');
 
     // Form State
     const [formData, setFormData] = useState({
@@ -140,13 +150,11 @@ function App() {
         const unsubscribe = auth.onAuthStateChanged(async (u) => {
             if (u) {
                 setUser(u);
-                setBeheerdeUserId(u.uid); // Standaard eigen account
+                setBeheerdeUserId(u.uid); 
                 
-                // Check Admin
                 const adminDoc = await db.collection('admins').doc(u.uid).get();
                 setIsAdmin(adminDoc.exists);
 
-                // Check of we direct moeten switchen (geen eigen vriezers)
                 const vriezersCheck = await db.collection('vriezers').where('userId', '==', u.uid).limit(1).get();
                 if (vriezersCheck.empty && !adminDoc.exists) {
                     const shares = await db.collection('shares').where("sharedWithEmail", "==", u.email).where("status", "==", "accepted").limit(1).get();
@@ -163,7 +171,6 @@ function App() {
         return () => unsubscribe();
     }, []);
 
-    // Data Listeners
     useEffect(() => {
         if (!beheerdeUserId) return;
 
@@ -182,7 +189,6 @@ function App() {
         return () => { unsubVriezers(); unsubLades(); unsubItems(); };
     }, [beheerdeUserId]);
 
-    // Admin User List Listener
     useEffect(() => {
         if (isAdmin) {
             return db.collection('users').orderBy('email').onSnapshot(snap => {
@@ -191,12 +197,10 @@ function App() {
         }
     }, [isAdmin]);
 
-    // Check Updates & Alerts bij start
     useEffect(() => {
         if (items.length > 0) {
             const lastVersion = localStorage.getItem('app_version');
             const hasAlerts = items.some(i => getDagenOud(i.ingevrorenOp) > 180);
-            
             if (lastVersion !== APP_VERSION || (hasAlerts && !sessionStorage.getItem('seen_alerts'))) {
                 setShowWhatsNew(true);
                 localStorage.setItem('app_version', APP_VERSION);
@@ -209,20 +213,31 @@ function App() {
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
     const alerts = items.filter(i => getDagenOud(i.ingevrorenOp) > 180);
 
-    // --- HANDLERS ---
-    const handleLogin = async () => {
-        // In een echte app: Google Auth Provider. Hier anoniem voor demo/gemak als fallback
-        try {
-            await auth.signInAnonymously();
-        } catch (e) {
-            alert("Login fout: " + e.message);
+    // --- HELPERS ---
+    const toggleLade = (ladeId) => {
+        const newSet = new Set(collapsedLades);
+        if (newSet.has(ladeId)) newSet.delete(ladeId); else newSet.add(ladeId);
+        setCollapsedLades(newSet);
+    };
+
+    const toggleAllLades = () => {
+        // Als er lades dicht zijn, open alles. Anders sluit alles.
+        if (collapsedLades.size > 0) {
+            setCollapsedLades(new Set());
+        } else {
+            const allIds = new Set(lades.map(l => l.id));
+            setCollapsedLades(allIds);
         }
+    };
+
+    // --- HANDLERS ITEMS ---
+    const handleLogin = async () => {
+        try { await auth.signInAnonymously(); } catch (e) { alert("Login fout: " + e.message); }
     };
 
     const handleAddItem = async (e) => {
         e.preventDefault();
         const lade = lades.find(l => l.id === formData.ladeId);
-        
         try {
             await db.collection('items').add({
                 ...formData,
@@ -231,32 +246,22 @@ function App() {
                 ingevrorenOp: new Date(formData.ingevrorenOp),
                 houdbaarheidsDatum: formData.houdbaarheidsDatum ? new Date(formData.houdbaarheidsDatum) : null,
                 userId: beheerdeUserId,
-                emoji: '📦' // Simpel houden voor nu
+                emoji: '📦'
             });
             setShowAddModal(false);
             setFormData({ ...formData, naam: '', aantal: 1 });
-        } catch (err) {
-            alert("Fout: " + err.message);
-        }
+        } catch (err) { alert("Fout: " + err.message); }
     };
 
     const handleDelete = async (id, naam) => {
-        if (confirm(`Verwijder '${naam}'?`)) {
-            await db.collection('items').doc(id).delete();
-        }
+        if (confirm(`Verwijder '${naam}'?`)) { await db.collection('items').doc(id).delete(); }
     };
 
     const openEdit = (item) => {
         setEditingItem(item);
         setFormData({
-            naam: item.naam,
-            aantal: item.aantal,
-            eenheid: item.eenheid,
-            vriezerId: item.vriezerId,
-            ladeId: item.ladeId,
-            categorie: item.categorie,
-            ingevrorenOp: toInputDate(item.ingevrorenOp),
-            houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum)
+            naam: item.naam, aantal: item.aantal, eenheid: item.eenheid, vriezerId: item.vriezerId, ladeId: item.ladeId, categorie: item.categorie,
+            ingevrorenOp: toInputDate(item.ingevrorenOp), houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum)
         });
         setShowAddModal(true);
     };
@@ -266,29 +271,53 @@ function App() {
         const lade = lades.find(l => l.id === formData.ladeId);
         try {
             await db.collection('items').doc(editingItem.id).update({
-                ...formData,
-                aantal: parseFloat(formData.aantal),
-                ladeNaam: lade ? lade.naam : '',
-                ingevrorenOp: new Date(formData.ingevrorenOp), // Correcte datum, geen offset bug
-                houdbaarheidsDatum: formData.houdbaarheidsDatum ? new Date(formData.houdbaarheidsDatum) : null
+                ...formData, aantal: parseFloat(formData.aantal), ladeNaam: lade ? lade.naam : '',
+                ingevrorenOp: new Date(formData.ingevrorenOp), houdbaarheidsDatum: formData.houdbaarheidsDatum ? new Date(formData.houdbaarheidsDatum) : null
             });
-            setShowAddModal(false);
-            setEditingItem(null);
-        } catch (err) {
-            alert("Update fout: " + err.message);
-        }
+            setShowAddModal(false); setEditingItem(null);
+        } catch (err) { alert("Update fout: " + err.message); }
     };
 
-    // Render Login
+    // --- HANDLERS BEHEER (LOCATIES & LADES) ---
+    const handleAddLocatie = async (e) => {
+        e.preventDefault();
+        if(!newLocatieNaam.trim()) return;
+        try {
+            await db.collection('vriezers').add({ naam: newLocatieNaam, type: activeTab, userId: beheerdeUserId });
+            setNewLocatieNaam('');
+        } catch(e) { alert("Fout: " + e.message); }
+    };
+
+    const handleDeleteLocatie = async (id, naam) => {
+        // Check of locatie leeg is
+        const ladeCheck = lades.find(l => l.vriezerId === id);
+        if(ladeCheck) return alert("Maak deze locatie eerst leeg (verwijder lades).");
+        if(confirm(`Verwijder locatie '${naam}'?`)) await db.collection('vriezers').doc(id).delete();
+    };
+
+    const handleAddLade = async (e) => {
+        e.preventDefault();
+        if(!newLadeNaam.trim() || !selectedLocatieForBeheer) return;
+        try {
+            await db.collection('lades').add({ naam: newLadeNaam, vriezerId: selectedLocatieForBeheer, userId: beheerdeUserId });
+            setNewLadeNaam('');
+        } catch(e) { alert("Fout: " + e.message); }
+    };
+
+    const handleDeleteLade = async (id, naam) => {
+        // Check items
+        const itemCheck = items.find(i => i.ladeId === id);
+        if(itemCheck) return alert("Maak deze lade eerst leeg.");
+        if(confirm(`Verwijder lade '${naam}'?`)) await db.collection('lades').doc(id).delete();
+    };
+
     if (!user) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
                 <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
                     <h1 className="text-2xl font-bold text-blue-600 mb-4">Mijn Voorraad</h1>
                     <p className="text-gray-500 mb-6">Log in om je vriezer te beheren.</p>
-                    <button onClick={handleLogin} className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition">
-                        Start (Anoniem/Auto)
-                    </button>
+                    <button onClick={handleLogin} className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition">Start (Anoniem)</button>
                 </div>
             </div>
         );
@@ -299,24 +328,19 @@ function App() {
             {/* HEADER */}
             <header className="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-200">
                 <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
-                    <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">
-                        Mijn Voorraad
-                    </h1>
+                    <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">Mijn Voorraad</h1>
                     <div className="flex gap-2">
+                        <button onClick={() => setShowBeheerModal(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200">
+                            <Icon path={Icons.Settings} size={20} />
+                        </button>
                         {isAdmin && (
                             <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200">
                                 <Icon path={Icons.Users} size={20} />
                             </button>
                         )}
-                        <button 
-                            onClick={() => setShowWhatsNew(true)}
-                            className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 border border-gray-200 text-gray-600 hover:bg-blue-50 relative"
-                        >
+                        <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 border border-gray-200 text-gray-600 hover:bg-blue-50 relative">
                             <Icon path={Icons.Info} size={20} />
                             {alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
-                        </button>
-                        <button onClick={() => auth.signOut()} className="w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100">
-                            <Icon path={Icons.LogOut} size={18} />
                         </button>
                     </div>
                 </div>
@@ -333,77 +357,82 @@ function App() {
             </header>
 
             <main className="max-w-3xl mx-auto p-4 space-y-6">
-                {/* DASHBOARD */}
-                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                    <div className="flex-shrink-0 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm text-sm">
-                        <span className="font-bold text-gray-800">{items.filter(i => {
-                            const v = vriezers.find(v => v.id === i.vriezerId);
-                            return v && v.type === activeTab;
-                        }).length}</span> totaal
-                    </div>
-                    {filteredLocaties.map(loc => (
-                        <div key={loc.id} className="flex-shrink-0 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm text-sm">
-                            <span className="font-bold text-gray-800">{items.filter(i => i.vriezerId === loc.id).length}</span> {loc.naam}
+                {/* DASHBOARD & TOOLS */}
+                <div className="flex flex-col gap-4">
+                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                        <div className="flex-shrink-0 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm text-sm">
+                            <span className="font-bold text-gray-800">{items.filter(i => { const v = vriezers.find(v => v.id === i.vriezerId); return v && v.type === activeTab; }).length}</span> totaal
                         </div>
-                    ))}
-                </div>
-
-                {/* SEARCH */}
-                <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Icon path={Icons.Search} className="h-5 w-5 text-gray-400" />
+                        {filteredLocaties.map(loc => (
+                            <div key={loc.id} className="flex-shrink-0 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm text-sm">
+                                <span className="font-bold text-gray-800">{items.filter(i => i.vriezerId === loc.id).length}</span> {loc.naam}
+                            </div>
+                        ))}
                     </div>
-                    <input
-                        type="text"
-                        className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm transition-all"
-                        placeholder="Zoek een product..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
+                    
+                    <div className="flex gap-2">
+                        <div className="relative group flex-grow">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Icon path={Icons.Search} className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <input type="text" className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" placeholder="Zoek..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                        </div>
+                        <button onClick={toggleAllLades} className="bg-white border border-gray-200 px-4 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 whitespace-nowrap">
+                            {collapsedLades.size > 0 ? "Alles Open" : "Alles Dicht"}
+                        </button>
+                    </div>
                 </div>
 
                 {/* LIST */}
                 <div className="space-y-8">
-                    {filteredLocaties.map(vriezer => (
+                    {filteredLocaties.length === 0 ? <p className="text-center text-gray-400 mt-10">Geen locaties gevonden. Voeg er een toe via instellingen.</p> : 
+                    filteredLocaties.map(vriezer => (
                         <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                {vriezer.naam}
-                            </h2>
+                            <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">{vriezer.naam}</h2>
                             <div className="space-y-4">
                                 {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b) => a.naam.localeCompare(b.naam)).map(lade => {
                                     const ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
                                     if (ladeItems.length === 0 && search) return null;
+                                    const isCollapsed = collapsedLades.has(lade.id) && !search;
 
                                     return (
                                         <div key={lade.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                                            <div className="bg-gray-50/50 px-4 py-2 border-b border-gray-100">
-                                                <h3 className="font-semibold text-gray-700 text-sm">{lade.naam}</h3>
+                                            <div 
+                                                className="bg-gray-50/50 px-4 py-3 border-b border-gray-100 flex justify-between items-center cursor-pointer hover:bg-gray-100 transition-colors"
+                                                onClick={() => toggleLade(lade.id)}
+                                            >
+                                                <h3 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
+                                                    {isCollapsed ? <Icon path={Icons.ChevronRight} size={16}/> : <Icon path={Icons.ChevronDown} size={16}/>}
+                                                    {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
+                                                </h3>
                                             </div>
-                                            <ul className="divide-y divide-gray-50">
-                                                {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
-                                                ladeItems.map(item => {
-                                                    const dagen = getDagenOud(item.ingevrorenOp);
-                                                    return (
-                                                        <li key={item.id} className={`group flex items-center justify-between p-3 hover:bg-gray-50 transition-colors ${getStatusColor(dagen)}`}>
-                                                            <div className="flex items-center gap-3 overflow-hidden">
-                                                                <span className="text-2xl">{item.emoji || '📦'}</span>
-                                                                <div className="min-w-0">
-                                                                    <p className="font-medium text-gray-900 truncate">{item.naam}</p>
-                                                                    <p className="text-xs text-gray-500 flex items-center gap-1 flex-wrap">
-                                                                        <span className="font-semibold text-blue-600 bg-blue-50 px-1.5 rounded">{item.aantal} {item.eenheid}</span>
-                                                                        <span>• {item.categorie}</span>
-                                                                        <span>• {formatDate(item.ingevrorenOp)}</span>
-                                                                    </p>
+                                            {!isCollapsed && (
+                                                <ul className="divide-y divide-gray-50">
+                                                    {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
+                                                    ladeItems.map(item => {
+                                                        const dagen = getDagenOud(item.ingevrorenOp);
+                                                        return (
+                                                            <li key={item.id} className={`group flex items-center justify-between p-3 hover:bg-gray-50 transition-colors ${getStatusColor(dagen)}`}>
+                                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                                    <span className="text-2xl">{item.emoji || '📦'}</span>
+                                                                    <div className="min-w-0">
+                                                                        <p className="font-medium text-gray-900 truncate">{item.naam}</p>
+                                                                        <p className="text-xs text-gray-500 flex items-center gap-1 flex-wrap">
+                                                                            <span className="font-semibold text-blue-600 bg-blue-50 px-1.5 rounded">{item.aantal} {item.eenheid}</span>
+                                                                            <span>• {item.categorie}</span>
+                                                                            <span>• {formatDate(item.ingevrorenOp)}</span>
+                                                                        </p>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                            <div className="flex items-center gap-1">
-                                                                <button onClick={() => openEdit(item)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"><Icon path={Icons.Edit2} size={16}/></button>
-                                                                <button onClick={() => handleDelete(item.id, item.naam)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Icon path={Icons.Trash2} size={16}/></button>
-                                                            </div>
-                                                        </li>
-                                                    );
-                                                })}
-                                            </ul>
+                                                                <div className="flex items-center gap-1">
+                                                                    <button onClick={() => openEdit(item)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"><Icon path={Icons.Edit2} size={16}/></button>
+                                                                    <button onClick={() => handleDelete(item.id, item.naam)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Icon path={Icons.Trash2} size={16}/></button>
+                                                                </div>
+                                                            </li>
+                                                        );
+                                                    })}
+                                                </ul>
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -414,20 +443,14 @@ function App() {
             </main>
 
             {/* FAB */}
-            <button 
-                onClick={() => { setEditingItem(null); setFormData({...formData, naam: '', aantal: 1}); setShowAddModal(true); }}
-                className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all z-40"
-            >
+            <button onClick={() => { setEditingItem(null); setFormData({...formData, naam: '', aantal: 1}); setShowAddModal(true); }} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all z-40">
                 <Icon path={Icons.Plus} size={28} />
             </button>
 
             {/* ADD/EDIT MODAL */}
             <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken" : "Toevoegen"}>
                 <form onSubmit={editingItem ? handleUpdate : handleAddItem} className="space-y-4">
-                    <input 
-                        type="text" placeholder="Productnaam" className="w-full h-12 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={formData.naam} onChange={e => setFormData({...formData, naam: e.target.value})} required
-                    />
+                    <input type="text" placeholder="Productnaam" className="w-full h-12 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={formData.naam} onChange={e => setFormData({...formData, naam: e.target.value})} required />
                     <div className="grid grid-cols-2 gap-4">
                         <select className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.vriezerId} onChange={e => setFormData({...formData, vriezerId: e.target.value})} required>
                             <option value="" disabled>Locatie...</option>
@@ -454,7 +477,48 @@ function App() {
                 </form>
             </Modal>
 
-            {/* UPDATES & ALERTS MODAL */}
+            {/* BEHEER MODAL (NIEUW) */}
+            <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Beheer Locaties">
+                <div className="space-y-6">
+                    {/* Deel 1: Locaties */}
+                    <div>
+                        <h4 className="font-bold text-gray-700 mb-2">Locaties ({activeTab})</h4>
+                        <ul className="space-y-2 mb-3">
+                            {filteredLocaties.map(loc => (
+                                <li key={loc.id} className="flex justify-between items-center p-2 bg-gray-50 rounded border border-gray-200">
+                                    <span onClick={() => setSelectedLocatieForBeheer(loc.id)} className={`cursor-pointer ${selectedLocatieForBeheer === loc.id ? 'font-bold text-blue-600' : ''}`}>{loc.naam}</span>
+                                    <button onClick={() => handleDeleteLocatie(loc.id, loc.naam)} className="text-red-500 hover:text-red-700"><Icon path={Icons.Trash2} size={16}/></button>
+                                </li>
+                            ))}
+                        </ul>
+                        <form onSubmit={handleAddLocatie} className="flex gap-2">
+                            <input type="text" placeholder="Nieuwe locatie..." className="flex-grow p-2 border rounded" value={newLocatieNaam} onChange={e => setNewLocatieNaam(e.target.value)} required />
+                            <button type="submit" className="bg-blue-600 text-white px-3 rounded"><Icon path={Icons.Plus} size={20}/></button>
+                        </form>
+                    </div>
+
+                    {/* Deel 2: Lades */}
+                    {selectedLocatieForBeheer && (
+                        <div className="pt-4 border-t border-gray-200">
+                            <h4 className="font-bold text-gray-700 mb-2">Lades voor geselecteerde locatie</h4>
+                            <ul className="space-y-2 mb-3">
+                                {lades.filter(l => l.vriezerId === selectedLocatieForBeheer).map(lade => (
+                                    <li key={lade.id} className="flex justify-between items-center p-2 bg-gray-50 rounded border border-gray-200">
+                                        <span>{lade.naam}</span>
+                                        <button onClick={() => handleDeleteLade(lade.id, lade.naam)} className="text-red-500 hover:text-red-700"><Icon path={Icons.Trash2} size={16}/></button>
+                                    </li>
+                                ))}
+                            </ul>
+                            <form onSubmit={handleAddLade} className="flex gap-2">
+                                <input type="text" placeholder="Nieuwe lade..." className="flex-grow p-2 border rounded" value={newLadeNaam} onChange={e => setNewLadeNaam(e.target.value)} required />
+                                <button type="submit" className="bg-green-600 text-white px-3 rounded"><Icon path={Icons.Plus} size={20}/></button>
+                            </form>
+                        </div>
+                    )}
+                </div>
+            </Modal>
+
+            {/* UPDATES MODAL */}
             <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen">
                 {alerts.length > 0 && (
                     <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg mb-6">
@@ -466,14 +530,14 @@ function App() {
                         </ul>
                     </div>
                 )}
-                <h4 className="text-blue-600 font-bold border-b border-gray-100 pb-2 mb-3">Versie 2.0</h4>
+                <h4 className="text-blue-600 font-bold border-b border-gray-100 pb-2 mb-3">Versie 2.1</h4>
                 <ul className="space-y-3">
-                    <li className="flex gap-3"><Badge type="major" text="Nieuw" /><span className="text-sm">Compleet nieuw React design.</span></li>
-                    <li className="flex gap-3"><Badge type="patch" text="Fix" /><span className="text-sm">Datum bug opgelost.</span></li>
+                    <li className="flex gap-3"><Badge type="major" text="Update" /><span className="text-sm">Beheer locaties/lades toegevoegd.</span></li>
+                    <li className="flex gap-3"><Badge type="patch" text="Fix" /><span className="text-sm">Lades kunnen nu weer in- en uitklappen.</span></li>
                 </ul>
             </Modal>
 
-            {/* ADMIN SWITCH MODAL */}
+            {/* SWITCH ACCOUNT */}
             <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel Account">
                 <ul className="divide-y divide-gray-100">
                     {usersList.map(u => (
