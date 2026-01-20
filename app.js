@@ -19,12 +19,11 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '2.5'; 
+const APP_VERSION = '2.6'; 
 const STANDAARD_CATEGORIEEN = ["Geen", "Vlees", "Vis", "Groenten", "Fruit", "Brood", "IJs", "Restjes", "Saus", "Friet", "Pizza", "Ander"];
-// Deze standaard eenheden worden aangevuld met de custom eenheden van de gebruiker
 const BASIS_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
 
-// Een simpele lijst met veelgebruikte emojis voor de picker
+// Simpele Emoji lijst
 const POPULAIRE_EMOJIS = [
     "🥩", "🍗", "🍖", "🥓", "🍔", "🍟", "🍕", "🌭", "🥪", "🌮", 
     "🥗", "🥦", "🌽", "🥕", "🍅", "🍆", "🥔", "🥒", "🍄", "🥜", 
@@ -58,14 +57,12 @@ const Icons = {
     Alert: <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3zM12 9v4M12 17h.01"/>,
     Settings: <g><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g>,
     ChevronDown: <path d="m6 9 6 6 6-6"/>,
-    ChevronRight: <path d="m9 18 6-6-6-6"/>,
-    Scan: <g><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="8" height="8" x="8" y="8" rx="1"/></g>
+    ChevronRight: <path d="m9 18 6-6-6-6"/>
 };
 
 // --- 4. HULPFUNCTIES ---
 const getDagenOud = (timestamp) => {
     if (!timestamp) return 0;
-    // Check of het een Firestore Timestamp is of een datum string/object
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     const now = new Date();
     const diff = now - date;
@@ -92,9 +89,10 @@ const getEmojiForCategory = (cat) => {
 };
 
 const getStatusColor = (dagen) => {
-    if (dagen > 180) return 'border-l-4 border-red-500 bg-red-50'; // Rood: > 180 dagen (ca. 6 maanden)
-    if (dagen > 90) return 'border-l-4 border-yellow-400 bg-yellow-50'; // Oranje: > 90 dagen (ca. 3 maanden)
-    return 'border-l-4 border-green-400 bg-white'; // Groen: Vers
+    // Tailwind classes voor rand en achtergrond
+    if (dagen > 180) return 'border-l-4 border-red-500 bg-red-50'; // Rood
+    if (dagen > 90) return 'border-l-4 border-yellow-400 bg-yellow-50'; // Oranje
+    return 'border-l-4 border-green-400 bg-white'; // Groen
 };
 
 // --- 5. COMPONENTEN ---
@@ -131,7 +129,7 @@ const EmojiGrid = ({ onSelect }) => {
     return (
         <div className="grid grid-cols-8 gap-2 p-2">
             {POPULAIRE_EMOJIS.map(emoji => (
-                <button key={emoji} onClick={() => onSelect(emoji)} className="text-2xl hover:bg-gray-100 p-1 rounded transition-colors text-center">
+                <button key={emoji} onClick={() => onSelect(emoji)} className="text-2xl hover:bg-gray-100 p-1 rounded transition-colors text-center w-full h-10 flex items-center justify-center">
                     {emoji}
                 </button>
             ))}
@@ -165,7 +163,7 @@ function App() {
     const [showSwitchAccount, setShowSwitchAccount] = useState(false);
     const [showBeheerModal, setShowBeheerModal] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [beheerTab, setBeheerTab] = useState('locaties'); // 'locaties' of 'eenheden'
+    const [beheerTab, setBeheerTab] = useState('locaties');
 
     // Form
     const [formData, setFormData] = useState({
@@ -186,6 +184,10 @@ function App() {
                 setUser(u);
                 setBeheerdeUserId(u.uid);
                 
+                db.collection('users').doc(u.uid).onSnapshot(doc => {
+                    if(doc.exists) setCustomUnits(doc.data().customUnits || []);
+                });
+
                 const adminDoc = await db.collection('admins').doc(u.uid).get();
                 setIsAdmin(adminDoc.exists);
 
@@ -217,7 +219,6 @@ function App() {
         const unsubL = db.collection('lades').where('userId', '==', beheerdeUserId).onSnapshot(s => {
             const loadedLades = s.docs.map(d => ({id: d.id, ...d.data()}));
             setLades(loadedLades);
-            // Standaard alles dicht bij eerste keer laden
             if (!isDataLoaded && loadedLades.length > 0) {
                 setCollapsedLades(new Set(loadedLades.map(l => l.id)));
                 setIsDataLoaded(true);
@@ -237,12 +238,25 @@ function App() {
         }
     }, [isAdmin]);
 
+    // Check Alerts & Updates bij start
+    useEffect(() => {
+        if (items.length > 0) {
+            const lastVersion = localStorage.getItem('app_version');
+            const hasAlerts = items.some(i => getDagenOud(i.ingevrorenOp) > 180);
+            
+            // Open modal als er alerts zijn OF als de versie nieuw is
+            if (hasAlerts || lastVersion !== APP_VERSION) {
+                setShowWhatsNew(true);
+                localStorage.setItem('app_version', APP_VERSION);
+            }
+        }
+    }, [items]); // Draait als items veranderen (dus na laden)
+
     // Derived
     const alleEenheden = [...BASIS_EENHEDEN, ...customUnits].sort();
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
     const alerts = items.filter(i => getDagenOud(i.ingevrorenOp) > 180);
 
-    // Filter lades voor huidig formulier
     const formLades = formData.vriezerId 
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
         : [];
@@ -283,7 +297,6 @@ function App() {
                 setEditingItem(null);
             } else {
                 await db.collection('items').add(data);
-                // Reset deels, behoud locatie
                 setFormData(prev => ({...prev, naam: '', aantal: 1, emoji: ''})); 
             }
             setShowAddModal(false);
@@ -406,8 +419,11 @@ function App() {
                                                     {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
                                                     ladeItems.map(item => {
                                                         const dagen = getDagenOud(item.ingevrorenOp);
+                                                        // Belangrijk: Hier wordt de kleur class berekend en toegevoegd
+                                                        const colorClass = getStatusColor(dagen);
+                                                        
                                                         return (
-                                                            <li key={item.id} className={`flex items-center justify-between p-3 border-l-4 ${getStatusColor(dagen)}`}>
+                                                            <li key={item.id} className={`flex items-center justify-between p-3 ${colorClass} border-b last:border-0`}>
                                                                 <div className="flex items-center gap-3 overflow-hidden">
                                                                     <span className="text-2xl">{item.emoji||'📦'}</span>
                                                                     <div>
@@ -416,8 +432,8 @@ function App() {
                                                                     </div>
                                                                 </div>
                                                                 <div className="flex items-center gap-1">
-                                                                    <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 rounded-lg"><Icon path={Icons.Edit2} size={16}/></button>
-                                                                    <button onClick={()=>handleDelete(item.id, item.naam)} className="p-2 text-red-500 bg-red-50 rounded-lg"><Icon path={Icons.Trash2} size={16}/></button>
+                                                                    <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 rounded-lg hover:bg-blue-100"><Icon path={Icons.Edit2} size={16}/></button>
+                                                                    <button onClick={()=>handleDelete(item.id, item.naam)} className="p-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100"><Icon path={Icons.Trash2} size={16}/></button>
                                                                 </div>
                                                             </li>
                                                         );
@@ -533,17 +549,17 @@ function App() {
                 
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 2.5</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 2.6</h4>
                         <ul className="space-y-2">
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Kleuren (versheid) werken weer correct.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Eigen eenheden beheren via Instellingen.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Nieuwe, snellere emoji kiezer.</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Kleuren (versheid) werken weer op álle items.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Automatische waarschuwing bij items over datum.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Scanner verwijderd en emoji picker verbeterd.</span></li>
                         </ul>
                     </div>
                     <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 2.4</h4>
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 2.5</h4>
                         <ul className="space-y-2 text-sm text-gray-500">
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Wissel Account voor admins hersteld.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Eigen eenheden beheren via Instellingen.</span></li>
                         </ul>
                     </div>
                 </div>
