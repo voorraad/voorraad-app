@@ -260,6 +260,16 @@ function formatDatum(timestamp) {
     return timestamp.toDate().toLocaleDateString('nl-BE');
 }
 
+// Helper om datum correct naar input value (YYYY-MM-DD) te zetten zonder UTC verschuiving
+function toInputDate(timestamp) {
+    if (!timestamp) return '';
+    const d = timestamp.toDate();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 // Emoji mapping per categorie (Uitgebreid voor Voorraad)
 function getEmojiForCategory(categorie) {
     const emojis = {
@@ -927,8 +937,9 @@ vriezerLijstenContainer.addEventListener('click', (e) => {
         editEmoji.value = item.emoji || getEmojiForCategory(item.categorie || 'Geen');
         updateLadeDropdown(item.vriezerId, editSchuif, false); editSchuif.value = item.ladeId;
         
-        editDatum.value = item.ingevrorenOp ? item.ingevrorenOp.toDate().toISOString().split('T')[0] : '';
-        editHoudbaarheid.value = item.houdbaarheidsDatum ? item.houdbaarheidsDatum.toDate().toISOString().split('T')[0] : '';
+        // CORRIGEERDE DATUM LOGICA BIJ BEWERKEN (GEEN -1 DAG)
+        editDatum.value = toInputDate(item.ingevrorenOp);
+        editHoudbaarheid.value = toInputDate(item.houdbaarheidsDatum);
         
         showModal(editModal);
     }
