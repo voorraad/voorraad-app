@@ -19,21 +19,9 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '3.2'; 
+const APP_VERSION = '3.3'; 
 const STANDAARD_CATEGORIEEN = ["Geen", "Vlees", "Vis", "Groenten", "Fruit", "Brood", "IJs", "Restjes", "Saus", "Friet", "Pizza", "Ander"];
 const BASIS_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
-
-// Simpele Emoji lijst
-const POPULAIRE_EMOJIS = [
-    "🥩", "🍗", "🍖", "🥓", "🍔", "🍟", "🍕", "🌭", "🥪", "🌮", 
-    "🥗", "🥦", "🌽", "🥕", "🍅", "🍆", "🥔", "🥒", "🍄", "🥜", 
-    "🍞", "🥐", "🥖", "🥨", "🥞", "🧇", "🧀", "🥚", "🧈", 
-    "🐟", "🐠", "🐡", "🦐", "🦞", "🦀", "🦑", "🐙", "🍣", 
-    "🍦", "🍧", "🍨", "🍩", "🍪", "🎂", "🍰", "🧁", "🥧", "🍫", 
-    "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🍒", "🍑", 
-    "🥛", "☕", "🍵", "🧃", "🥤", "🍺", "🍷", "🥃", "🧊", "🥄", 
-    "🥡", "🥫", "🧂", "🧊", "❄️", "🧊", "🏷️", "📦", "🛒", "🛍️"
-];
 
 // --- 3. ICOON COMPONENTEN (SVG) ---
 const Icon = ({ path, size = 20, className = "" }) => (
@@ -128,16 +116,18 @@ const Badge = ({ type, text }) => {
     );
 };
 
-const EmojiGrid = ({ onSelect }) => {
-    return (
-        <div className="grid grid-cols-8 gap-2 p-2">
-            {POPULAIRE_EMOJIS.map(emoji => (
-                <button key={emoji} onClick={() => onSelect(emoji)} className="text-2xl hover:bg-gray-100 p-1 rounded transition-colors text-center w-full h-10 flex items-center justify-center">
-                    {emoji}
-                </button>
-            ))}
-        </div>
-    );
+// Emoji Picker Component (Native web component wrapper)
+const EmojiPicker = ({ onSelect }) => {
+    const ref = useRef(null);
+    useEffect(() => {
+        const el = ref.current;
+        if(el) {
+            const handleEmoji = (e) => onSelect(e.detail.unicode);
+            el.addEventListener('emoji-click', handleEmoji);
+            return () => el.removeEventListener('emoji-click', handleEmoji);
+        }
+    }, [onSelect]);
+    return <emoji-picker ref={ref} class="light" style={{width: '100%'}}></emoji-picker>;
 };
 
 // --- 6. APP ---
@@ -426,7 +416,7 @@ function App() {
                                                         const colorClass = getStatusColor(dagen);
                                                         
                                                         return (
-                                                            <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass}`}>
+                                                            <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass} border-b border-gray-100 last:border-b-0`}>
                                                                 <div className="flex items-center gap-3 overflow-hidden">
                                                                     <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
                                                                     <div className="min-w-0">
@@ -508,7 +498,7 @@ function App() {
 
             {/* Emoji Modal */}
             <Modal isOpen={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} title="Kies Emoji">
-                <EmojiGrid onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
+                <EmojiPicker onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
             </Modal>
 
             {/* Beheer Modal */}
