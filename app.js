@@ -498,6 +498,7 @@ async function checkAdminStatusAndAutoSwitch(uid) {
     } else { 
         adminSwitchSection.style.display = 'none'; 
         userSwitchSection.style.display = 'block'; 
+        switchAccountKnop.style.display = 'none'; // ALTIJD verbergen voor niet-admins
         startAcceptedSharesListener(); 
         
         // 2. AUTO-SWITCH CHECK (Alleen voor niet-admins)
@@ -511,9 +512,6 @@ async function checkAdminStatusAndAutoSwitch(uid) {
                 const share = shares.docs[0].data();
                 console.log("Auto-switching naar gedeeld account:", share.ownerEmail);
                 schakelBeheer(share.ownerId, share.ownerEmail);
-                
-                // Optioneel: verberg wissel knop niet volledig, want misschien willen ze later terug.
-                // Maar we switchen wel direct.
             }
         }
     }
@@ -611,7 +609,7 @@ function startAcceptedSharesListener() {
         alleAcceptedShares = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         userSharedLijst.innerHTML = '';
         if (alleAcceptedShares.length > 0) {
-            if (!isAdmin) switchAccountKnop.style.display = 'inline-flex';
+            // Check verwijderd: Knop wordt nu enkel nog door checkAdminStatusAndAutoSwitch() beheerd
             alleAcceptedShares.forEach(share => {
                 const li = document.createElement('li');
                 li.dataset.id = share.ownerId; li.dataset.email = share.ownerEmail;
@@ -620,7 +618,7 @@ function startAcceptedSharesListener() {
                 userSharedLijst.appendChild(li);
             });
         } else {
-            if (!isAdmin) switchAccountKnop.style.display = 'none';
+            // Ook hier niet nodig om te verbergen, staat standaard verborgen
             userSharedLijst.innerHTML = '<li><i>Niemand deelt met jou.</i></li>';
         }
     });
