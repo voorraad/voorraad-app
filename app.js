@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '2.7'; 
+const APP_VERSION = '2.8'; 
 const STANDAARD_CATEGORIEEN = ["Geen", "Vlees", "Vis", "Groenten", "Fruit", "Brood", "IJs", "Restjes", "Saus", "Friet", "Pizza", "Ander"];
 const BASIS_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
 
@@ -120,7 +120,7 @@ const Badge = ({ type, text }) => {
         patch: "bg-green-100 text-green-700",
         major: "bg-purple-100 text-purple-700",
         alert: "bg-red-100 text-red-700",
-        category: "bg-gray-200 text-gray-700" // Nieuwe stijl voor categorie badge
+        category: "bg-gray-200 text-gray-700" 
     };
     return (
         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colors[type] || colors.minor}`}>
@@ -568,17 +568,16 @@ function App() {
                 
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 2.7</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 2.8</h4>
                         <ul className="space-y-2">
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Categorie badges toegevoegd bij producten.</span></li>
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>THT datum blijft leeg indien niet ingevuld bij bewerken.</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Kleurcodering (versheid) toegepast op alle producten.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Automatische waarschuwing bij start als producten over datum zijn.</span></li>
                         </ul>
                     </div>
                     <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 2.6</h4>
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 2.7</h4>
                         <ul className="space-y-2 text-sm text-gray-500">
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Kleuren (versheid) werken weer op álle items.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Automatische waarschuwing bij items over datum.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Categorie badges toegevoegd.</span></li>
                         </ul>
                     </div>
                 </div>
