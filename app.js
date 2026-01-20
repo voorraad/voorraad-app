@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '4.3'; 
+const APP_VERSION = '4.4'; 
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -113,11 +113,6 @@ const toInputDate = (timestamp) => {
     return localDate.toISOString().split('T')[0];
 };
 
-const getEmojiForCategory = (cat) => {
-    const emojis = { "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", "Brood": "🍞", "IJs": "🍦", "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" };
-    return emojis[cat] || "📦";
-};
-
 const getStatusColor = (dagen) => {
     if (dagen > 180) return 'border-l-4 border-red-500'; 
     if (dagen > 90) return 'border-l-4 border-yellow-400';
@@ -146,8 +141,8 @@ const Badge = ({ type, text }) => {
         patch: "bg-green-100 text-green-700",
         major: "bg-purple-100 text-purple-700",
         alert: "bg-red-100 text-red-700",
-        category: "bg-gray-200 text-gray-700" 
     };
+    // Als type een kleurcode is uit BADGE_COLORS
     const colorClass = BADGE_COLORS[type] || colors[type] || "bg-gray-200 text-gray-700";
 
     return (
@@ -181,8 +176,8 @@ function App() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [usersList, setUsersList] = useState([]);
     
-    // User Settings
-    const [hiddenTabs, setHiddenTabs] = useState([]);
+    // User Settings (Tabs verbergen)
+    const [hiddenTabs, setHiddenTabs] = useState([]); // Array van strings bijv. ['voorraad']
     
     // Data
     const [activeTab, setActiveTab] = useState('vriezer');
@@ -584,7 +579,7 @@ function App() {
             </header>
 
             {/* Main Content */}
-            <main className="max-w-3xl mx-auto p-4 space-y-6">
+            <main className="max-w-7xl mx-auto p-4 space-y-6"> {/* max-width vergroot voor grid weergave */}
                 {/* Tools */}
                 <div className="flex flex-col gap-4 print:hidden">
                     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
@@ -600,8 +595,8 @@ function App() {
                     </div>
                 </div>
 
-                {/* Lijsten */}
-                <div className="space-y-8">
+                {/* Lijsten Grid Container */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
                     {filteredLocaties.map(vriezer => (
                         <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
                             <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">{vriezer.naam}</h2>
@@ -847,17 +842,16 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.3</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.4</h4>
                         <ul className="space-y-2">
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Correcte configuratie voor standaard categorieën.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Verbeterde foutafhandeling voor React rendering.</span></li>
+                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Lijsten kunnen nu naast elkaar getoond worden (max 3).</span></li>
                         </ul>
                     </div>
                     <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 4.2</h4>
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 4.3</h4>
                         <ul className="space-y-2 text-sm text-gray-500">
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Categorieën volledig bewerkbaar (naam + kleur).</span></li>
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Oude categorieën worden nu correct geladen.</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Correcte configuratie voor standaard categorieën.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Verbeterde foutafhandeling voor React rendering.</span></li>
                         </ul>
                     </div>
                 </div>
