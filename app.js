@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '4.6'; 
+const APP_VERSION = '4.7'; 
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -30,7 +30,8 @@ const BADGE_COLORS = {
     blue: "bg-blue-100 text-blue-800",
     indigo: "bg-indigo-100 text-indigo-800",
     purple: "bg-purple-100 text-purple-800",
-    pink: "bg-pink-100 text-pink-800"
+    pink: "bg-pink-100 text-pink-800",
+    orange: "bg-orange-100 text-orange-800"
 };
 
 // Zorg dat deze array objecten bevat met name en color!
@@ -52,7 +53,7 @@ const BASIS_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje
 
 const POPULAIRE_EMOJIS = [
     "🥩", "🍗", "🍖", "🥓", "🍔", "🍟", "🍕", "🌭", "🥪", "🌮", 
-    "🥗", "🥦", "🌽", "🥕", "🍅", "🍆", "🥔", "🥒", "🍄", "🥜", "🫑", "🥬",
+    "🥗", "🥦", "🌽", "🥕", "🍅", "🍆", "🥔", "🥒", "🍄", "🥜", 
     "🍞", "🥐", "🥖", "🥨", "🥞", "🧇", "🧀", "🥚", "🧈", 
     "🐟", "🐠", "🐡", "🦐", "🦞", "🦀", "🦑", "🐙", "🍣", 
     "🍦", "🍧", "🍨", "🍩", "🍪", "🎂", "🍰", "🧁", "🥧", "🍫", 
@@ -113,12 +114,16 @@ const toInputDate = (timestamp) => {
     return localDate.toISOString().split('T')[0];
 };
 
-const getEmojiForCategory = (cat) => {
+const getEmojiForCategory = (catName) => {
+    // Probeer categorie object te vinden in standaard lijst, anders fallback
+    // We kunnen hier ook de custom lijst gebruiken als we die hebben
+    // Voor nu een simpele map voor de meest voorkomende
     const emojis = { "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", "Brood": "🍞", "IJs": "🍦", "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" };
-    return emojis[cat] || "📦";
+    return emojis[catName] || "📦";
 };
 
 const getStatusColor = (dagen) => {
+    // Alleen border, geen background meer zoals gevraagd
     if (dagen > 180) return 'border-l-4 border-red-500'; 
     if (dagen > 90) return 'border-l-4 border-yellow-400';
     return 'border-l-4 border-green-400';
@@ -141,15 +146,20 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 };
 
 const Badge = ({ type, text }) => {
-    const colors = {
-        minor: "bg-blue-100 text-blue-700",
-        patch: "bg-green-100 text-green-700",
-        major: "bg-purple-100 text-purple-700",
-        alert: "bg-red-100 text-red-700",
-        category: "bg-gray-200 text-gray-700" 
-    };
+    // Zoek de kleur class op in BADGE_COLORS of gebruik de string als het een geldige key is
+    // Anders checken of het een status is (minor, patch, etc)
+    let colorClass = BADGE_COLORS[type];
+    
+    if (!colorClass) {
+        if (type === 'minor') colorClass = "bg-blue-100 text-blue-700";
+        else if (type === 'patch') colorClass = "bg-green-100 text-green-700";
+        else if (type === 'major') colorClass = "bg-purple-100 text-purple-700";
+        else if (type === 'alert') colorClass = "bg-red-100 text-red-700";
+        else colorClass = "bg-gray-100 text-gray-700"; // Fallback
+    }
+
     return (
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colors[type] || colors.minor}`}>
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colorClass}`}>
             {text}
         </span>
     );
@@ -907,5 +917,3 @@ function App() {
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
-
-
