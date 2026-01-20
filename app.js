@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '4.2'; 
+const APP_VERSION = '4.3'; 
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -33,8 +33,8 @@ const BADGE_COLORS = {
     pink: "bg-pink-100 text-pink-800"
 };
 
-// Initiele lijst (wordt gekopieerd naar user profile indien leeg)
-const INITIAL_CATEGORIEEN = [
+// Zorg dat deze array objecten bevat met name en color!
+const STANDAARD_CATEGORIEEN = [
     { name: "Vlees", color: "red" },
     { name: "Vis", color: "blue" },
     { name: "Groenten", color: "green" },
@@ -50,7 +50,6 @@ const INITIAL_CATEGORIEEN = [
 
 const BASIS_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
 
-// Simpele Emoji lijst
 const POPULAIRE_EMOJIS = [
     "🥩", "🍗", "🍖", "🥓", "🍔", "🍟", "🍕", "🌭", "🥪", "🌮", 
     "🥗", "🥦", "🌽", "🥕", "🍅", "🍆", "🥔", "🥒", "🍄", "🥜", 
@@ -147,8 +146,8 @@ const Badge = ({ type, text }) => {
         patch: "bg-green-100 text-green-700",
         major: "bg-purple-100 text-purple-700",
         alert: "bg-red-100 text-red-700",
+        category: "bg-gray-200 text-gray-700" 
     };
-    // Als type een kleurcode is uit BADGE_COLORS
     const colorClass = BADGE_COLORS[type] || colors[type] || "bg-gray-200 text-gray-700";
 
     return (
@@ -182,8 +181,8 @@ function App() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [usersList, setUsersList] = useState([]);
     
-    // User Settings (Tabs verbergen)
-    const [hiddenTabs, setHiddenTabs] = useState([]); // Array van strings bijv. ['voorraad']
+    // User Settings
+    const [hiddenTabs, setHiddenTabs] = useState([]);
     
     // Data
     const [activeTab, setActiveTab] = useState('vriezer');
@@ -230,7 +229,7 @@ function App() {
     // Edit States voor Categorieën
     const [newCatName, setNewCatName] = useState('');
     const [newCatColor, setNewCatColor] = useState('gray');
-    const [editingCatName, setEditingCatName] = useState(null); // Oude naam
+    const [editingCatName, setEditingCatName] = useState(null);
     const [editCatInputName, setEditCatInputName] = useState('');
     const [editCatInputColor, setEditCatInputColor] = useState('gray');
 
@@ -272,7 +271,7 @@ function App() {
         return () => unsubscribe();
     }, []);
 
-    // Sync Data (User specifiek)
+    // Sync Data
     useEffect(() => {
         if(!beheerdeUserId) return;
         const unsub = db.collection('users').doc(beheerdeUserId).onSnapshot(doc => {
@@ -325,12 +324,13 @@ function App() {
 
     // Derived
     const alleEenheden = [...BASIS_EENHEDEN, ...customUnits].sort();
-    // Gebruik customCategories als die geladen zijn, anders fallback
     const actieveCategorieen = customCategories.length > 0 ? customCategories : STANDAARD_CATEGORIEEN;
     
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
     const alerts = items.filter(i => getDagenOud(i.ingevrorenOp) > 180);
-    const formLades = formData.vriezerId ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam)) : [];
+    const formLades = formData.vriezerId 
+        ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
+        : [];
 
     // --- HANDLERS ---
     const handleGoogleLogin = async () => { 
@@ -366,7 +366,6 @@ function App() {
             userId: beheerdeUserId,
             emoji: formData.emoji || getEmojiForCategory(formData.categorie)
         };
-
         try {
             if(editingItem) {
                 await db.collection('items').doc(editingItem.id).update(data);
@@ -453,7 +452,6 @@ function App() {
         setEditingUnitName(null);
     };
 
-    // Categorie CRUD & Edit
     const handleAddCat = async (e) => {
         e.preventDefault();
         if(newCatName.trim()) {
@@ -475,11 +473,9 @@ function App() {
     };
     const saveCat = async () => {
         if(!editCatInputName.trim()) return;
-        // 1. Update in lijst
         const updated = customCategories.map(c => c.name === editingCatName ? {name: editCatInputName, color: editCatInputColor} : c);
         await db.collection('users').doc(beheerdeUserId).set({customCategories: updated}, {merge:true});
 
-        // 2. Update items (batch) die oude naam hadden
         if(editingCatName !== editCatInputName) {
             const batch = db.batch();
             const itemsWithCat = items.filter(i => i.categorie === editingCatName);
@@ -495,7 +491,7 @@ function App() {
     const handleShare = async (e) => {
         e.preventDefault();
         await db.collection('shares').add({ 
-            ownerId: eigenUserId, ownerEmail: user.email, sharedWithEmail: shareEmail, role: 'editor', status: 'pending' 
+            ownerId: user.uid, ownerEmail: user.email, sharedWithEmail: shareEmail, role: 'editor', status: 'pending' 
         });
         alert("Uitnodiging verstuurd!");
         setShareEmail('');
@@ -851,16 +847,17 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.2</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.3</h4>
                         <ul className="space-y-2">
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Categorieën volledig bewerkbaar (naam + kleur).</span></li>
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Oude categorieën worden nu correct geladen.</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Correcte configuratie voor standaard categorieën.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Verbeterde foutafhandeling voor React rendering.</span></li>
                         </ul>
                     </div>
                     <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 4.1</h4>
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 4.2</h4>
                         <ul className="space-y-2 text-sm text-gray-500">
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Admin: Verberg 'Voorraad' tab.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Categorieën volledig bewerkbaar (naam + kleur).</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Oude categorieën worden nu correct geladen.</span></li>
                         </ul>
                     </div>
                 </div>
