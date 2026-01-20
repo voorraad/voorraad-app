@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '3.5'; // Versie omhoog
+const APP_VERSION = '3.6'; 
 const STANDAARD_CATEGORIEEN = ["Geen", "Vlees", "Vis", "Groenten", "Fruit", "Brood", "IJs", "Restjes", "Saus", "Friet", "Pizza", "Ander"];
 const BASIS_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
 
@@ -58,7 +58,8 @@ const Icons = {
     Settings: <g><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g>,
     ChevronDown: <path d="m6 9 6 6 6-6"/>,
     ChevronRight: <path d="m9 18 6-6-6-6"/>,
-    Scan: <g><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="8" height="8" x="8" y="8" rx="1"/></g>
+    Scan: <g><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="8" height="8" x="8" y="8" rx="1"/></g>,
+    User: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -166,12 +167,13 @@ function App() {
     const [editingItem, setEditingItem] = useState(null);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     
-    // Modals
+    // Modals & Menu
     const [showAddModal, setShowAddModal] = useState(false);
     const [showWhatsNew, setShowWhatsNew] = useState(false);
     const [showSwitchAccount, setShowSwitchAccount] = useState(false);
     const [showBeheerModal, setShowBeheerModal] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showProfileMenu, setShowProfileMenu] = useState(false); // Nieuw
     const [beheerTab, setBeheerTab] = useState('locaties');
 
     // Form
@@ -280,9 +282,8 @@ function App() {
     };
 
     const handleLogout = () => {
-        if(confirm("Weet je zeker dat je wilt uitloggen?")) {
-            auth.signOut();
-        }
+        auth.signOut();
+        setShowProfileMenu(false);
     };
     
     // Bij openen add modal
@@ -388,7 +389,7 @@ function App() {
                 <h1 className="text-2xl font-bold text-blue-600 mb-4">Mijn Voorraad</h1>
                 <p className="text-gray-500 mb-6">Log in om je vriezer te beheren.</p>
                 <button onClick={handleGoogleLogin} className="w-full bg-white border border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 transition flex items-center justify-center gap-2 mb-3">
-                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24"><g><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></g></svg>
                     Inloggen met Google
                 </button>
             </div>
@@ -401,11 +402,28 @@ function App() {
             <header className="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-200">
                 <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
                     <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">Mijn Voorraad</h1>
-                    <div className="flex gap-2">
-                        <button onClick={() => { setSelectedLocatieForBeheer(null); setBeheerdeUserId(beheerdeUserId); setShowBeheerModal(true); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100"><Icon path={Icons.Settings}/></button>
-                        {isAdmin && <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600"><Icon path={Icons.Users}/></button>}
-                        <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 border relative"><Icon path={Icons.Info}/>{alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}</button>
-                        <button onClick={handleLogout} className="w-10 h-10 flex items-center justify-center rounded-full bg-red-50 text-red-600"><Icon path={Icons.LogOut}/></button>
+                    <div className="flex gap-2 relative">
+                        <button onClick={() => { setSelectedLocatieForBeheer(null); setBeheerdeUserId(beheerdeUserId); setShowBeheerModal(true); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"><Icon path={Icons.Settings}/></button>
+                        {isAdmin && <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors"><Icon path={Icons.Users}/></button>}
+                        <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 border relative hover:bg-gray-50 transition-colors"><Icon path={Icons.Info}/>{alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}</button>
+                        
+                        {/* Profiel Knop met Popover */}
+                        <div className="relative">
+                            <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 hover:border-blue-500 transition-colors">
+                                {user.photoURL ? <img src={user.photoURL} alt="Profiel" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500"><Icon path={Icons.Users} size={20}/></div>}
+                            </button>
+                            {showProfileMenu && (
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="px-4 py-3 border-b border-gray-50">
+                                        <p className="text-sm font-medium text-gray-900 truncate">{user.displayName || 'Gebruiker'}</p>
+                                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                                    </div>
+                                    <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                        <Icon path={Icons.LogOut} size={16}/> Uitloggen
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
                 <div className="max-w-3xl mx-auto px-4 flex space-x-6 border-b border-gray-100">
@@ -450,14 +468,14 @@ function App() {
                                                 </h3>
                                             </div>
                                             {!isCollapsed && (
-                                                <ul className="block"> 
+                                                <ul className="space-y-2 p-2"> 
                                                     {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
                                                     ladeItems.map(item => {
                                                         const dagen = getDagenOud(item.ingevrorenOp);
                                                         const colorClass = getStatusColor(dagen);
                                                         
                                                         return (
-                                                            <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass} border-b border-gray-100 last:border-b-0`}>
+                                                            <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass} shadow-sm rounded-md`}>
                                                                 <div className="flex items-center gap-3 overflow-hidden">
                                                                     <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
                                                                     <div className="min-w-0">
@@ -591,18 +609,16 @@ function App() {
                 
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 3.5</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 3.6</h4>
                         <ul className="space-y-2">
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Google Inloggen toegevoegd.</span></li>
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Onderrand verwijderd bij items voor schoner uiterlijk.</span></li>
-                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Linkerrand toont nu duidelijk de status.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Google Profielfoto & Uitlogmenu toegevoegd.</span></li>
+                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Witte lijnen verwijderd, kleurcodering verbeterd.</span></li>
                         </ul>
                     </div>
                     <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 3.3</h4>
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 3.5</h4>
                         <ul className="space-y-2 text-sm text-gray-500">
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Lijntjes tussen producten verwijderd (schoner design).</span></li>
-                            <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Emoji kiezer werkt nu met standaard knoppen.</span></li>
+                            <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Google Inloggen toegevoegd.</span></li>
                         </ul>
                     </div>
                 </div>
