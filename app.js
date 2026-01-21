@@ -896,7 +896,7 @@ function App() {
                                     checked={(u.hiddenTabs || []).includes('voorraad')} 
                                     onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs)}
                                 />
-                                <span>Verberg 'Voorraad' tabblad</span>
+                                <span>Verberg 'Stock.' tabblad</span>
                             </div>
                         </li>
                     ))}
