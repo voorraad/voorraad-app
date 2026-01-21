@@ -34,6 +34,19 @@ const BADGE_COLORS = {
     orange: "bg-orange-100 text-orange-800 border-orange-200"
 };
 
+// Gradient definities voor titels (nu globaal beschikbaar)
+const GRADIENTS = {
+    blue: "from-blue-600 to-cyan-500",
+    purple: "from-purple-600 to-indigo-500",
+    pink: "from-pink-500 to-rose-500",
+    orange: "from-orange-500 to-yellow-500",
+    green: "from-emerald-600 to-teal-500",
+    red: "from-red-600 to-orange-600",
+    gray: "from-gray-700 to-gray-500",
+    teal: "from-teal-600 to-emerald-400",
+    indigo: "from-indigo-600 to-blue-500"
+};
+
 // Zorg dat deze array objecten bevat met name en color!
 const STANDAARD_CATEGORIEEN = [
     { name: "Vlees", color: "red" },
@@ -158,18 +171,7 @@ const getDateTextColor = (dagen) => {
 const Modal = ({ isOpen, onClose, title, children, color = "blue" }) => {
     if (!isOpen) return null;
     
-    // Gradient map voor diverse titels
-    const gradients = {
-        blue: "from-blue-600 to-cyan-500",
-        purple: "from-purple-600 to-indigo-500",
-        pink: "from-pink-500 to-rose-500",
-        orange: "from-orange-500 to-yellow-500",
-        green: "from-emerald-600 to-teal-500",
-        red: "from-red-600 to-orange-600",
-        gray: "from-gray-700 to-gray-500"
-    };
-    
-    const gradientClass = gradients[color] || gradients.blue;
+    const gradientClass = GRADIENTS[color] || GRADIENTS.blue;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden" onClick={onClose}>
@@ -683,66 +685,74 @@ function App() {
 
                 {/* Lijsten Grid Container */}
                 <div className={`grid gap-6 items-start ${gridClass}`}>
-                    {filteredLocaties.map(vriezer => (
-                        <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
-                            <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">{vriezer.naam}</h2>
-                            <div className="space-y-4">
-                                {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(lade => {
-                                    const ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
-                                    if (ladeItems.length === 0 && search) return null;
-                                    const isCollapsed = collapsedLades.has(lade.id) && !search;
-                                    
-                                    return (
-                                        <div key={lade.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden page-break-inside-avoid">
-                                            <div className="bg-gray-50/50 px-4 py-3 border-b border-gray-100 flex justify-between items-center cursor-pointer hover:bg-gray-100 print:bg-white" onClick={() => toggleLade(lade.id)}>
-                                                <h3 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
-                                                    {isCollapsed ? <Icon path={Icons.ChevronRight} className="print:hidden"/> : <Icon path={Icons.ChevronDown} className="print:hidden"/>} 
-                                                    {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
-                                                </h3>
-                                            </div>
-                                            {!isCollapsed && (
-                                                <ul className="block"> 
-                                                    {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
-                                                    ladeItems.map(item => {
-                                                        const dagen = getDagenOud(item.ingevrorenOp);
-                                                        const colorClass = getStatusColor(dagen);
-                                                        const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
-                                                        const catColor = catObj ? (catObj.color || 'gray') : 'gray';
-                                                        const dateColorClass = getDateTextColor(dagen);
+                    {filteredLocaties.map(vriezer => {
+                        // Bepaal een consistente gradient op basis van de ID
+                        const gradientKeys = Object.keys(GRADIENTS);
+                        let hash = 0;
+                        for (let i = 0; i < vriezer.id.length; i++) hash = (hash << 5) - hash + vriezer.id.charCodeAt(i);
+                        const gradientClass = GRADIENTS[gradientKeys[Math.abs(hash) % gradientKeys.length]];
 
-                                                        return (
-                                                            <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass} last:border-b-0`}>
-                                                                <div className="flex items-center gap-3 overflow-hidden">
-                                                                    <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
-                                                                    <div className="min-w-0">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <p className="font-medium text-gray-900 truncate">{item.naam}</p>
-                                                                            {item.categorie && item.categorie !== "Geen" && (
-                                                                                <Badge type={catColor} text={item.categorie} />
-                                                                            )}
+                        return (
+                            <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
+                                <h2 className={`text-lg font-bold mb-3 flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{vriezer.naam}</h2>
+                                <div className="space-y-4">
+                                    {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(lade => {
+                                        const ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
+                                        if (ladeItems.length === 0 && search) return null;
+                                        const isCollapsed = collapsedLades.has(lade.id) && !search;
+                                        
+                                        return (
+                                            <div key={lade.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden page-break-inside-avoid">
+                                                <div className="bg-gray-50/50 px-4 py-3 border-b border-gray-100 flex justify-between items-center cursor-pointer hover:bg-gray-100 print:bg-white" onClick={() => toggleLade(lade.id)}>
+                                                    <h3 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
+                                                        {isCollapsed ? <Icon path={Icons.ChevronRight} className="print:hidden"/> : <Icon path={Icons.ChevronDown} className="print:hidden"/>} 
+                                                        {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
+                                                    </h3>
+                                                </div>
+                                                {!isCollapsed && (
+                                                    <ul className="block"> 
+                                                        {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
+                                                        ladeItems.map(item => {
+                                                            const dagen = getDagenOud(item.ingevrorenOp);
+                                                            const colorClass = getStatusColor(dagen);
+                                                            const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
+                                                            const catColor = catObj ? (catObj.color || 'gray') : 'gray';
+                                                            const dateColorClass = getDateTextColor(dagen);
+
+                                                            return (
+                                                                <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass} last:border-b-0`}>
+                                                                    <div className="flex items-center gap-3 overflow-hidden">
+                                                                        <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
+                                                                        <div className="min-w-0">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <p className="font-medium text-gray-900 truncate">{item.naam}</p>
+                                                                                {item.categorie && item.categorie !== "Geen" && (
+                                                                                    <Badge type={catColor} text={item.categorie} />
+                                                                                )}
+                                                                            </div>
+                                                                            <p className="text-sm text-gray-700 mt-0.5">
+                                                                                <span className="font-bold">{item.aantal} {item.eenheid}</span>
+                                                                                <span className={`text-xs ml-2 ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>
+                                                                                {item.houdbaarheidsDatum ? <span className="text-xs text-gray-500"> • THT: {formatDate(item.houdbaarheidsDatum)}</span> : ''}
+                                                                            </p>
                                                                         </div>
-                                                                        <p className="text-sm text-gray-700 mt-0.5">
-                                                                            <span className="font-bold">{item.aantal} {item.eenheid}</span>
-                                                                            <span className={`text-xs ml-2 ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>
-                                                                            {item.houdbaarheidsDatum ? <span className="text-xs text-gray-500"> • THT: {formatDate(item.houdbaarheidsDatum)}</span> : ''}
-                                                                        </p>
                                                                     </div>
-                                                                </div>
-                                                                <div className="flex items-center gap-1 flex-shrink-0 print:hidden">
-                                                                    <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 rounded-lg hover:bg-blue-100"><Icon path={Icons.Edit2} size={16}/></button>
-                                                                    <button onClick={()=>handleDelete(item.id, item.naam)} className="p-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100"><Icon path={Icons.Trash2} size={16}/></button>
-                                                                </div>
-                                                            </li>
-                                                        );
-                                                    })}
-                                                </ul>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                                                                    <div className="flex items-center gap-1 flex-shrink-0 print:hidden">
+                                                                        <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 rounded-lg hover:bg-blue-100"><Icon path={Icons.Edit2} size={16}/></button>
+                                                                        <button onClick={()=>handleDelete(item.id, item.naam)} className="p-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100"><Icon path={Icons.Trash2} size={16}/></button>
+                                                                    </div>
+                                                                </li>
+                                                            );
+                                                        })}
+                                                    </ul>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </main>
 
