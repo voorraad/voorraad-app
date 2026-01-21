@@ -149,13 +149,27 @@ const getStatusColor = (dagen) => {
 };
 
 // --- 5. COMPONENTEN ---
-const Modal = ({ isOpen, onClose, title, children }) => {
+const Modal = ({ isOpen, onClose, title, children, color = "blue" }) => {
     if (!isOpen) return null;
+    
+    // Gradient map voor diverse titels
+    const gradients = {
+        blue: "from-blue-600 to-cyan-500",
+        purple: "from-purple-600 to-indigo-500",
+        pink: "from-pink-500 to-rose-500",
+        orange: "from-orange-500 to-yellow-500",
+        green: "from-emerald-600 to-teal-500",
+        red: "from-red-600 to-orange-600",
+        gray: "from-gray-700 to-gray-500"
+    };
+    
+    const gradientClass = gradients[color] || gradients.blue;
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden" onClick={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto modal-animate flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center p-4 border-b border-gray-100 sticky top-0 bg-white z-10">
-                    <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">{title}</h3>
+                    <h3 className={`text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{title}</h3>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><Icon path={Icons.X} className="text-gray-500" /></button>
                 </div>
                 <div className="p-4 space-y-4 flex-grow overflow-y-auto">{children}</div>
@@ -729,7 +743,7 @@ function App() {
             <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 print:hidden"><Icon path={Icons.Plus} size={28}/></button>
 
             {/* Add/Edit Modal */}
-            <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken." : "Toevoegen."}>
+            <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken." : "Toevoegen."} color="blue">
                 <form onSubmit={handleSaveItem} className="space-y-4">
                     <div className="flex gap-2">
                         <button type="button" onClick={() => setShowEmojiPicker(true)} className="w-12 h-12 flex-shrink-0 border rounded-lg flex items-center justify-center text-2xl bg-gray-50">{formData.emoji || '🏷️'}</button>
@@ -780,12 +794,12 @@ function App() {
             </Modal>
 
             {/* Emoji Modal */}
-            <Modal isOpen={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} title="Emoji.">
+            <Modal isOpen={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} title="Emoji." color="orange">
                 <EmojiGrid onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
             </Modal>
 
             {/* Beheer Modal */}
-            <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen.">
+            <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen." color="purple">
                 <div className="flex border-b mb-4">
                     <button onClick={() => setBeheerTab('locaties')} className={`flex-1 py-2 font-medium ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500'}`}>Locaties.</button>
                     <button onClick={() => setBeheerTab('categorieen')} className={`flex-1 py-2 font-medium ${beheerTab==='categorieen'?'text-purple-600 border-b-2 border-purple-600':'text-gray-500'}`}>Categorieën.</button>
@@ -877,7 +891,7 @@ function App() {
             </Modal>
             
             {/* User Management Modal */}
-            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers Beheer">
+            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers Beheer" color="pink">
                 <ul className="divide-y divide-gray-100">
                     {usersList.map(u => (
                         <li key={u.id} className="p-3 flex flex-col gap-2">
@@ -904,7 +918,7 @@ function App() {
             </Modal>
 
             {/* Share Modal */}
-            <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Voorraad Delen">
+            <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Voorraad Delen" color="green">
                 <form onSubmit={handleShare} className="space-y-4">
                     <p className="text-sm text-gray-600">Nodig iemand uit om je voorraad te beheren.</p>
                     <input type="email" className="w-full p-3 border border-gray-300 rounded-lg" placeholder="Email adres" value={shareEmail} onChange={e => setShareEmail(e.target.value)} required />
@@ -913,7 +927,7 @@ function App() {
             </Modal>
 
             {/* Updates Modal */}
-            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen.">
+            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red">
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
@@ -928,7 +942,7 @@ function App() {
             </Modal>
 
             {/* Switch Account Modal (Admin) */}
-            <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel account.">
+            <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel account." color="gray">
                 <ul className="divide-y divide-gray-100">
                     {usersList.map(u => (
                         <li key={u.id} className="p-3 hover:bg-gray-50 cursor-pointer flex justify-between" onClick={() => { setBeheerdeUserId(u.id); setShowSwitchAccount(false); }}>
