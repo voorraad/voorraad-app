@@ -60,6 +60,7 @@ const CATEGORIEEN_VRIES = [
     { name: "Saus", color: "red" },
     { name: "Friet", color: "yellow" },
     { name: "Pizza", color: "orange" },
+    { name: "Soep", color: "orange" },
     { name: "Ander", color: "gray" }
 ];
 const EENHEDEN_VRIES = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak"];
@@ -182,7 +183,7 @@ const getEmojiForCategory = (cat) => {
         "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", "Brood": "🍞", "IJs": "🍦", 
         "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", 
         "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", 
-        "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" 
+        "Soep": "🍲", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" 
     };
     return emojis[cat] || "📦";
 };
