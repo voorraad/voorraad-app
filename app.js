@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '5.3'; 
+const APP_VERSION = '5.4'; 
 
 // Standaard kleuren voor badges (Tailwind classes)
 const BADGE_COLORS = {
@@ -78,7 +78,6 @@ const CATEGORIEEN_VOORRAAD = [
     { name: "Ander", color: "gray" }
 ];
 const EENHEDEN_VOORRAAD = ["stuks", "pak", "fles", "blik", "pot", "liter", "kilo", "gram", "zak", "doos"];
-
 
 // Uitgebreide en gecategoriseerde Emoji lijst
 const EMOJI_CATEGORIES = {
@@ -313,7 +312,11 @@ function App() {
     const [items, setItems] = useState([]);
     const [vriezers, setVriezers] = useState([]);
     const [lades, setLades] = useState([]);
-    const [customUnits, setCustomUnits] = useState([]);
+    
+    // Gescheiden Custom Units
+    const [customUnitsVries, setCustomUnitsVries] = useState([]);
+    const [customUnitsVoorraad, setCustomUnitsVoorraad] = useState([]);
+    
     const [customCategories, setCustomCategories] = useState([]);
 
     // UI
@@ -348,6 +351,9 @@ function App() {
     const [newUnitNaam, setNewUnitNaam] = useState('');
     const [shareEmail, setShareEmail] = useState('');
     
+    // Instellingen Filter (voor Eenheden)
+    const [eenheidFilter, setEenheidFilter] = useState('vries'); // 'vries' or 'voorraad'
+
     // Edit States voor Beheer
     const [editingLadeId, setEditingLadeId] = useState(null);
     const [editingLadeName, setEditingLadeName] = useState('');
@@ -371,13 +377,22 @@ function App() {
                 db.collection('users').doc(u.uid).onSnapshot(doc => {
                     if(doc.exists) {
                         const data = doc.data();
-                        setCustomUnits(data.customUnits || []);
+                        
+                        // Migratie logica: oude customUnits verhuizen naar Vriezer als ze nog niet apart bestaan
+                        let vriesUnits = data.customUnitsVries;
+                        if (!vriesUnits && data.customUnits) {
+                            vriesUnits = data.customUnits;
+                        }
+                        setCustomUnitsVries(vriesUnits || []);
+                        setCustomUnitsVoorraad(data.customUnitsVoorraad || []);
+                        
                         setCustomCategories(data.customCategories || []);
                         setHiddenTabs(data.hiddenTabs || []); 
                     } else {
                         db.collection('users').doc(u.uid).set({
                             customCategories: CATEGORIEEN_VRIES,
-                            customUnits: [],
+                            customUnitsVries: [],
+                            customUnitsVoorraad: [],
                             hiddenTabs: []
                         });
                     }
@@ -404,7 +419,14 @@ function App() {
         const unsub = db.collection('users').doc(beheerdeUserId).onSnapshot(doc => {
             if(doc.exists) {
                 const data = doc.data();
-                setCustomUnits(data.customUnits || []);
+                
+                let vriesUnits = data.customUnitsVries;
+                if (!vriesUnits && data.customUnits) {
+                    vriesUnits = data.customUnits;
+                }
+                setCustomUnitsVries(vriesUnits || []);
+                setCustomUnitsVoorraad(data.customUnitsVoorraad || []);
+
                 setCustomCategories(data.customCategories && data.customCategories.length > 0 ? data.customCategories : CATEGORIEEN_VRIES);
             }
         });
@@ -463,13 +485,11 @@ function App() {
     const contextCategorieen = formLocationType === 'voorraad' ? CATEGORIEEN_VOORRAAD : CATEGORIEEN_VRIES;
     const andereCategorieen = formLocationType === 'voorraad' ? CATEGORIEEN_VRIES : CATEGORIEEN_VOORRAAD;
     
-    // Voeg unieke eenheden samen
-    const alleEenheden = [...new Set([...contextEenheden, ...customUnits])].sort();
+    // Actieve Custom Units voor deze context
+    const activeCustomUnits = formLocationType === 'voorraad' ? customUnitsVoorraad : customUnitsVries;
+    const alleEenheden = [...new Set([...contextEenheden, ...activeCustomUnits])].sort();
 
-    // SLIMMER FILTEREN:
-    // We pakken de standaardlijst voor dit type.
-    // We voegen daar custom categorieën aan toe, MAAR...
-    // We negeren categorieën die in de 'andere' standaardlijst staan (vervuiling uit DB).
+    // SLIMMER FILTEREN voor categorieën
     const actieveCategorieen = [
         ...contextCategorieen, 
         ...customCategories.filter(cc => {
@@ -616,24 +636,41 @@ function App() {
     const handleAddUnit = async (e) => {
         e.preventDefault();
         const naam = newUnitNaam.trim().toLowerCase();
-        if(naam && !alleEenheden.includes(naam)) {
-            const updated = [...customUnits, naam];
-            await db.collection('users').doc(beheerdeUserId).set({customUnits: updated}, {merge:true});
+        
+        // Selecteer juiste lijst obv filter
+        const standardList = eenheidFilter === 'voorraad' ? EENHEDEN_VOORRAAD : EENHEDEN_VRIES;
+        const currentCustom = eenheidFilter === 'voorraad' ? customUnitsVoorraad : customUnitsVries;
+        const dbField = eenheidFilter === 'voorraad' ? 'customUnitsVoorraad' : 'customUnitsVries';
+
+        if(naam && !standardList.includes(naam) && !currentCustom.includes(naam)) {
+            const updated = [...currentCustom, naam];
+            // Gebruik set met merge om zeker te zijn
+            await db.collection('users').doc(beheerdeUserId).set({[dbField]: updated}, {merge:true});
             setNewUnitNaam('');
         }
     };
+
     const handleDeleteUnit = async (unit) => {
         if(confirm(`Verwijder eenheid '${unit}'?`)) {
-            const updated = customUnits.filter(u => u !== unit);
-            await db.collection('users').doc(beheerdeUserId).set({customUnits: updated}, {merge:true});
+            const currentCustom = eenheidFilter === 'voorraad' ? customUnitsVoorraad : customUnitsVries;
+            const dbField = eenheidFilter === 'voorraad' ? 'customUnitsVoorraad' : 'customUnitsVries';
+            
+            const updated = currentCustom.filter(u => u !== unit);
+            await db.collection('users').doc(beheerdeUserId).set({[dbField]: updated}, {merge:true});
         }
     };
+    
     const startEditUnit = (u) => { setEditingUnitName(u); setEditUnitInput(u); };
     const saveUnitName = async () => {
         if(!editUnitInput.trim()) return;
-        const updated = customUnits.map(u => u === editingUnitName ? editUnitInput : u);
-        await db.collection('users').doc(beheerdeUserId).set({customUnits: updated}, {merge:true});
+        const currentCustom = eenheidFilter === 'voorraad' ? customUnitsVoorraad : customUnitsVries;
+        const dbField = eenheidFilter === 'voorraad' ? 'customUnitsVoorraad' : 'customUnitsVries';
+
+        const updated = currentCustom.map(u => u === editingUnitName ? editUnitInput : u);
+        await db.collection('users').doc(beheerdeUserId).set({[dbField]: updated}, {merge:true});
         
+        // Update items (dit is tricky omdat items geen type hebben opgeslagen, maar wel eenheid)
+        // We doen een "best effort" update voor alle items met die eenheid
         const batch = db.batch();
         const itemsWithUnit = items.filter(i => i.eenheid === editingUnitName);
         itemsWithUnit.forEach(item => {
@@ -1019,9 +1056,20 @@ function App() {
                 {beheerTab === 'eenheden' && (
                     <div>
                         <h4 className="font-bold text-gray-700 mb-2">Mijn eenheden</h4>
+                        
+                        {/* Toggle Vries/Stock */}
+                        <div className="flex bg-gray-100 p-1 rounded-lg mb-4">
+                            <button onClick={() => setEenheidFilter('vries')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'vries' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>
+                                Vriezer
+                            </button>
+                            <button onClick={() => setEenheidFilter('voorraad')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'voorraad' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>
+                                Stock
+                            </button>
+                        </div>
+
                         <ul className="space-y-2 mb-3">
-                            {customUnits.length === 0 ? <li className="text-gray-400 italic">Geen eigen eenheden.</li> : 
-                            customUnits.map(u => (
+                            {(eenheidFilter === 'voorraad' ? customUnitsVoorraad : customUnitsVries).length === 0 ? <li className="text-gray-400 italic">Geen eigen eenheden voor {eenheidFilter}.</li> : 
+                            (eenheidFilter === 'voorraad' ? customUnitsVoorraad : customUnitsVries).map(u => (
                                 <li key={u} className="flex justify-between p-2 bg-gray-50 rounded items-center">
                                     {editingUnitName === u ? 
                                         <div className="flex gap-2 w-full"><input className="flex-grow border p-1 rounded" value={editUnitInput} onChange={e=>setEditUnitInput(e.target.value)} /><button onClick={saveUnitName} className="text-green-600"><Icon path={Icons.Check}/></button></div>
@@ -1031,7 +1079,7 @@ function App() {
                                 </li>
                             ))}
                         </ul>
-                        <form onSubmit={handleAddUnit} className="flex gap-2"><input className="flex-grow border p-2 rounded" placeholder="Nieuwe eenheid" value={newUnitNaam} onChange={e=>setNewUnitNaam(e.target.value)} required /><button className="bg-orange-500 text-white px-3 rounded">+</button></form>
+                        <form onSubmit={handleAddUnit} className="flex gap-2"><input className="flex-grow border p-2 rounded" placeholder="Nieuwe eenheid" value={newUnitNaam} onChange={e=>setNewUnitNaam(e.target.value)} required /><button className={`text-white px-3 rounded ${eenheidFilter === 'voorraad' ? 'bg-orange-500' : 'bg-blue-600'}`}>+</button></form>
                     </div>
                 )}
             </Modal>
@@ -1077,11 +1125,11 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.3</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.4</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Slimmere filter voor categorieën (geen vries-items meer bij stock).</span></li>
-                             <li className="flex gap-2"><Badge type="minor" text="Fix" /><span>Database categorieën worden nu correct per type getoond.</span></li>
-                             <li className="flex gap-2"><Badge type="patch" text="New" /><span>Unieke eenhedenlijst zonder dubbele items.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Volledig gescheiden eigen eenheden voor Vriezer en Stock.</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="UI" /><span>Nieuw filter in instellingen om eenheden per type te beheren.</span></li>
+                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Oude eigen eenheden zijn automatisch gemigreerd naar de Vriezer lijst.</span></li>
                         </ul>
                     </div>
                 </div>
