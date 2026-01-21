@@ -858,7 +858,7 @@ function App() {
                 )}
                 {beheerTab === 'eenheden' && (
                     <div>
-                        <h4 className="font-bold text-gray-700 mb-2">Mijn Eenheden</h4>
+                        <h4 className="font-bold text-gray-700 mb-2">Mijn eenheden</h4>
                         <ul className="space-y-2 mb-3">
                             {customUnits.length === 0 ? <li className="text-gray-400 italic">Geen eigen eenheden.</li> : 
                             customUnits.map(u => (
