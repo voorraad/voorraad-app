@@ -148,6 +148,12 @@ const getStatusColor = (dagen) => {
     return 'border-l-4 border-green-400';
 };
 
+const getDateTextColor = (dagen) => {
+    if (dagen > 180) return 'text-red-600 font-bold'; 
+    if (dagen > 90) return 'text-orange-500 font-bold';
+    return 'text-green-600 font-medium';
+};
+
 // --- 5. COMPONENTEN ---
 const Modal = ({ isOpen, onClose, title, children, color = "blue" }) => {
     if (!isOpen) return null;
@@ -702,6 +708,7 @@ function App() {
                                                         const colorClass = getStatusColor(dagen);
                                                         const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
                                                         const catColor = catObj ? (catObj.color || 'gray') : 'gray';
+                                                        const dateColorClass = getDateTextColor(dagen);
 
                                                         return (
                                                             <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass} last:border-b-0`}>
@@ -716,8 +723,8 @@ function App() {
                                                                         </div>
                                                                         <p className="text-sm text-gray-700 mt-0.5">
                                                                             <span className="font-bold">{item.aantal} {item.eenheid}</span>
-                                                                            <span className="text-xs text-gray-500 ml-2"> • {formatDate(item.ingevrorenOp)}
-                                                                            {item.houdbaarheidsDatum ? ` • THT: ${formatDate(item.houdbaarheidsDatum)}` : ''}</span>
+                                                                            <span className={`text-xs ml-2 ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>
+                                                                            {item.houdbaarheidsDatum ? <span className="text-xs text-gray-500"> • THT: {formatDate(item.houdbaarheidsDatum)}</span> : ''}
                                                                         </p>
                                                                     </div>
                                                                 </div>
