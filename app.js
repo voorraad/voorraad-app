@@ -310,9 +310,8 @@ function App() {
     
     // User Settings
     const [hiddenTabs, setHiddenTabs] = useState([]);
-    const [darkMode, setDarkMode] = useState(() => {
-        return localStorage.getItem('theme') === 'dark';
-    });
+    // State voor DarkMode (initieel false)
+    const [darkMode, setDarkMode] = useState(false);
     
     // Data
     const [activeTab, setActiveTab] = useState('vriezer');
@@ -375,16 +374,30 @@ function App() {
     const [editCatInputName, setEditCatInputName] = useState('');
     const [editCatInputColor, setEditCatInputColor] = useState('gray');
 
-    // Effect voor Dark Mode
+    // Effect voor Dark Mode (reageert op state wijziging)
     useEffect(() => {
         if (darkMode) {
             document.documentElement.classList.add('dark');
-            localStorage.setItem('theme', 'dark');
         } else {
             document.documentElement.classList.remove('dark');
-            localStorage.setItem('theme', 'light');
         }
     }, [darkMode]);
+
+    // Functie om Dark Mode te toggelen in Database
+    const toggleDarkMode = async () => {
+        if (!user) return;
+        const newStatus = !darkMode;
+        // Direct lokaal updaten voor snelheid (optimistic UI)
+        setDarkMode(newStatus);
+        
+        try {
+            await db.collection('users').doc(user.uid).set({
+                darkMode: newStatus
+            }, { merge: true });
+        } catch (e) {
+            console.error("Kon dark mode niet opslaan", e);
+        }
+    };
 
     // --- AUTH & SETUP ---
     useEffect(() => {
@@ -393,17 +406,24 @@ function App() {
                 setUser(u);
                 setBeheerdeUserId(u.uid);
                 
-                // Listener op EIGEN user doc voor persoonlijke instellingen (zoals hiddenTabs)
+                // Listener op EIGEN user doc voor persoonlijke instellingen (zoals hiddenTabs & darkMode)
                 db.collection('users').doc(u.uid).onSnapshot(doc => {
                     if(doc.exists) {
                         const data = doc.data();
                         setHiddenTabs(data.hiddenTabs || []); 
+                        
+                        // Checken of darkMode in DB staat, anders false
+                        if (data.darkMode !== undefined) {
+                            setDarkMode(data.darkMode);
+                        }
                     } else {
+                        // Profiel aanmaken als het niet bestaat
                         db.collection('users').doc(u.uid).set({
                             customCategories: CATEGORIEEN_VRIES,
                             customUnitsVries: [],
                             customUnitsVoorraad: [],
-                            hiddenTabs: []
+                            hiddenTabs: [],
+                            darkMode: false
                         });
                     }
                 });
@@ -790,7 +810,7 @@ function App() {
 
     // --- RENDER ---
     if (!user) return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4 transition-colors duration-300">
             <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
                 <h1 className="text-2xl font-bold text-blue-600 mb-4">Voorraad.</h1>
                 <p className="text-gray-500 dark:text-gray-400 mb-6">Log in om je voorraad te beheren.</p>
@@ -834,8 +854,8 @@ function App() {
                                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
                                     </div>
                                     
-                                    {/* Toggle Dark Mode Button */}
-                                    <button onClick={() => setDarkMode(!darkMode)} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
+                                    {/* Toggle Dark Mode Button (Database Linked) */}
+                                    <button onClick={toggleDarkMode} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                                         {darkMode ? (
                                             <>
                                                 <Icon path={Icons.Sun} size={16} /> Licht modus.
