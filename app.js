@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '5.7'; 
+const APP_VERSION = '5.8'; 
 
 // Standaard kleuren voor badges (Tailwind classes)
 const BADGE_COLORS = {
@@ -453,17 +453,32 @@ function App() {
         }
     }, [isAdmin]);
 
+    // Slimmere Alerts Logic
+    const alerts = items.filter(i => {
+        // Zoek locatie om type te bepalen (vriezer vs stock)
+        const loc = vriezers.find(v => v.id === i.vriezerId);
+        const type = loc ? (loc.type || 'vriezer') : 'vriezer';
+
+        if (type === 'voorraad') {
+             // Voorraad: Alert als THT verlopen is (dagenTotTHT < 0)
+             // We kunnen ook <= 0 gebruiken om vandaag mee te rekenen
+             return getDagenTotTHT(i.houdbaarheidsDatum) < 0; 
+        } else {
+             // Vriezer: Alert als ouder dan 6 maanden
+             return getDagenOud(i.ingevrorenOp) > 180;
+        }
+    });
+
     useEffect(() => {
         if (items.length > 0) {
             const lastVersion = localStorage.getItem('app_version');
-            const hasAlerts = items.some(i => getDagenOud(i.ingevrorenOp) > 180);
             
-            if (hasAlerts || lastVersion !== APP_VERSION) {
+            if (alerts.length > 0 || lastVersion !== APP_VERSION) {
                 setShowWhatsNew(true);
                 localStorage.setItem('app_version', APP_VERSION);
             }
         }
-    }, [items]); 
+    }, [items.length, alerts.length]); // Dependencies geupdate
 
     // Derived
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
@@ -472,7 +487,6 @@ function App() {
     // We kijken of de vriezerId van een item voorkomt in de lijst van 'filteredLocaties' (die al gefilterd zijn op activeTab)
     const activeItems = items.filter(i => filteredLocaties.some(l => l.id === i.vriezerId));
 
-    const alerts = items.filter(i => getDagenOud(i.ingevrorenOp) > 180);
     const formLades = formData.vriezerId 
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
         : [];
@@ -1161,13 +1175,36 @@ function App() {
 
             {/* Updates Modal */}
             <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red">
-                {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
+                {alerts.length > 0 && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+                        <h4 className="font-bold text-red-800">Let op!</h4>
+                        <ul>
+                            {alerts.map(i => {
+                                const loc = vriezers.find(v => v.id === i.vriezerId);
+                                const type = loc ? (loc.type || 'vriezer') : 'vriezer';
+                                const isStock = type === 'voorraad';
+                                
+                                return (
+                                    <li key={i.id} className="text-red-700">
+                                        {i.naam} 
+                                        <span className="text-xs ml-1 font-semibold opacity-75">
+                                            {isStock 
+                                                ? `(Verlopen: ${formatDate(i.houdbaarheidsDatum)})` 
+                                                : `(${getDagenOud(i.ingevrorenOp)} dagen oud)`
+                                            }
+                                        </span>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.7</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.8</h4>
                         <ul className="space-y-2">
+                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Stock meldingen nu op basis van THT.</span></li>
                              <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Aanpasbare kleuren voor vriezers en stock.</span></li>
-                             <li className="flex gap-2"><Badge type="minor" text="UI" /><span>Kleurkeuze in instellingen.</span></li>
                         </ul>
                     </div>
                 </div>
