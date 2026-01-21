@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '5.1'; 
+const APP_VERSION = '5.2'; 
 
 // Standaard kleuren voor badges (Tailwind classes)
 const BADGE_COLORS = {
@@ -34,7 +34,6 @@ const BADGE_COLORS = {
     orange: "bg-orange-100 text-orange-800 border-orange-200"
 };
 
-// Gradient definities voor titels (nu globaal beschikbaar)
 const GRADIENTS = {
     blue: "from-blue-600 to-cyan-500",
     purple: "from-purple-600 to-indigo-500",
@@ -47,8 +46,10 @@ const GRADIENTS = {
     indigo: "from-indigo-600 to-blue-500"
 };
 
-// Zorg dat deze array objecten bevat met name en color!
-const STANDAARD_CATEGORIEEN = [
+// --- DATA SETS PER TYPE ---
+
+// Vriezer Specifiek
+const CATEGORIEEN_VRIES = [
     { name: "Vlees", color: "red" },
     { name: "Vis", color: "blue" },
     { name: "Groenten", color: "green" },
@@ -61,8 +62,23 @@ const STANDAARD_CATEGORIEEN = [
     { name: "Pizza", color: "orange" },
     { name: "Ander", color: "gray" }
 ];
+const EENHEDEN_VRIES = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak"];
 
-const BASIS_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
+// Voorraad/Stock Specifiek
+const CATEGORIEEN_VOORRAAD = [
+    { name: "Pasta", color: "yellow" },
+    { name: "Rijst", color: "gray" },
+    { name: "Conserven", color: "red" },
+    { name: "Saus", color: "red" },
+    { name: "Kruiden", color: "green" },
+    { name: "Bakproducten", color: "yellow" },
+    { name: "Snacks", color: "orange" },
+    { name: "Drank", color: "blue" },
+    { name: "Huishoud", color: "gray" },
+    { name: "Ander", color: "gray" }
+];
+const EENHEDEN_VOORRAAD = ["stuks", "pak", "fles", "blik", "pot", "liter", "kilo", "gram", "zak", "doos"];
+
 
 // Uitgebreide en gecategoriseerde Emoji lijst
 const EMOJI_CATEGORIES = {
@@ -93,6 +109,7 @@ const EMOJI_CATEGORIES = {
      "Dieren.": [
         "🐄", "🐂", "🐃", "🐖", "🐏", "🐑", "🐐", "🐓", "🦃", "🦆", "🕊️", "🦢", "🪿", "🦤", "🐤", "🦬", "🐫", "🦘", "🐇", "🐷", "🐮", "🐔", "🐗", "🐴", "🫎", "🦏", "🐊"
     ],
+    "Voorraad basis.": ["🍝", "🍚", "🥫", "🫙", "🥡", "🧂", "🍾", "🥤", "🧃", "☕", "🍪", "🍫", "🥖", "🥞"],
     "Overig.": [
         "❄️", "🧊", "🏷️", "📦", "🛒", "🛍️", "🍽️", "🔪", "🥄", "👩🏼‍🍳", "👨🏼‍🍳", "👍🏼", "👎🏼", "🎆", "🎉", "🎊", "🎃", "🎄", "🎁", "👑"
     ]
@@ -135,6 +152,17 @@ const getDagenOud = (timestamp) => {
     return Math.floor(diff / (1000 * 60 * 60 * 24));
 };
 
+const getDagenTotTHT = (timestamp) => {
+    if (!timestamp) return 999;
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    // Reset uren om puur op datum te vergelijken
+    now.setHours(0,0,0,0);
+    date.setHours(0,0,0,0);
+    const diff = date - now;
+    return Math.ceil(diff / (1000 * 60 * 60 * 24)); // Positief = dagen over, Negatief = verlopen
+};
+
 const formatDate = (timestamp) => {
     if (!timestamp) return '-';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -151,25 +179,43 @@ const toInputDate = (timestamp) => {
 };
 
 const getEmojiForCategory = (cat) => {
-    const emojis = { "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", "Brood": "🍞", "IJs": "🍦", "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" };
+    const emojis = { 
+        "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", "Brood": "🍞", "IJs": "🍦", 
+        "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", 
+        "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", 
+        "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" 
+    };
     return emojis[cat] || "📦";
 };
 
-const getStatusColor = (dagen) => {
-    if (dagen > 180) return 'border-l-4 border-red-500'; 
-    if (dagen > 90) return 'border-l-4 border-yellow-400';
-    return 'border-l-4 border-green-400';
+// Update: Accepteert nu optioneel THT dagen voor stock logica
+const getStatusColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999) => {
+    if (type === 'voorraad') {
+        if (dagenTotTHT < 0) return 'border-l-4 border-red-500 bg-red-50'; // Verlopen
+        if (dagenTotTHT <= 30) return 'border-l-4 border-yellow-400'; // Bijna verlopen
+        return 'border-l-4 border-green-400'; // OK
+    } else {
+        // Vriezer logica (leeftijd)
+        if (dagenOud > 180) return 'border-l-4 border-red-500'; 
+        if (dagenOud > 90) return 'border-l-4 border-yellow-400';
+        return 'border-l-4 border-green-400';
+    }
 };
 
-const getDateTextColor = (dagen) => {
-    if (dagen > 180) return 'text-red-600 font-bold'; 
-    if (dagen > 90) return 'text-orange-500 font-bold';
-    return 'text-green-600 font-medium';
+const getDateTextColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999) => {
+    if (type === 'voorraad') {
+        if (dagenTotTHT < 0) return 'text-red-600 font-bold'; 
+        if (dagenTotTHT <= 30) return 'text-orange-500 font-bold';
+        return 'text-green-600 font-medium';
+    } else {
+        if (dagenOud > 180) return 'text-red-600 font-bold'; 
+        if (dagenOud > 90) return 'text-orange-500 font-bold';
+        return 'text-green-600 font-medium';
+    }
 };
 
 // --- 5. COMPONENTEN ---
 
-// Nieuw Toast component voor notificaties
 const Toast = ({ message, type = "success", onClose }) => {
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -211,16 +257,14 @@ const Modal = ({ isOpen, onClose, title, children, color = "blue" }) => {
 };
 
 const Badge = ({ type, text }) => {
-    // FIX: Gebruik BADGE_COLORS variabele!
     let colorClass = BADGE_COLORS[type];
     
-    // Fallback logica
     if (!colorClass) {
         if (type === 'minor') colorClass = "bg-blue-100 text-blue-700 border-blue-200";
         else if (type === 'patch') colorClass = "bg-green-100 text-green-700 border-green-200";
         else if (type === 'major') colorClass = "bg-purple-100 text-purple-700 border-purple-200";
         else if (type === 'alert') colorClass = "bg-red-100 text-red-700 border-red-200";
-        else colorClass = "bg-gray-200 text-gray-700 border-gray-300"; // Veilige default
+        else colorClass = "bg-gray-200 text-gray-700 border-gray-300"; 
     }
 
     return (
@@ -278,7 +322,7 @@ function App() {
     const [editingItem, setEditingItem] = useState(null);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     
-    // Notifications (Toast) State
+    // Notifications
     const [notification, setNotification] = useState(null);
     
     // Modals & Menu
@@ -331,9 +375,8 @@ function App() {
                         setCustomCategories(data.customCategories || []);
                         setHiddenTabs(data.hiddenTabs || []); 
                     } else {
-                        // Init user doc with defaults if not exists
                         db.collection('users').doc(u.uid).set({
-                            customCategories: STANDAARD_CATEGORIEEN,
+                            customCategories: CATEGORIEEN_VRIES,
                             customUnits: [],
                             hiddenTabs: []
                         });
@@ -362,8 +405,7 @@ function App() {
             if(doc.exists) {
                 const data = doc.data();
                 setCustomUnits(data.customUnits || []);
-                // Zorg dat we altijd iets hebben, fallback naar standaard als db leeg is
-                setCustomCategories(data.customCategories && data.customCategories.length > 0 ? data.customCategories : STANDAARD_CATEGORIEEN);
+                setCustomCategories(data.customCategories && data.customCategories.length > 0 ? data.customCategories : CATEGORIEEN_VRIES);
             }
         });
         return () => unsub();
@@ -407,16 +449,23 @@ function App() {
     }, [items]); 
 
     // Derived
-    const alleEenheden = [...BASIS_EENHEDEN, ...customUnits].sort();
-    const actieveCategorieen = customCategories.length > 0 ? customCategories : STANDAARD_CATEGORIEEN;
-    
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
     const alerts = items.filter(i => getDagenOud(i.ingevrorenOp) > 180);
     const formLades = formData.vriezerId 
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
         : [];
     
-    // Dynamische grid klasse
+    // Bepaal de context (vriezer of stock) van de geselecteerde locatie in het formulier
+    const formLocationType = vriezers.find(v => v.id === formData.vriezerId)?.type || activeTab;
+
+    // Filter eenheden en categorieën op basis van context
+    const contextEenheden = formLocationType === 'voorraad' ? EENHEDEN_VOORRAAD : EENHEDEN_VRIES;
+    const contextCategorieen = formLocationType === 'voorraad' ? CATEGORIEEN_VOORRAAD : CATEGORIEEN_VRIES;
+    
+    const alleEenheden = [...contextEenheden, ...customUnits].sort();
+    // Voeg custom categories samen met standaard context categories
+    const actieveCategorieen = [...contextCategorieen, ...customCategories.filter(cc => !contextCategorieen.find(c => c.name === cc.name))];
+
     const gridClass = (() => {
         const count = filteredLocaties.length;
         if (count === 1) return 'grid-cols-1';
@@ -424,7 +473,6 @@ function App() {
         return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
     })();
 
-    // --- NOTIFICATION HELPER ---
     const showNotification = (msg, type = 'success') => {
         setNotification({ msg, type, id: Date.now() });
     };
@@ -443,16 +491,19 @@ function App() {
     // Item CRUD
     const handleOpenAdd = () => {
         setEditingItem(null);
+        const defaultLoc = filteredLocaties.length > 0 ? filteredLocaties[0].id : '';
+        // Bepaal de standaard categorie obv het tabblad/type
+        const defaultCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
+        
         if (!rememberLocation) {
-            const defaultLoc = filteredLocaties.length > 0 ? filteredLocaties[0].id : '';
             setFormData({
                 naam: '', aantal: 1, eenheid: 'stuks', vriezerId: defaultLoc, ladeId: '', 
-                categorie: 'Vlees', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
+                categorie: defaultCat, ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
             });
         } else {
              setFormData(prev => ({
                 ...prev,
-                naam: '', aantal: 1, categorie: 'Vlees', 
+                naam: '', aantal: 1, categorie: defaultCat, 
                 ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
             }));
         }
@@ -488,7 +539,8 @@ function App() {
                         houdbaarheidsDatum: ''
                     }));
                 } else {
-                    setFormData(prev => ({...prev, naam: '', aantal: 1, emoji: ''})); 
+                    const defaultCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
+                    setFormData(prev => ({...prev, naam: '', aantal: 1, emoji: '', categorie: defaultCat})); 
                 }
                 setShowAddModal(false);
             }
@@ -681,7 +733,6 @@ function App() {
                         {isAdmin && <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors"><Icon path={Icons.Users}/></button>}
                         <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 border relative hover:bg-gray-50 transition-colors"><Icon path={Icons.Info}/>{alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}</button>
                         
-                        {/* Profiel Knop met Popover */}
                         <div className="relative">
                             <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 hover:border-blue-500 transition-colors">
                                 {user.photoURL ? <img src={user.photoURL} alt="Profiel" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500"><Icon path={Icons.User} size={20}/></div>}
@@ -739,7 +790,6 @@ function App() {
                 {/* Lijsten Grid Container */}
                 <div className={`grid gap-6 items-start ${gridClass}`}>
                     {filteredLocaties.map(vriezer => {
-                        // Bepaal een consistente gradient op basis van de ID
                         const gradientKeys = Object.keys(GRADIENTS);
                         let hash = 0;
                         for (let i = 0; i < vriezer.id.length; i++) hash = (hash << 5) - hash + vriezer.id.charCodeAt(i);
@@ -766,11 +816,15 @@ function App() {
                                                     <ul className="block"> 
                                                         {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
                                                         ladeItems.map(item => {
-                                                            const dagen = getDagenOud(item.ingevrorenOp);
-                                                            const colorClass = getStatusColor(dagen);
+                                                            const dagenOud = getDagenOud(item.ingevrorenOp);
+                                                            const dagenTotTHT = getDagenTotTHT(item.houdbaarheidsDatum);
+                                                            const isStockItem = vriezer.type === 'voorraad';
+                                                            
+                                                            const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT);
+                                                            const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT);
+                                                            
                                                             const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
                                                             const catColor = catObj ? (catObj.color || 'gray') : 'gray';
-                                                            const dateColorClass = getDateTextColor(dagen);
 
                                                             return (
                                                                 <li key={item.id} className={`flex items-center justify-between p-3 bg-white ${colorClass} last:border-b-0`}>
@@ -785,8 +839,8 @@ function App() {
                                                                             </div>
                                                                             <p className="text-sm text-gray-700 mt-0.5">
                                                                                 <span className="font-bold">{item.aantal} {item.eenheid}</span>
-                                                                                <span className={`text-xs ml-2 ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>
-                                                                                {item.houdbaarheidsDatum ? <span className="text-xs text-gray-500"> • THT: {formatDate(item.houdbaarheidsDatum)}</span> : ''}
+                                                                                {!isStockItem && <span className={`text-xs ml-2 ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
+                                                                                {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ml-2 ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
                                                                             </p>
                                                                         </div>
                                                                     </div>
@@ -841,11 +895,20 @@ function App() {
                             </select>
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Invriesdatum.</label>
-                        <input type="date" className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
-                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">THT (Optioneel)</label>
-                        <input type="date" className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
+                    <div className="grid grid-cols-1 gap-4">
+                        {/* Conditonele Datum Velden */}
+                        {formLocationType === 'vriezer' && (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Invriesdatum.</label>
+                                <input type="date" className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
+                                <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">THT (Optioneel)</label>
+                                <input type="date" className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
+                            </div>
+                        )}
+                        {formLocationType === 'voorraad' && (
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Houdbaarheidsdatum (THT).</label>
+                            <input type="date" className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} required /></div>
+                        )}
                     </div>
                     <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Categorie.</label>
                     <select className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
@@ -1001,11 +1064,11 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.1</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.2</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Meldingen toegevoegd bij opslaan en verwijderen.</span></li>
-                             <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Inloggen met Google nu direct beschikbaar.</span></li>
-                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Onderrand verwijderd en badges hersteld.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Slim onderscheid tussen Vriezer & Stock.</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Stock items gebruiken nu THT datum (Rood = verlopen).</span></li>
+                             <li className="flex gap-2"><Badge type="patch" text="New" /><span>Aangepaste categorieën en eenheden voor de voorraadkast.</span></li>
                         </ul>
                     </div>
                 </div>
