@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '5.2'; 
+const APP_VERSION = '5.3'; 
 
 // Standaard kleuren voor badges (Tailwind classes)
 const BADGE_COLORS = {
@@ -461,10 +461,23 @@ function App() {
     // Filter eenheden en categorieën op basis van context
     const contextEenheden = formLocationType === 'voorraad' ? EENHEDEN_VOORRAAD : EENHEDEN_VRIES;
     const contextCategorieen = formLocationType === 'voorraad' ? CATEGORIEEN_VOORRAAD : CATEGORIEEN_VRIES;
+    const andereCategorieen = formLocationType === 'voorraad' ? CATEGORIEEN_VRIES : CATEGORIEEN_VOORRAAD;
     
-    const alleEenheden = [...contextEenheden, ...customUnits].sort();
-    // Voeg custom categories samen met standaard context categories
-    const actieveCategorieen = [...contextCategorieen, ...customCategories.filter(cc => !contextCategorieen.find(c => c.name === cc.name))];
+    // Voeg unieke eenheden samen
+    const alleEenheden = [...new Set([...contextEenheden, ...customUnits])].sort();
+
+    // SLIMMER FILTEREN:
+    // We pakken de standaardlijst voor dit type.
+    // We voegen daar custom categorieën aan toe, MAAR...
+    // We negeren categorieën die in de 'andere' standaardlijst staan (vervuiling uit DB).
+    const actieveCategorieen = [
+        ...contextCategorieen, 
+        ...customCategories.filter(cc => {
+            const inHuidig = contextCategorieen.some(c => c.name === cc.name);
+            const inAnder = andereCategorieen.some(c => c.name === cc.name);
+            return !inHuidig && !inAnder;
+        })
+    ];
 
     const gridClass = (() => {
         const count = filteredLocaties.length;
@@ -1064,11 +1077,11 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.2</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.3</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Slim onderscheid tussen Vriezer & Stock.</span></li>
-                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Stock items gebruiken nu THT datum (Rood = verlopen).</span></li>
-                             <li className="flex gap-2"><Badge type="patch" text="New" /><span>Aangepaste categorieën en eenheden voor de voorraadkast.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Slimmere filter voor categorieën (geen vries-items meer bij stock).</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="Fix" /><span>Database categorieën worden nu correct per type getoond.</span></li>
+                             <li className="flex gap-2"><Badge type="patch" text="New" /><span>Unieke eenhedenlijst zonder dubbele items.</span></li>
                         </ul>
                     </div>
                 </div>
