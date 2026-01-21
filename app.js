@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '4.7'; 
+const APP_VERSION = '4.8'; 
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -30,8 +30,7 @@ const BADGE_COLORS = {
     blue: "bg-blue-100 text-blue-800",
     indigo: "bg-indigo-100 text-indigo-800",
     purple: "bg-purple-100 text-purple-800",
-    pink: "bg-pink-100 text-pink-800",
-    orange: "bg-orange-100 text-orange-800"
+    pink: "bg-pink-100 text-pink-800"
 };
 
 // Zorg dat deze array objecten bevat met name en color!
@@ -46,25 +45,44 @@ const STANDAARD_CATEGORIEEN = [
     { name: "Saus", color: "red" },
     { name: "Friet", color: "yellow" },
     { name: "Pizza", color: "orange" },
-    { name: "Soep", color: "orange" },
     { name: "Ander", color: "gray" }
 ];
 
 const BASIS_EENHEDEN = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak", "fles", "blik", "pot", "liter"];
 
-const POPULAIRE_EMOJIS = [
-    "🥩", "🍗", "🍖", "🥓", "🍔", "🍟", "🍕", "🌭", "🥪", "🌮", 
-    "🥗", "🥦", "🌽", "🥕", "🍅", "🍆", "🥔", "🥒", "🫑", "🥬",
-    "🍄", "🥜", "🍞", "🥐", "🥖", "🥨", "🥞", "🧇", "🧀", "🥚",
-    "🧈", "🍝", "🍢", "🎏", "🍚", "🍛", "🍙", "🍘", "🫛", "🌶️",
-    "🐟", "🐠", "🐡", "🦐", "🦞", "🦀", "🦑", "🐙", "🍣", "🍤",
-    "🍦", "🍧", "🍨", "🍩", "🍪", "🎂", "🍰", "🧁", "🥧", "🍫", 
-    "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🍒", "🍑", 
-    "🥭", "🍈", "🍍", "🫐", "🍏", "🍋‍🟩", "🥥", "🫚", "🫜", "🥑",
-    "🥘", "🍜", "🍲", "🫓", "🧆", "🌯", "🥙", "🥯", "🥝",
-    "🥛", "☕", "🍵", "🧃", "🥤", "🍺", "🍷", "🥃", "🥄", 
-    "🥡", "🥫", "🧂", "🧊", "❄️", "🏷️", "📦", "🛒", "🛍️"
-];
+// Uitgebreide en gecategoriseerde Emoji lijst
+const EMOJI_CATEGORIES = {
+    "Fruit": [
+        "🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🥑", "🫒"
+    ],
+    "Groenten": [
+        "🍆", "🥔", "🥕", "🌽", "🌶️", "🫑", "🥒", "🥬", "🥦", "🧄", "🧅", "🍄", "🥜", "🫘", "🌰", "🍠"
+    ],
+    "Vlees & Eiwit": [
+        "🥩", "🍗", "🍖", "🥓", "🍔", "🌭", "🍳", "🥚", "🧀"
+    ],
+    "Vis & Zeevruchten": [
+        "🐟", "🐠", "🐡", "🦈", "🐙", "🦀", "🦞", "🦐", "🦑", "🦪", "🍣"
+    ],
+    "Brood & Deegwaren": [
+        "🍞", "🥐", "🥖", "🫓", "🥨", "🥯", "🥞", "🧇", "🥟", "🥠", "🥡", "🍜", "🍝", "🍕", "🍔"
+    ],
+    "Maaltijden & Fastfood": [
+        "🍟", "🥪", "🌮", "🌯", "🫔", "🥙", "🧆", "🥘", "🍲", "🫕", "🥣", "🥗", "🍿", "🧈", "🧂", "🥫", "🍱", "🍘", "🍙", "🍚", "🍛", "🍢", "🍤", "🍥", "🍡"
+    ],
+    "IJs & Zoetigheden": [
+        "🍦", "🍧", "🍨", "🍩", "🍪", "🎂", "🍰", "🧁", "🥧", "🍫", "🍬", "🍭", "🍮", "🍯"
+    ],
+    "Drinken": [
+        "🍼", "🥛", "☕", "🫖", "🍵", "🍶", "🍾", "🍷", "🍸", "🍹", "🍺", "🍻", "🥂", "🥃", "🥤", "🧃", "🧉", "🧊"
+    ],
+     "Dieren (Vlees)": [
+        "🐄", "🐂", "🐃", "🐖", "🐏", "🐑", "🐐", "🐓", "🦃", "🦆"
+    ],
+    "Overig": [
+        "❄️", "🧊", "🏷️", "📦", "🛒", "🛍️", "🍽️", "🔪", "🥄"
+    ]
+};
 
 // --- 3. ICOON COMPONENTEN (SVG) ---
 const Icon = ({ path, size = 20, className = "" }) => (
@@ -118,16 +136,12 @@ const toInputDate = (timestamp) => {
     return localDate.toISOString().split('T')[0];
 };
 
-const getEmojiForCategory = (catName) => {
-    // Probeer categorie object te vinden in standaard lijst, anders fallback
-    // We kunnen hier ook de custom lijst gebruiken als we die hebben
-    // Voor nu een simpele map voor de meest voorkomende
+const getEmojiForCategory = (cat) => {
     const emojis = { "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", "Brood": "🍞", "IJs": "🍦", "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" };
-    return emojis[catName] || "📦";
+    return emojis[cat] || "📦";
 };
 
 const getStatusColor = (dagen) => {
-    // Alleen border, geen background meer zoals gevraagd
     if (dagen > 180) return 'border-l-4 border-red-500'; 
     if (dagen > 90) return 'border-l-4 border-yellow-400';
     return 'border-l-4 border-green-400';
@@ -150,37 +164,46 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 };
 
 const Badge = ({ type, text }) => {
-    // Zoek de kleur class op in BADGE_COLORS of gebruik de string als het een geldige key is
-    // Anders checken of het een status is (minor, patch, etc)
-    let colorClass = BADGE_COLORS[type];
+    // 1. Zoek kleur op in BADGE_STYLES
+    // 2. Als niet gevonden, gebruik fallback (gray)
+    // 3. Als type een "status" is (zoals 'alert'), gebruik hardcoded fallback
+    let colorClass = BADGE_STYLES[type];
     
     if (!colorClass) {
-        if (type === 'minor') colorClass = "bg-blue-100 text-blue-700";
-        else if (type === 'patch') colorClass = "bg-green-100 text-green-700";
-        else if (type === 'major') colorClass = "bg-purple-100 text-purple-700";
+        if (type === 'minor') colorClass = "bg-blue-100 text-blue-700 border-blue-200";
+        else if (type === 'patch') colorClass = "bg-green-100 text-green-700 border-green-200";
+        else if (type === 'major') colorClass = "bg-purple-100 text-purple-700 border-purple-200";
         else if (type === 'alert') colorClass = "bg-red-100 text-red-700";
-        else colorClass = "bg-gray-100 text-gray-700"; // Fallback
+        else colorClass = "bg-gray-200 text-gray-700"; // Fallback
     }
 
     return (
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colorClass}`}>
+        <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colorClass}`}>
             {text}
         </span>
     );
 };
 
+// Gecategoriseerde Emoji Grid
 const EmojiGrid = ({ onSelect }) => {
     return (
-        <div className="grid grid-cols-8 gap-2 p-2 max-h-64 overflow-y-auto">
-            {POPULAIRE_EMOJIS.map(emoji => (
-                <button 
-                    key={emoji} 
-                    onClick={() => onSelect(emoji)} 
-                    className="text-2xl hover:bg-gray-100 p-2 rounded-lg transition-colors flex items-center justify-center"
-                    type="button"
-                >
-                    {emoji}
-                </button>
+        <div className="p-2 max-h-96 overflow-y-auto">
+            {Object.entries(EMOJI_CATEGORIES).map(([category, emojis]) => (
+                <div key={category} className="mb-4">
+                    <h4 className="font-bold text-sm text-gray-600 mb-2 border-b border-gray-100 pb-1">{category}</h4>
+                    <div className="grid grid-cols-8 gap-2">
+                        {emojis.map(emoji => (
+                            <button 
+                                key={emoji} 
+                                onClick={() => onSelect(emoji)} 
+                                className="text-2xl hover:bg-gray-100 p-2 rounded-lg transition-colors flex items-center justify-center"
+                                type="button"
+                            >
+                                {emoji}
+                            </button>
+                        ))}
+                    </div>
+                </div>
             ))}
         </div>
     );
@@ -895,10 +918,15 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.6</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.8</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>'Onthoud locatie' switch toegevoegd bij aanmaken.</span></li>
-                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Lijsten nemen nu volledige breedte als er weinig zijn.</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Uitgebreide Emoji lijst (Eten & Drinken).</span></li>
+                        </ul>
+                    </div>
+                    <div className="border-t pt-2">
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 4.7</h4>
+                        <ul className="space-y-2 text-sm text-gray-500">
+                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Categorie kleuren in lijst hersteld.</span></li>
                         </ul>
                     </div>
                 </div>
