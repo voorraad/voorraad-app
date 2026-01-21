@@ -467,6 +467,11 @@ function App() {
 
     // Derived
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
+    
+    // NIEUW: Tel enkel de items die in de huidige tab zichtbaar zijn
+    // We kijken of de vriezerId van een item voorkomt in de lijst van 'filteredLocaties' (die al gefilterd zijn op activeTab)
+    const activeItems = items.filter(i => filteredLocaties.some(l => l.id === i.vriezerId));
+
     const alerts = items.filter(i => getDagenOud(i.ingevrorenOp) > 180);
     const formLades = formData.vriezerId 
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
@@ -837,7 +842,7 @@ function App() {
                 {/* Tools */}
                 <div className="flex flex-col gap-4 print:hidden">
                     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                        <div className="flex-shrink-0 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm text-sm font-bold">{items.length} items</div>
+                        <div className="flex-shrink-0 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm text-sm font-bold">{activeItems.length} items</div>
                         {filteredLocaties.map(l => <div key={l.id} className="flex-shrink-0 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm text-sm">{items.filter(i=>i.vriezerId===l.id).length} {l.naam}</div>)}
                     </div>
                     <div className="flex gap-2">
