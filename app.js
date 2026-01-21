@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '5.10'; 
+const APP_VERSION = '5.11'; 
 
 // Standaard kleuren voor badges (Tailwind classes) - Met Dark Mode support
 const BADGE_COLORS = {
@@ -309,22 +309,28 @@ function App() {
     // User Settings
     const [hiddenTabs, setHiddenTabs] = useState([]);
     
-    // Dark Mode (Init from localStorage)
+    // Dark Mode (Init from localStorage with cleaner logic)
     const [darkMode, setDarkMode] = useState(() => {
         try {
-            return localStorage.getItem('darkMode') === 'true';
+            const saved = localStorage.getItem('darkMode');
+            // Alleen 'true' string accepteren
+            return saved === 'true';
         } catch(e) { return false; }
     });
 
     // Toggle Dark Mode
     useEffect(() => {
-        localStorage.setItem('darkMode', darkMode);
-        if (darkMode) {
-            document.documentElement.classList.add('dark');
-            document.documentElement.style.colorScheme = 'dark'; // Voor native inputs
-        } else {
-            document.documentElement.classList.remove('dark');
-            document.documentElement.style.colorScheme = 'light';
+        try {
+            localStorage.setItem('darkMode', darkMode);
+            const root = window.document.documentElement;
+            // We verwijderen/toevoegen op zowel html als body voor zekerheid
+            if (darkMode) {
+                root.classList.add('dark');
+            } else {
+                root.classList.remove('dark');
+            }
+        } catch (e) {
+            console.error("Dark mode error", e);
         }
     }, [darkMode]);
 
@@ -1205,10 +1211,9 @@ function App() {
                 )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 5.10</h4>
+                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 5.11</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Donkere modus toegevoegd in profielmenu.</span></li>
-                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Design geoptimaliseerd voor donkere achtergronden.</span></li>
+                             <li className="flex gap-2"><Badge type="patch" text="Bugfix" /><span>Probleem opgelost waarbij donkere modus bleef hangen.</span></li>
                         </ul>
                     </div>
                 </div>
