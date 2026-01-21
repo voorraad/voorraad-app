@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '5.6'; 
+const APP_VERSION = '5.7'; 
 
 // Standaard kleuren voor badges (Tailwind classes)
 const BADGE_COLORS = {
@@ -347,6 +347,7 @@ function App() {
     });
     const [rememberLocation, setRememberLocation] = useState(false); 
     const [newLocatieNaam, setNewLocatieNaam] = useState('');
+    const [newLocatieColor, setNewLocatieColor] = useState('blue'); // Nieuw state voor kleur
     const [selectedLocatieForBeheer, setSelectedLocatieForBeheer] = useState(null);
     const [newLadeNaam, setNewLadeNaam] = useState('');
     const [newUnitNaam, setNewUnitNaam] = useState('');
@@ -597,9 +598,26 @@ function App() {
     // --- BEHEER HANDLERS ---
     const handleAddLocatie = async (e) => {
         e.preventDefault();
-        await db.collection('vriezers').add({ naam: newLocatieNaam, type: activeTab, userId: beheerdeUserId });
+        await db.collection('vriezers').add({ 
+            naam: newLocatieNaam, 
+            type: activeTab, 
+            userId: beheerdeUserId,
+            color: newLocatieColor // Kleur opslaan
+        });
         setNewLocatieNaam('');
+        setNewLocatieColor('blue'); // Reset kleur
     };
+
+    const cycleLocatieColor = async (locatie) => {
+        const keys = Object.keys(GRADIENTS);
+        const currentColor = locatie.color || 'blue'; // default als er geen is
+        const currentIndex = keys.indexOf(currentColor);
+        const nextIndex = (currentIndex + 1) % keys.length;
+        const nextColor = keys[nextIndex];
+        
+        await db.collection('vriezers').doc(locatie.id).update({ color: nextColor });
+    };
+
     const handleDeleteLocatie = async (id) => {
         if(lades.some(l => l.vriezerId === id)) return alert("Maak locatie eerst leeg.");
         if(confirm("Verwijderen?")) await db.collection('vriezers').doc(id).delete();
@@ -834,10 +852,13 @@ function App() {
                 {/* Lijsten Grid Container */}
                 <div className={`grid gap-6 items-start ${gridClass}`}>
                     {filteredLocaties.map(vriezer => {
+                        // GEWIJZIGDE LOGICA: Gebruik opgeslagen kleur of fallback naar hash
                         const gradientKeys = Object.keys(GRADIENTS);
                         let hash = 0;
                         for (let i = 0; i < vriezer.id.length; i++) hash = (hash << 5) - hash + vriezer.id.charCodeAt(i);
-                        const gradientClass = GRADIENTS[gradientKeys[Math.abs(hash) % gradientKeys.length]];
+                        
+                        const colorKey = vriezer.color || gradientKeys[Math.abs(hash) % gradientKeys.length];
+                        const gradientClass = GRADIENTS[colorKey] || GRADIENTS.blue;
 
                         return (
                             <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
@@ -989,11 +1010,28 @@ function App() {
                             <h4 className="font-bold text-gray-700 mb-2">Locaties</h4>
                             <ul className="space-y-2 mb-3">{filteredLocaties.map(l => (
                                 <li key={l.id} className="flex justify-between p-2 bg-gray-50 rounded items-center">
-                                    <span onClick={() => setSelectedLocatieForBeheer(l.id)} className={`cursor-pointer ${selectedLocatieForBeheer===l.id?'text-blue-600 font-bold':''}`}>{l.naam}</span>
+                                    <div className="flex items-center gap-3">
+                                        <button 
+                                            onClick={() => cycleLocatieColor(l)}
+                                            className={`w-6 h-6 rounded-full bg-gradient-to-br ${GRADIENTS[l.color || 'blue']} border border-gray-200 shadow-sm transition-transform hover:scale-110`}
+                                            title="Klik om kleur te wijzigen"
+                                        ></button>
+                                        <span onClick={() => setSelectedLocatieForBeheer(l.id)} className={`cursor-pointer ${selectedLocatieForBeheer===l.id?'text-blue-600 font-bold':''}`}>{l.naam}</span>
+                                    </div>
                                     <button onClick={() => handleDeleteLocatie(l.id)} className="text-red-500"><Icon path={Icons.Trash2}/></button>
                                 </li>
                             ))}</ul>
-                            <form onSubmit={handleAddLocatie} className="flex gap-2"><input className="flex-grow border p-2 rounded" placeholder="Nieuwe locatie" value={newLocatieNaam} onChange={e=>setNewLocatieNaam(e.target.value)} required /><button className="bg-blue-600 text-white px-3 rounded">+</button></form>
+                            <form onSubmit={handleAddLocatie} className="flex gap-2">
+                                <select 
+                                    value={newLocatieColor} 
+                                    onChange={e => setNewLocatieColor(e.target.value)}
+                                    className="border border-gray-300 p-2 rounded bg-white w-24 text-sm"
+                                >
+                                    {Object.keys(GRADIENTS).map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                <input className="flex-grow border p-2 rounded" placeholder="Nieuwe locatie" value={newLocatieNaam} onChange={e=>setNewLocatieNaam(e.target.value)} required />
+                                <button className="bg-blue-600 text-white px-3 rounded">+</button>
+                            </form>
                         </div>
                         {selectedLocatieForBeheer && (
                             <div className="pt-4 border-t">
@@ -1121,10 +1159,10 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.6</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.7</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Gedeelde gebruikers zien nu correct de eenheden van de eigenaar.</span></li>
-                             <li className="flex gap-2"><Badge type="minor" text="Fix" /><span>Conflicten tussen eigen en gedeelde data opgelost.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Aanpasbare kleuren voor vriezers en stock.</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="UI" /><span>Kleurkeuze in instellingen.</span></li>
                         </ul>
                     </div>
                 </div>
