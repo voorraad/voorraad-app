@@ -19,18 +19,19 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '4.8'; 
+const APP_VERSION = '4.9'; 
 
-// Standaard kleuren voor badges
+// Standaard kleuren voor badges (Tailwind classes)
 const BADGE_COLORS = {
-    gray: "bg-gray-100 text-gray-800",
-    red: "bg-red-100 text-red-800",
-    yellow: "bg-yellow-100 text-yellow-800",
-    green: "bg-green-100 text-green-800",
-    blue: "bg-blue-100 text-blue-800",
-    indigo: "bg-indigo-100 text-indigo-800",
-    purple: "bg-purple-100 text-purple-800",
-    pink: "bg-pink-100 text-pink-800"
+    gray: "bg-gray-100 text-gray-800 border-gray-200",
+    red: "bg-red-100 text-red-800 border-red-200",
+    yellow: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    green: "bg-green-100 text-green-800 border-green-200",
+    blue: "bg-blue-100 text-blue-800 border-blue-200",
+    indigo: "bg-indigo-100 text-indigo-800 border-indigo-200",
+    purple: "bg-purple-100 text-purple-800 border-purple-200",
+    pink: "bg-pink-100 text-pink-800 border-pink-200",
+    orange: "bg-orange-100 text-orange-800 border-orange-200"
 };
 
 // Zorg dat deze array objecten bevat met name en color!
@@ -164,17 +165,16 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 };
 
 const Badge = ({ type, text }) => {
-    // 1. Zoek kleur op in BADGE_STYLES
-    // 2. Als niet gevonden, gebruik fallback (gray)
-    // 3. Als type een "status" is (zoals 'alert'), gebruik hardcoded fallback
-    let colorClass = BADGE_STYLES[type];
+    // FIX: Gebruik BADGE_COLORS variabele!
+    let colorClass = BADGE_COLORS[type];
     
+    // Fallback logica
     if (!colorClass) {
         if (type === 'minor') colorClass = "bg-blue-100 text-blue-700 border-blue-200";
         else if (type === 'patch') colorClass = "bg-green-100 text-green-700 border-green-200";
         else if (type === 'major') colorClass = "bg-purple-100 text-purple-700 border-purple-200";
-        else if (type === 'alert') colorClass = "bg-red-100 text-red-700";
-        else colorClass = "bg-gray-200 text-gray-700"; // Fallback
+        else if (type === 'alert') colorClass = "bg-red-100 text-red-700 border-red-200";
+        else colorClass = "bg-gray-200 text-gray-700 border-gray-300"; // Veilige default
     }
 
     return (
@@ -918,15 +918,16 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.8</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.9</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Uitgebreide Emoji lijst (Eten & Drinken).</span></li>
+                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Opgelost: badges worden nu correct weergegeven.</span></li>
+                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Lijsten nemen nu volledige breedte als er weinig zijn.</span></li>
                         </ul>
                     </div>
                     <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 4.7</h4>
+                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 4.8</h4>
                         <ul className="space-y-2 text-sm text-gray-500">
-                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Categorie kleuren in lijst hersteld.</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Uitgebreide Emoji lijst (Eten & Drinken).</span></li>
                         </ul>
                     </div>
                 </div>
