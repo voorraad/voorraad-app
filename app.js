@@ -1092,11 +1092,11 @@ function App() {
                         {/* Toggle Vries/Stock */}
                         <div className="flex bg-gray-100 p-1 rounded-lg mb-4">
                             <button onClick={() => setEenheidFilter('vries')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'vries' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>
-                                Vriezer
+                                Vriezer.
                             </button>
                             {!hiddenTabs.includes('voorraad') && (
                                 <button onClick={() => setEenheidFilter('voorraad')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'voorraad' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>
-                                    Stock
+                                    Stock.
                                 </button>
                             )}
                         </div>
