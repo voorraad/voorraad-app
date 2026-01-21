@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '4.9'; 
+const APP_VERSION = '5.0'; 
 
 // Standaard kleuren voor badges (Tailwind classes)
 const BADGE_COLORS = {
@@ -184,7 +184,6 @@ const Badge = ({ type, text }) => {
     );
 };
 
-// Gecategoriseerde Emoji Grid
 const EmojiGrid = ({ onSelect }) => {
     return (
         <div className="p-2 max-h-96 overflow-y-auto">
@@ -918,16 +917,11 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 4.9</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.0</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Opgelost: badges worden nu correct weergegeven.</span></li>
-                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Lijsten nemen nu volledige breedte als er weinig zijn.</span></li>
-                        </ul>
-                    </div>
-                    <div className="border-t pt-2">
-                        <h4 className="font-bold text-gray-600 mb-2 text-sm">Versie 4.8</h4>
-                        <ul className="space-y-2 text-sm text-gray-500">
-                             <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Uitgebreide Emoji lijst (Eten & Drinken).</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Major" /><span>Volledige integratie van login en app in één bestand.</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Inloggen met Google nu direct beschikbaar.</span></li>
+                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Onderrand verwijderd en badges hersteld.</span></li>
                         </ul>
                     </div>
                 </div>
