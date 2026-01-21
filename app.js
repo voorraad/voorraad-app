@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '5.8'; 
+const APP_VERSION = '5.9'; 
 
 // Standaard kleuren voor badges (Tailwind classes)
 const BADGE_COLORS = {
@@ -191,6 +191,7 @@ const getEmojiForCategory = (cat) => {
 // Update: Accepteert nu optioneel THT dagen voor stock logica
 const getStatusColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999) => {
     if (type === 'voorraad') {
+        if (dagenTotTHT === 999) return 'border-l-4 border-green-400'; // Geen datum = OK
         if (dagenTotTHT < 0) return 'border-l-4 border-red-500 bg-red-50'; // Verlopen
         if (dagenTotTHT <= 30) return 'border-l-4 border-yellow-400'; // Bijna verlopen
         return 'border-l-4 border-green-400'; // OK
@@ -461,7 +462,7 @@ function App() {
 
         if (type === 'voorraad') {
              // Voorraad: Alert als THT verlopen is (dagenTotTHT < 0)
-             // We kunnen ook <= 0 gebruiken om vandaag mee te rekenen
+             // Als getDagenTotTHT 999 teruggeeft (geen datum), is dit false (geen alert)
              return getDagenTotTHT(i.houdbaarheidsDatum) < 0; 
         } else {
              // Vriezer: Alert als ouder dan 6 maanden
@@ -478,7 +479,7 @@ function App() {
                 localStorage.setItem('app_version', APP_VERSION);
             }
         }
-    }, [items.length, alerts.length]); // Dependencies geupdate
+    }, [items.length, alerts.length]); 
 
     // Derived
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
@@ -990,8 +991,8 @@ function App() {
                             </div>
                         )}
                         {formLocationType === 'voorraad' && (
-                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Houdbaarheidsdatum (THT).</label>
-                            <input type="date" className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} required /></div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Houdbaarheidsdatum (THT) (Optioneel).</label>
+                            <input type="date" className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                         )}
                     </div>
                     <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Categorie.</label>
@@ -1201,10 +1202,10 @@ function App() {
                 )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.8</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.9</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Stock meldingen nu op basis van THT.</span></li>
-                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Aanpasbare kleuren voor vriezers en stock.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>THT datum bij stock is nu optioneel.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Geen meldingen voor stock items zonder datum.</span></li>
                         </ul>
                     </div>
                 </div>
