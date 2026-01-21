@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '5.4'; 
+const APP_VERSION = '5.5'; 
 
 // Standaard kleuren voor badges (Tailwind classes)
 const BADGE_COLORS = {
@@ -1062,9 +1062,11 @@ function App() {
                             <button onClick={() => setEenheidFilter('vries')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'vries' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>
                                 Vriezer
                             </button>
-                            <button onClick={() => setEenheidFilter('voorraad')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'voorraad' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>
-                                Stock
-                            </button>
+                            {!hiddenTabs.includes('voorraad') && (
+                                <button onClick={() => setEenheidFilter('voorraad')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'voorraad' ? 'bg-white shadow text-orange-600' : 'text-gray-500'}`}>
+                                    Stock
+                                </button>
+                            )}
                         </div>
 
                         <ul className="space-y-2 mb-3">
@@ -1125,11 +1127,10 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.4</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.5</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Volledig gescheiden eigen eenheden voor Vriezer en Stock.</span></li>
-                             <li className="flex gap-2"><Badge type="minor" text="UI" /><span>Nieuw filter in instellingen om eenheden per type te beheren.</span></li>
-                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Oude eigen eenheden zijn automatisch gemigreerd naar de Vriezer lijst.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Stock-knop verborgen bij eenheden als stock tab uitgeschakeld is.</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="UI" /><span>Slimmere weergave van instellingen.</span></li>
                         </ul>
                     </div>
                 </div>
