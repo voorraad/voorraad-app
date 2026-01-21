@@ -619,17 +619,17 @@ function App() {
                                     </div>
                                     {isAdmin && (
                                         <button onClick={() => { setShowUserAdminModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                            <Icon path={Icons.Users} size={16}/> Gebruikers Beheer
+                                            <Icon path={Icons.Users} size={16}/> Gebruikers.
                                         </button>
                                     )}
                                     <button onClick={() => { setShowShareModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                        <Icon path={Icons.Share} size={16}/> Delen
+                                        <Icon path={Icons.Share} size={16}/> Delen.
                                     </button>
                                     <button onClick={handlePrint} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                        <Icon path={Icons.Printer} size={16}/> Print Voorraad
+                                        <Icon path={Icons.Printer} size={16}/> Print.
                                     </button>
                                     <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-50">
-                                        <Icon path={Icons.LogOut} size={16}/> Uitloggen
+                                        <Icon path={Icons.LogOut} size={16}/> Uitloggen.
                                     </button>
                                 </div>
                             )}
@@ -657,7 +657,7 @@ function App() {
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Icon path={Icons.Search} className="text-gray-400"/></div>
                             <input type="text" className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Zoek..." value={search} onChange={e=>setSearch(e.target.value)}/>
                         </div>
-                        <button onClick={toggleAll} className="bg-white border border-gray-200 px-4 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 whitespace-nowrap">{collapsedLades.size>0 ? "Alles Open" : "Alles Dicht"}</button>
+                        <button onClick={toggleAll} className="bg-white border border-gray-200 px-4 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 whitespace-nowrap">{collapsedLades.size>0 ? "Alles open" : "Alles dicht"}</button>
                     </div>
                 </div>
 
@@ -729,7 +729,7 @@ function App() {
             <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 print:hidden"><Icon path={Icons.Plus} size={28}/></button>
 
             {/* Add/Edit Modal */}
-            <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken" : "Toevoegen"}>
+            <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken." : "Toevoegen."}>
                 <form onSubmit={handleSaveItem} className="space-y-4">
                     <div className="flex gap-2">
                         <button type="button" onClick={() => setShowEmojiPicker(true)} className="w-12 h-12 flex-shrink-0 border rounded-lg flex items-center justify-center text-2xl bg-gray-50">{formData.emoji || '🏷️'}</button>
@@ -738,12 +738,12 @@ function App() {
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Locatie</label>
+                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Locatie.</label>
                         <select className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.vriezerId} onChange={e => setFormData({...formData, vriezerId: e.target.value})} required>
                             <option value="" disabled>Kies...</option>
                             {filteredLocaties.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
                         </select></div>
-                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Lade</label>
+                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Lade.</label>
                         <select className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.ladeId} onChange={e => setFormData({...formData, ladeId: e.target.value})} required>
                             <option value="" disabled>Kies...</option>
                             {formLades.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
@@ -758,12 +758,12 @@ function App() {
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Invriesdatum</label>
+                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Invriesdatum.</label>
                         <input type="date" className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">THT (Optioneel)</label>
                         <input type="date" className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                     </div>
-                    <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Categorie</label>
+                    <div className="space-y-1"><label className="text-xs font-bold text-gray-500 uppercase">Categorie.</label>
                     <select className="w-full p-3 bg-white border border-gray-300 rounded-lg" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
                         {actieveCategorieen.map(c => <option key={c.name||c} value={c.name||c}>{c.name||c}</option>)}
                     </select></div>
@@ -785,11 +785,11 @@ function App() {
             </Modal>
 
             {/* Beheer Modal */}
-            <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen">
+            <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen.">
                 <div className="flex border-b mb-4">
-                    <button onClick={() => setBeheerTab('locaties')} className={`flex-1 py-2 font-medium ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500'}`}>Locaties</button>
-                    <button onClick={() => setBeheerTab('categorieen')} className={`flex-1 py-2 font-medium ${beheerTab==='categorieen'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500'}`}>Categorieën</button>
-                    <button onClick={() => setBeheerTab('eenheden')} className={`flex-1 py-2 font-medium ${beheerTab==='eenheden'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500'}`}>Eenheden</button>
+                    <button onClick={() => setBeheerTab('locaties')} className={`flex-1 py-2 font-medium ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500'}`}>Locaties.</button>
+                    <button onClick={() => setBeheerTab('categorieen')} className={`flex-1 py-2 font-medium ${beheerTab==='categorieen'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500'}`}>Categorieën.</button>
+                    <button onClick={() => setBeheerTab('eenheden')} className={`flex-1 py-2 font-medium ${beheerTab==='eenheden'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500'}`}>Eenheden.</button>
                 </div>
 
                 {beheerTab === 'locaties' && (
@@ -913,7 +913,7 @@ function App() {
             </Modal>
 
             {/* Updates Modal */}
-            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen">
+            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen.">
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
@@ -928,7 +928,7 @@ function App() {
             </Modal>
 
             {/* Switch Account Modal (Admin) */}
-            <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel Account">
+            <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel account.">
                 <ul className="divide-y divide-gray-100">
                     {usersList.map(u => (
                         <li key={u.id} className="p-3 hover:bg-gray-50 cursor-pointer flex justify-between" onClick={() => { setBeheerdeUserId(u.id); setShowSwitchAccount(false); }}>
