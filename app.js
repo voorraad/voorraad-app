@@ -4,12 +4,12 @@ const { useState, useEffect, useRef } = React;
 const firebaseConfig = typeof __firebase_config !== 'undefined' 
     ? JSON.parse(__firebase_config) 
     : {
-        apiKey: "AIzaSyB9KRUbVBknnDDkkWF2Z5nRskmY-9CkD24", 
-        authDomain: "vriezer-app.firebaseapp.com",
-        projectId: "vriezer-app",
-        storageBucket: "vriezer-app.firebasestorage.app",
-        messagingSenderId: "788492326775",
-        appId: "1:788492326775:web:c2cd85deac708b44f27372"
+    apiKey: "AIzaSyCgsIQ-tGKor53WqsLoobZgI31xcCkdu48",
+    authDomain: "voorraad-7a7b2.firebaseapp.com",
+    projectId: "voorraad-7a7b2",
+    storageBucket: "voorraad-7a7b2.firebasestorage.app",
+    messagingSenderId: "902712789943",
+    appId: "1:902712789943:web:ef270b84968319052cf632"
     };
 
 if (!firebase.apps.length) {
