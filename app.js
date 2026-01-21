@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '5.0'; 
+const APP_VERSION = '5.1'; 
 
 // Standaard kleuren voor badges (Tailwind classes)
 const BADGE_COLORS = {
@@ -168,6 +168,30 @@ const getDateTextColor = (dagen) => {
 };
 
 // --- 5. COMPONENTEN ---
+
+// Nieuw Toast component voor notificaties
+const Toast = ({ message, type = "success", onClose }) => {
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            onClose();
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, []);
+
+    const isSuccess = type === 'success';
+    const bgColor = isSuccess ? 'bg-green-600' : 'bg-red-600';
+    const icon = isSuccess ? Icons.Check : Icons.Alert;
+
+    return (
+        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl text-white ${bgColor} animate-in fade-in slide-in-from-top-4 duration-300 pointer-events-auto`}>
+            <div className="p-1 bg-white/20 rounded-full">
+                <Icon path={icon} size={20} className="text-white" />
+            </div>
+            <span className="font-bold text-sm tracking-wide">{message}</span>
+        </div>
+    );
+};
+
 const Modal = ({ isOpen, onClose, title, children, color = "blue" }) => {
     if (!isOpen) return null;
     
@@ -253,6 +277,9 @@ function App() {
     const [collapsedLades, setCollapsedLades] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
+    
+    // Notifications (Toast) State
+    const [notification, setNotification] = useState(null);
     
     // Modals & Menu
     const [showAddModal, setShowAddModal] = useState(false);
@@ -397,6 +424,11 @@ function App() {
         return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
     })();
 
+    // --- NOTIFICATION HELPER ---
+    const showNotification = (msg, type = 'success') => {
+        setNotification({ msg, type, id: Date.now() });
+    };
+
     // --- HANDLERS ---
     const handleGoogleLogin = async () => { 
         try { 
@@ -442,10 +474,12 @@ function App() {
         try {
             if(editingItem) {
                 await db.collection('items').doc(editingItem.id).update(data);
+                showNotification(`Product '${data.naam}' is bijgewerkt!`, 'success');
                 setEditingItem(null);
                 setShowAddModal(false);
             } else {
                 await db.collection('items').add(data);
+                showNotification(`Product '${data.naam}' is toegevoegd!`, 'success');
                 if (rememberLocation) {
                     setFormData(prev => ({
                         ...prev, 
@@ -458,10 +492,19 @@ function App() {
                 }
                 setShowAddModal(false);
             }
-        } catch(err) { alert(err.message); }
+        } catch(err) { showNotification("Er ging iets mis: " + err.message, 'error'); }
     };
 
-    const handleDelete = async (id, naam) => { if(confirm(`Verwijder '${naam}'?`)) await db.collection('items').doc(id).delete(); };
+    const handleDelete = async (id, naam) => { 
+        if(confirm(`Verwijder '${naam}'?`)) {
+            try {
+                await db.collection('items').doc(id).delete();
+                showNotification(`Product '${naam}' is verwijderd.`, 'success');
+            } catch(err) {
+                showNotification("Kon niet verwijderen", 'error');
+            }
+        }
+    };
 
     const openEdit = (item) => {
         setEditingItem(item);
@@ -619,6 +662,16 @@ function App() {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-24 font-sans text-gray-800">
+             {/* Render Notification if active */}
+             {notification && (
+                <Toast 
+                    message={notification.msg} 
+                    type={notification.type} 
+                    key={notification.id}
+                    onClose={() => setNotification(null)}
+                />
+            )}
+
             {/* Header */}
             <header className="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-200 print:hidden">
                 <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
@@ -948,9 +1001,9 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.0</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.1</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Major" /><span>Volledige integratie van login en app in één bestand.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Meldingen toegevoegd bij opslaan en verwijderen.</span></li>
                              <li className="flex gap-2"><Badge type="minor" text="Nieuw" /><span>Inloggen met Google nu direct beschikbaar.</span></li>
                              <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Onderrand verwijderd en badges hersteld.</span></li>
                         </ul>
