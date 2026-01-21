@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '5.5'; 
+const APP_VERSION = '5.6'; 
 
 // Standaard kleuren voor badges (Tailwind classes)
 const BADGE_COLORS = {
@@ -374,19 +374,11 @@ function App() {
                 setUser(u);
                 setBeheerdeUserId(u.uid);
                 
+                // Listener op EIGEN user doc voor persoonlijke instellingen (zoals hiddenTabs)
+                // NIET voor data zoals categorieën/eenheden, want die komen van 'beheerdeUserId'
                 db.collection('users').doc(u.uid).onSnapshot(doc => {
                     if(doc.exists) {
                         const data = doc.data();
-                        
-                        // Migratie logica: oude customUnits verhuizen naar Vriezer als ze nog niet apart bestaan
-                        let vriesUnits = data.customUnitsVries;
-                        if (!vriesUnits && data.customUnits) {
-                            vriesUnits = data.customUnits;
-                        }
-                        setCustomUnitsVries(vriesUnits || []);
-                        setCustomUnitsVoorraad(data.customUnitsVoorraad || []);
-                        
-                        setCustomCategories(data.customCategories || []);
                         setHiddenTabs(data.hiddenTabs || []); 
                     } else {
                         db.collection('users').doc(u.uid).set({
@@ -420,6 +412,7 @@ function App() {
             if(doc.exists) {
                 const data = doc.data();
                 
+                // Migratie logica: oude customUnits verhuizen naar Vriezer als ze nog niet apart bestaan
                 let vriesUnits = data.customUnitsVries;
                 if (!vriesUnits && data.customUnits) {
                     vriesUnits = data.customUnits;
@@ -1127,10 +1120,10 @@ function App() {
                 {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4"><h4 className="font-bold text-red-800">Let op!</h4><ul>{alerts.map(i => <li key={i.id}>{i.naam} ({getDagenOud(i.ingevrorenOp)}d)</li>)}</ul></div>}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.5</h4>
+                        <h4 className="font-bold text-blue-600 mb-2">Versie 5.6</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Stock-knop verborgen bij eenheden als stock tab uitgeschakeld is.</span></li>
-                             <li className="flex gap-2"><Badge type="minor" text="UI" /><span>Slimmere weergave van instellingen.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Gedeelde gebruikers zien nu correct de eenheden van de eigenaar.</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="Fix" /><span>Conflicten tussen eigen en gedeelde data opgelost.</span></li>
                         </ul>
                     </div>
                 </div>
