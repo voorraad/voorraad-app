@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '6.6'; // Versie opgehoogd (Lades fix & Laatst Gezien zichtbaar)
+const APP_VERSION = '6.7'; // Versie opgehoogd (Bugfix hiddenTabs)
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -1282,7 +1282,7 @@ function App() {
                             <button onClick={() => setEenheidFilter('vries')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'vries' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>
                                 Vriezer.
                             </button>
-                            {!hiddenTabs.includes('voorraad') && (
+                            {!managedUserHiddenTabs.includes('voorraad') && (
                                 <button onClick={() => setEenheidFilter('voorraad')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'voorraad' ? 'bg-white dark:bg-gray-600 shadow text-orange-600 dark:text-orange-300' : 'text-gray-500 dark:text-gray-400'}`}>
                                     Stock.
                                 </button>
@@ -1373,10 +1373,9 @@ function App() {
                 )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.6</h4>
+                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.7</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Fix" /><span>Opgelost: Opgeslagen open lades laden nu correct bij opstarten.</span></li>
-                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Laatst gezien datum nu zichtbaar voor beheerders.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Fix" /><span>Opgelost: Foutmelding bij openen van Instellingen verholpen.</span></li>
                         </ul>
                     </div>
                 </div>
