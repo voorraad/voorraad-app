@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '6.5'; // Versie opgehoogd (Gebruiker status & voorkeuren)
+const APP_VERSION = '6.6'; // Versie opgehoogd (Lades fix & Laatst Gezien zichtbaar)
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -297,7 +297,7 @@ function App() {
     // User Settings
     const [managedUserHiddenTabs, setManagedUserHiddenTabs] = useState([]);
     const [darkMode, setDarkMode] = useState(false);
-    // Tijdelijke opslag voor voorkeuren voordat lades geladen zijn
+    // Tijdelijke opslag voor voorkeuren voordat lades geladen zijn. Start op NULL om te weten dat we nog wachten.
     const [savedOpenLades, setSavedOpenLades] = useState(null);
     
     // Data
@@ -407,8 +407,12 @@ function App() {
                         // Laad open lades voorkeur (voor later gebruik)
                         if (data.openLades && Array.isArray(data.openLades)) {
                             setSavedOpenLades(data.openLades);
+                        } else {
+                            // Wel profiel, maar geen lades opgeslagen -> lege lijst
+                            setSavedOpenLades([]);
                         }
                     } else {
+                        // Nog geen profiel -> aanmaken
                         db.collection('users').doc(u.uid).set({
                             customCategories: CATEGORIEEN_VRIES,
                             customUnitsVries: [],
@@ -417,6 +421,7 @@ function App() {
                             darkMode: false,
                             openLades: [] // Start leeg
                         });
+                        setSavedOpenLades([]);
                     }
                 });
 
@@ -464,8 +469,9 @@ function App() {
             const loadedLades = s.docs.map(d => ({id: d.id, ...d.data()}));
             setLades(loadedLades);
             
-            // Initiële status instellen (alleen de eerste keer laden)
-            if (!isDataLoaded && loadedLades.length > 0) {
+            // FIX: Wacht tot loadedLades > 0 EN savedOpenLades niet meer null is (dus geladen uit profiel)
+            // Dit voorkomt dat de app te vroeg "alles dicht" zet.
+            if (!isDataLoaded && loadedLades.length > 0 && savedOpenLades !== null) {
                 // Standaard ALLES dicht (dus alles in collapsed set)
                 const initialCollapsed = new Set(loadedLades.map(l => l.id));
                 
@@ -484,7 +490,7 @@ function App() {
         });
         const unsubI = db.collection('items').where('userId', '==', beheerdeUserId).onSnapshot(s => setItems(s.docs.map(d => ({id: d.id, ...d.data()}))));
         return () => { unsubV(); unsubL(); unsubI(); };
-    }, [beheerdeUserId, isDataLoaded, savedOpenLades]); // savedOpenLades toegevoegd als dependency voor init
+    }, [beheerdeUserId, isDataLoaded, savedOpenLades]); 
 
     useEffect(() => {
         if (isAdmin) {
@@ -1322,6 +1328,9 @@ function App() {
                                 />
                                 <span>Verberg 'Stock.' tabblad</span>
                             </div>
+                            <p className="text-xs text-gray-400">
+                                Laatst gezien: {u.laatstGezien ? formatDateTime(u.laatstGezien) : 'Nooit'}
+                            </p>
                         </li>
                     ))}
                 </ul>
@@ -1364,10 +1373,10 @@ function App() {
                 )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.5</h4>
+                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.6</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>App onthoudt nu welke lades open of dicht stonden.</span></li>
-                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Laatst gezien status wordt nu correct bijgewerkt.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Fix" /><span>Opgelost: Opgeslagen open lades laden nu correct bij opstarten.</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Laatst gezien datum nu zichtbaar voor beheerders.</span></li>
                         </ul>
                     </div>
                 </div>
