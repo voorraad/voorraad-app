@@ -1073,10 +1073,10 @@ function App() {
             <footer className="bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 py-6 print:hidden transition-colors duration-300">
                 <div className="max-w-7xl mx-auto px-4 text-center">
                     <p className="text-sm text-gray-400 dark:text-gray-500 mb-1">
-                        &copy; {new Date().getFullYear()} Voorraad App. Versie {APP_VERSION}
+                        &copy; {new Date().getFullYear()} Voorraad. Versie {APP_VERSION}
                     </p>
                     <p className="text-xs text-gray-300 dark:text-gray-600">
-                        Beheer je vriezer en voorraad eenvoudig.
+                        Beheer je voorraad snel en eenvoudig.
                     </p>
                 </div>
             </footer>
