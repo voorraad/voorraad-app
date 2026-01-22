@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '6.2'; // Versie opgehoogd
+const APP_VERSION = '6.4'; // Versie opgehoogd (Index fix)
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -468,15 +468,14 @@ function App() {
     }, [isAdmin]);
 
     // OPTIMALISATIE: Logs fetchen ALLEEN als de modal open is EN voor de beheerde user
+    // Nu mèt server-side sortering omdat de index bestaat
     useEffect(() => {
         if (!user || !showLogModal || !beheerdeUserId) return;
 
-        // We filteren nu op targetUserId == beheerdeUserId (de eigenaar van de vriezer)
-        // Hierdoor zien gedeelde gebruikers de logs van de vriezer die ze bekijken
         let query = db.collection('logs')
-            .where('targetUserId', '==', beheerdeUserId) 
+            .where('targetUserId', '==', beheerdeUserId)
             .orderBy('timestamp', 'desc')
-            .limit(25); // Limiet op 25 om reads te besparen
+            .limit(50); 
 
         const unsubLogs = query.onSnapshot(snap => {
             setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -1307,10 +1306,9 @@ function App() {
                 )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.2</h4>
+                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.4</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Meldingenscherm opent nu automatisch bij opstarten als er aandachtspunten zijn.</span></li>
-                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Admins zien nu een slotje bij tabbladen die voor gebruikers verborgen zijn.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Database sortering geactiveerd voor sneller logboek.</span></li>
                         </ul>
                     </div>
                 </div>
