@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '6.1'; // Versie opgehoogd
+const APP_VERSION = '6.2'; // Versie opgehoogd
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -105,7 +105,8 @@ const Icons = {
     Share: <g><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></g>,
     Sun: <g><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></g>,
     Moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>,
-    LogBook: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></g>
+    LogBook: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></g>,
+    Lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></g>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -294,7 +295,8 @@ function App() {
     const [usersList, setUsersList] = useState([]);
     
     // User Settings
-    const [hiddenTabs, setHiddenTabs] = useState([]);
+    // managedUserHiddenTabs bevat de settings van de persoon die je NU bekijkt
+    const [managedUserHiddenTabs, setManagedUserHiddenTabs] = useState([]);
     const [darkMode, setDarkMode] = useState(false);
     
     // Data
@@ -355,6 +357,8 @@ function App() {
     const [editCatInputName, setEditCatInputName] = useState('');
     const [editCatInputColor, setEditCatInputColor] = useState('gray');
 
+    const hasCheckedAlerts = useRef(false); // Ref om te voorkomen dat meldingen bij elke render poppen
+
     useEffect(() => {
         if (darkMode) {
             document.documentElement.classList.add('dark');
@@ -387,7 +391,7 @@ function App() {
                 db.collection('users').doc(u.uid).onSnapshot(doc => {
                     if(doc.exists) {
                         const data = doc.data();
-                        setHiddenTabs(data.hiddenTabs || []); 
+                        // Dit zijn de settings van de *ingelogde* user zelf
                         if (data.darkMode !== undefined) {
                             setDarkMode(data.darkMode);
                         }
@@ -430,6 +434,7 @@ function App() {
                 }
                 setCustomUnitsVries(vriesUnits || []);
                 setCustomUnitsVoorraad(data.customUnitsVoorraad || []);
+                setManagedUserHiddenTabs(data.hiddenTabs || []); // Haal hiddenTabs van de *bekeken* user op
 
                 setCustomCategories(data.customCategories && data.customCategories.length > 0 ? data.customCategories : CATEGORIEEN_VRIES);
             }
@@ -493,16 +498,20 @@ function App() {
         }
     });
 
-    // FIX: Alleen melding tonen bij nieuwe versie, niet bij item changes
+    // Meldingen Check - Eenmalig bij laden van data
     useEffect(() => {
-        const lastVersion = localStorage.getItem('app_version');
-        
-        if (lastVersion !== APP_VERSION) {
-            setShowWhatsNew(true);
-            localStorage.setItem('app_version', APP_VERSION);
+        // Alleen uitvoeren als data geladen is en we nog niet gecheckt hebben deze sessie
+        if (isDataLoaded && !hasCheckedAlerts.current) {
+            const lastVersion = localStorage.getItem('app_version');
+            
+            // Toon als er een nieuwe versie is OF als er alerts zijn
+            if (lastVersion !== APP_VERSION || alerts.length > 0) {
+                setShowWhatsNew(true);
+                if (lastVersion !== APP_VERSION) localStorage.setItem('app_version', APP_VERSION);
+            }
+            hasCheckedAlerts.current = true; // Markeer als gecheckt
         }
-        // Removed items.length and alerts.length from dependencies to prevent popup spam
-    }, []); 
+    }, [isDataLoaded, alerts.length]); 
 
     // Derived
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
@@ -883,8 +892,15 @@ function App() {
                 </div>
                 <div className="max-w-7xl mx-auto px-4 flex space-x-6 border-b border-gray-100 dark:border-gray-700">
                     <button onClick={() => setActiveTab('vriezer')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='vriezer' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}><Icon path={Icons.Snowflake}/> Vriez.</button>
-                    {!hiddenTabs.includes('voorraad') && (
-                        <button onClick={() => setActiveTab('voorraad')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}><Icon path={Icons.Box}/> Stock.</button>
+                    {/* Alleen tonen als het niet verborgen is OF als je admin bent */}
+                    {(!managedUserHiddenTabs.includes('voorraad') || isAdmin) && (
+                        <button onClick={() => setActiveTab('voorraad')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
+                            <Icon path={Icons.Box}/> Stock.
+                            {/* Toon slotje als admin kijkt en het verborgen is voor de user */}
+                            {isAdmin && managedUserHiddenTabs.includes('voorraad') && (
+                                <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>
+                            )}
+                        </button>
                     )}
                 </div>
             </header>
@@ -1291,11 +1307,10 @@ function App() {
                 )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.1</h4>
+                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.2</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Fout opgelost waarbij dit meldingenscherm telkens terugkwam.</span></li>
-                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Logboek werkt nu correct voor gedeelde gebruikers.</span></li>
-                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Logboek laadt alleen bij openen om data te besparen.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Meldingenscherm opent nu automatisch bij opstarten als er aandachtspunten zijn.</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Admins zien nu een slotje bij tabbladen die voor gebruikers verborgen zijn.</span></li>
                         </ul>
                     </div>
                 </div>
