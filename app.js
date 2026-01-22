@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '5.9'; 
+const APP_VERSION = '6.0'; // Versie opgehoogd voor Logboek update
 
 // Standaard kleuren voor badges (Tailwind classes) - Aangepast voor Dark Mode
 const BADGE_COLORS = {
@@ -142,7 +142,8 @@ const Icons = {
     Printer: <g><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></g>,
     Share: <g><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></g>,
     Sun: <g><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></g>,
-    Moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    Moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>,
+    LogBook: <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -169,6 +170,12 @@ const formatDate = (timestamp) => {
     if (!timestamp) return '-';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toLocaleDateString('nl-BE');
+};
+
+const formatDateTime = (timestamp) => {
+    if (!timestamp) return '-';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleString('nl-BE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 };
 
 const toInputDate = (timestamp) => {
@@ -216,6 +223,25 @@ const getDateTextColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999) => {
         return 'text-green-600 dark:text-green-400 font-medium';
     }
 };
+
+// --- LOG FUNCTIE ---
+const logAction = async (action, itemNaam, details, actorUser, targetUserId) => {
+    if (!actorUser) return;
+    try {
+        await db.collection('logs').add({
+            action: action, // 'Toevoegen', 'Verwijderen', 'Bewerken'
+            item: itemNaam,
+            details: details,
+            actorId: actorUser.uid,
+            actorName: actorUser.displayName || actorUser.email,
+            targetUserId: targetUserId, // De eigenaar van de vriezer
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    } catch (e) {
+        console.error("Kon log niet opslaan", e);
+    }
+};
+
 
 // --- 5. COMPONENTEN ---
 
@@ -318,6 +344,7 @@ function App() {
     const [items, setItems] = useState([]);
     const [vriezers, setVriezers] = useState([]);
     const [lades, setLades] = useState([]);
+    const [logs, setLogs] = useState([]); // Nieuwe state voor logs
     
     // Gescheiden Custom Units
     const [customUnitsVries, setCustomUnitsVries] = useState([]);
@@ -343,6 +370,7 @@ function App() {
     const [showProfileMenu, setShowProfileMenu] = useState(false); 
     const [showUserAdminModal, setShowUserAdminModal] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
+    const [showLogModal, setShowLogModal] = useState(false); // Logboek Modal
     const [beheerTab, setBeheerTab] = useState('locaties');
 
     // Forms
@@ -488,6 +516,26 @@ function App() {
         }
     }, [isAdmin]);
 
+    // LOGS FETCHEN
+    useEffect(() => {
+        if (!user) return;
+
+        let query = db.collection('logs').orderBy('timestamp', 'desc').limit(50);
+        
+        // Als je geen admin bent, zie je alleen logs van JOUW eigen voorraad 
+        // (dus waar targetUserId == jouw ID).
+        if (!isAdmin) {
+            query = query.where('targetUserId', '==', user.uid);
+        }
+
+        const unsubLogs = query.onSnapshot(snap => {
+            setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+
+        return () => unsubLogs();
+    }, [user, isAdmin]);
+
+
     // Slimmere Alerts Logic
     const alerts = items.filter(i => {
         // Zoek locatie om type te bepalen (vriezer vs stock)
@@ -603,11 +651,17 @@ function App() {
         try {
             if(editingItem) {
                 await db.collection('items').doc(editingItem.id).update(data);
+                // Log Bewerken
+                await logAction('Bewerkt', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
+                
                 showNotification(`Product '${data.naam}' is bijgewerkt!`, 'success');
                 setEditingItem(null);
                 setShowAddModal(false);
             } else {
                 await db.collection('items').add(data);
+                // Log Toevoegen
+                await logAction('Toevoegen', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
+
                 showNotification(`Product '${data.naam}' is toegevoegd!`, 'success');
                 if (rememberLocation) {
                     setFormData(prev => ({
@@ -629,6 +683,9 @@ function App() {
         if(confirm(`Verwijder '${naam}'?`)) {
             try {
                 await db.collection('items').doc(id).delete();
+                // Log Verwijderen
+                await logAction('Verwijderd', naam, 'Item verwijderd', user, beheerdeUserId);
+                
                 showNotification(`Product '${naam}' is verwijderd.`, 'success');
             } catch(err) {
                 showNotification("Kon niet verwijderen", 'error');
@@ -823,7 +880,7 @@ function App() {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-24 font-sans text-gray-800 dark:text-gray-100 transition-colors duration-300">
+        <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-100 transition-colors duration-300">
              {/* Render Notification if active */}
              {notification && (
                 <Toast 
@@ -872,6 +929,9 @@ function App() {
                                             <Icon path={Icons.Users} size={16}/> Gebruikers.
                                         </button>
                                     )}
+                                    <button onClick={() => { setShowLogModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
+                                        <Icon path={Icons.LogBook} size={16}/> Logboek.
+                                    </button>
                                     <button onClick={() => { setShowShareModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                                         <Icon path={Icons.Share} size={16}/> Delen.
                                     </button>
@@ -895,7 +955,7 @@ function App() {
             </header>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto p-4 space-y-6">
+            <main className="max-w-7xl mx-auto p-4 space-y-6 flex-grow w-full">
                 {/* Tools */}
                 <div className="flex flex-col gap-4 print:hidden">
                     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
@@ -989,6 +1049,18 @@ function App() {
                 </div>
             </main>
 
+            {/* Footer */}
+            <footer className="bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 py-6 print:hidden transition-colors duration-300">
+                <div className="max-w-7xl mx-auto px-4 text-center">
+                    <p className="text-sm text-gray-400 dark:text-gray-500 mb-1">
+                        &copy; {new Date().getFullYear()} Voorraad App. Versie {APP_VERSION}
+                    </p>
+                    <p className="text-xs text-gray-300 dark:text-gray-600">
+                        Beheer je vriezer en voorraad eenvoudig.
+                    </p>
+                </div>
+            </footer>
+
             {/* FAB */}
             <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 print:hidden hover:scale-105 transition-transform"><Icon path={Icons.Plus} size={28}/></button>
 
@@ -1055,6 +1127,47 @@ function App() {
             {/* Emoji Modal */}
             <Modal isOpen={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} title="Emoji." color="orange">
                 <EmojiGrid onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
+            </Modal>
+
+            {/* Logboek Modal */}
+            <Modal isOpen={showLogModal} onClose={() => setShowLogModal(false)} title="Logboek." color="teal">
+                {logs.length === 0 ? (
+                    <p className="text-gray-500 dark:text-gray-400 text-center italic py-4">Nog geen activiteiten.</p>
+                ) : (
+                    <ul className="space-y-3">
+                        {logs.map(log => {
+                            const isMine = log.targetUserId === user.uid;
+                            const isAdded = log.action === 'Toevoegen';
+                            const isDeleted = log.action === 'Verwijderd';
+                            
+                            return (
+                                <li key={log.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 border border-gray-100 dark:border-gray-600 text-sm">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className="font-bold text-gray-700 dark:text-gray-200">{log.item}</span>
+                                        <span className="text-xs text-gray-400 dark:text-gray-500">{formatDateTime(log.timestamp)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center mt-2">
+                                        <div className="flex gap-2">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isAdded ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : isDeleted ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
+                                                {log.action}
+                                            </span>
+                                            {/* Admin: Toon van wie deze voorraad is */}
+                                            {isAdmin && (
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${isMine ? 'border-green-300 text-green-600 dark:border-green-700 dark:text-green-400' : 'border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400'}`}>
+                                                    {isMine ? 'Eigen' : 'Ander'}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                            <Icon path={Icons.User} size={12}/> {log.actorName}
+                                        </div>
+                                    </div>
+                                    {log.details && <p className="text-xs text-gray-400 mt-1 pl-1 border-l-2 border-gray-200 dark:border-gray-600">{log.details}</p>}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
             </Modal>
 
             {/* Beheer Modal */}
@@ -1243,11 +1356,11 @@ function App() {
                 )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 5.9</h4>
+                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.0</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>THT datum bij stock is nu optioneel.</span></li>
-                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Geen meldingen voor stock items zonder datum.</span></li>
-                             <li className="flex gap-2"><Badge type="patch" text="New" /><span>Donkere modus toegevoegd!</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Logboek toegevoegd: Bekijk wie wat toevoegt of verwijdert.</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Footer toegevoegd onderaan de pagina.</span></li>
+                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Verbeterde weergave voor donkere modus.</span></li>
                         </ul>
                     </div>
                 </div>
