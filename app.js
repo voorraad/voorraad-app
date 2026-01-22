@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '6.7'; // Versie opgehoogd (Bugfix hiddenTabs)
+const APP_VERSION = '6.8'; // Versie opgehoogd (Fix verborgen tabs shared user)
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -296,6 +296,8 @@ function App() {
     
     // User Settings
     const [managedUserHiddenTabs, setManagedUserHiddenTabs] = useState([]);
+    // NIEUW: myHiddenTabs bewaart de instellingen van de INGELOGDE gebruiker
+    const [myHiddenTabs, setMyHiddenTabs] = useState([]);
     const [darkMode, setDarkMode] = useState(false);
     // Tijdelijke opslag voor voorkeuren voordat lades geladen zijn. Start op NULL om te weten dat we nog wachten.
     const [savedOpenLades, setSavedOpenLades] = useState(null);
@@ -404,6 +406,9 @@ function App() {
                         if (data.darkMode !== undefined) {
                             setDarkMode(data.darkMode);
                         }
+                        // Laad de eigen hiddenTabs
+                        setMyHiddenTabs(data.hiddenTabs || []);
+
                         // Laad open lades voorkeur (voor later gebruik)
                         if (data.openLades && Array.isArray(data.openLades)) {
                             setSavedOpenLades(data.openLades);
@@ -422,6 +427,7 @@ function App() {
                             openLades: [] // Start leeg
                         });
                         setSavedOpenLades([]);
+                        setMyHiddenTabs([]);
                     }
                 });
 
@@ -956,7 +962,7 @@ function App() {
                 <div className="max-w-7xl mx-auto px-4 flex space-x-6 border-b border-gray-100 dark:border-gray-700">
                     <button onClick={() => setActiveTab('vriezer')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='vriezer' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}><Icon path={Icons.Snowflake}/> Vriez.</button>
                     {/* Alleen tonen als het niet verborgen is OF als je admin bent */}
-                    {(!managedUserHiddenTabs.includes('voorraad') || isAdmin) && (
+                    {(!myHiddenTabs.includes('voorraad') || isAdmin) && (
                         <button onClick={() => setActiveTab('voorraad')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
                             <Icon path={Icons.Box}/> Stock.
                             {/* Toon slotje als admin kijkt en het verborgen is voor de user */}
@@ -1282,7 +1288,7 @@ function App() {
                             <button onClick={() => setEenheidFilter('vries')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'vries' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>
                                 Vriezer.
                             </button>
-                            {!managedUserHiddenTabs.includes('voorraad') && (
+                            {!myHiddenTabs.includes('voorraad') && (
                                 <button onClick={() => setEenheidFilter('voorraad')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'voorraad' ? 'bg-white dark:bg-gray-600 shadow text-orange-600 dark:text-orange-300' : 'text-gray-500 dark:text-gray-400'}`}>
                                     Stock.
                                 </button>
@@ -1373,9 +1379,9 @@ function App() {
                 )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.7</h4>
+                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.8</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Fix" /><span>Opgelost: Foutmelding bij openen van Instellingen verholpen.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Fix" /><span>Opgelost: Verborgen tabbladen werken nu correct voor gedeelde gebruikers.</span></li>
                         </ul>
                     </div>
                 </div>
