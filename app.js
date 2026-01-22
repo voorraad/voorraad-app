@@ -19,9 +19,9 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '6.0'; // Versie opgehoogd voor Logboek update
+const APP_VERSION = '6.1'; // Versie opgehoogd
 
-// Standaard kleuren voor badges (Tailwind classes) - Aangepast voor Dark Mode
+// Standaard kleuren voor badges
 const BADGE_COLORS = {
     gray: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600",
     red: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-200 dark:border-red-800",
@@ -47,72 +47,34 @@ const GRADIENTS = {
 };
 
 // --- DATA SETS PER TYPE ---
-
-// Vriezer Specifiek
 const CATEGORIEEN_VRIES = [
-    { name: "Vlees", color: "red" },
-    { name: "Vis", color: "blue" },
-    { name: "Groenten", color: "green" },
-    { name: "Fruit", color: "yellow" },
-    { name: "Brood", color: "yellow" },
-    { name: "IJs", color: "pink" },
-    { name: "Restjes", color: "gray" },
-    { name: "Saus", color: "red" },
-    { name: "Friet", color: "yellow" },
-    { name: "Pizza", color: "orange" },
-    { name: "Soep", color: "orange" },
-    { name: "Ander", color: "gray" }
+    { name: "Vlees", color: "red" }, { name: "Vis", color: "blue" }, { name: "Groenten", color: "green" },
+    { name: "Fruit", color: "yellow" }, { name: "Brood", color: "yellow" }, { name: "IJs", color: "pink" },
+    { name: "Restjes", color: "gray" }, { name: "Saus", color: "red" }, { name: "Friet", color: "yellow" },
+    { name: "Pizza", color: "orange" }, { name: "Soep", color: "orange" }, { name: "Ander", color: "gray" }
 ];
 const EENHEDEN_VRIES = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak"];
 
-// Voorraad/Stock Specifiek
 const CATEGORIEEN_VOORRAAD = [
-    { name: "Pasta", color: "yellow" },
-    { name: "Rijst", color: "gray" },
-    { name: "Conserven", color: "red" },
-    { name: "Saus", color: "red" },
-    { name: "Kruiden", color: "green" },
-    { name: "Bakproducten", color: "yellow" },
-    { name: "Snacks", color: "orange" },
-    { name: "Drank", color: "blue" },
-    { name: "Huishoud", color: "gray" },
+    { name: "Pasta", color: "yellow" }, { name: "Rijst", color: "gray" }, { name: "Conserven", color: "red" },
+    { name: "Saus", color: "red" }, { name: "Kruiden", color: "green" }, { name: "Bakproducten", color: "yellow" },
+    { name: "Snacks", color: "orange" }, { name: "Drank", color: "blue" }, { name: "Huishoud", color: "gray" },
     { name: "Ander", color: "gray" }
 ];
 const EENHEDEN_VOORRAAD = ["stuks", "pak", "fles", "blik", "pot", "liter", "kilo", "gram", "zak", "doos"];
 
-// Uitgebreide en gecategoriseerde Emoji lijst
 const EMOJI_CATEGORIES = {
-    "Fruit.": [
-        "🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🥑", "🫒", "🍋‍🟩"
-    ],
-    "Groenten.": [
-        "🍆", "🥔", "🥕", "🌽", "🌶️", "🫑", "🥒", "🥬", "🥦", "🧄", "🧅", "🍄", "🥜", "🫘", "🌰", "🍠", "🫛", "🫚", "🍄‍🟫"
-    ],
-    "Vlees.": [
-        "🥩", "🍗", "🍖", "🥓", "🍔", "🌭", "🍳", "🥚", "🧀"
-    ],
-    "Vis.": [
-        "🐟", "🐠", "🐡", "🦈", "🐙", "🦀", "🦞", "🦐", "🦑", "🦪", "🍣", "🍤", "🎏"
-    ],
-    "Deegwaren.": [
-        "🍞", "🥐", "🥖", "🫓", "🥨", "🥯", "🥞", "🧇", "🥟", "🥠", "🥡", "🍜", "🍝", "🍕", "🍔"
-    ],
-    "Fastfood.": [
-        "🍟", "🥪", "🌮", "🌯", "🫔", "🥙", "🧆", "🥘", "🍲", "🫕", "🥣", "🥗", "🍿", "🧈", "🧂", "🥫", "🍱", "🍘", "🍙", "🍚", "🍛", "🍢", "🍥", "🍡"
-    ],
-    "Dessert.": [
-        "🍦", "🍧", "🍨", "🍩", "🍪", "🎂", "🍰", "🧁", "🥧", "🍫", "🍬", "🍭", "🍮", "🍯"
-    ],
-    "Drinken.": [
-        "🍼", "🥛", "☕", "🫖", "🍵", "🍶", "🍾", "🍷", "🍸", "🍹", "🍺", "🍻", "🥂", "🥃", "🥤", "🧃", "🧉"
-    ],
-     "Dieren.": [
-        "🐄", "🐂", "🐃", "🐖", "🐏", "🐑", "🐐", "🐓", "🦃", "🦆", "🕊️", "🦢", "🪿", "🦤", "🐤", "🦬", "🐫", "🦘", "🐇", "🐷", "🐮", "🐔", "🐗", "🐴", "🫎", "🦏", "🐊"
-    ],
+    "Fruit.": ["🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🥑", "🫒", "🍋‍🟩"],
+    "Groenten.": ["🍆", "🥔", "🥕", "🌽", "🌶️", "🫑", "🥒", "🥬", "🥦", "🧄", "🧅", "🍄", "🥜", "🫘", "🌰", "🍠", "🫛", "🫚", "🍄‍🟫"],
+    "Vlees.": ["🥩", "🍗", "🍖", "🥓", "🍔", "🌭", "🍳", "🥚", "🧀"],
+    "Vis.": ["🐟", "🐠", "🐡", "🦈", "🐙", "🦀", "🦞", "🦐", "🦑", "🦪", "🍣", "🍤", "🎏"],
+    "Deegwaren.": ["🍞", "🥐", "🥖", "🫓", "🥨", "🥯", "🥞", "🧇", "🥟", "🥠", "🥡", "🍜", "🍝", "🍕", "🍔"],
+    "Fastfood.": ["🍟", "🥪", "🌮", "🌯", "🫔", "🥙", "🧆", "🥘", "🍲", "🫕", "🥣", "🥗", "🍿", "🧈", "🧂", "🥫", "🍱", "🍘", "🍙", "🍚", "🍛", "🍢", "🍥", "🍡"],
+    "Dessert.": ["🍦", "🍧", "🍨", "🍩", "🍪", "🎂", "🍰", "🧁", "🥧", "🍫", "🍬", "🍭", "🍮", "🍯"],
+    "Drinken.": ["🍼", "🥛", "☕", "🫖", "🍵", "🍶", "🍾", "🍷", "🍸", "🍹", "🍺", "🍻", "🥂", "🥃", "🥤", "🧃", "🧉"],
+     "Dieren.": ["🐄", "🐂", "🐃", "🐖", "🐏", "🐑", "🐐", "🐓", "🦃", "🦆", "🕊️", "🦢", "🪿", "🦤", "🐤", "🦬", "🐫", "🦘", "🐇", "🐷", "🐮", "🐔", "🐗", "🐴", "🫎", "🦏", "🐊"],
     "Voorraad basis.": ["🍝", "🍚", "🥫", "🫙", "🥡", "🧂", "🍾", "🥤", "🧃", "☕", "🍪", "🍫", "🥖", "🥞"],
-    "Overig.": [
-        "❄️", "🧊", "🏷️", "📦", "🛒", "🛍️", "🍽️", "🔪", "🥄", "👩🏼‍🍳", "👨🏼‍🍳", "👍🏼", "👎🏼", "🎆", "🎉", "🎊", "🎃", "🎄", "🎁", "👑"
-    ]
+    "Overig.": ["❄️", "🧊", "🏷️", "📦", "🛒", "🛍️", "🍽️", "🔪", "🥄", "👩🏼‍🍳", "👨🏼‍🍳", "👍🏼", "👎🏼", "🎆", "🎉", "🎊", "🎃", "🎄", "🎁", "👑"]
 };
 
 // --- 3. ICOON COMPONENTEN (SVG) ---
@@ -159,11 +121,10 @@ const getDagenTotTHT = (timestamp) => {
     if (!timestamp) return 999;
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     const now = new Date();
-    // Reset uren om puur op datum te vergelijken
     now.setHours(0,0,0,0);
     date.setHours(0,0,0,0);
     const diff = date - now;
-    return Math.ceil(diff / (1000 * 60 * 60 * 24)); // Positief = dagen over, Negatief = verlopen
+    return Math.ceil(diff / (1000 * 60 * 60 * 24)); 
 };
 
 const formatDate = (timestamp) => {
@@ -197,15 +158,13 @@ const getEmojiForCategory = (cat) => {
     return emojis[cat] || "📦";
 };
 
-// Update: Accepteert nu optioneel THT dagen voor stock logica
 const getStatusColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999) => {
     if (type === 'voorraad') {
-        if (dagenTotTHT === 999) return 'border-l-4 border-green-400 dark:border-green-600'; // Geen datum = OK
-        if (dagenTotTHT < 0) return 'border-l-4 border-red-500 bg-red-50 dark:bg-red-900/10 dark:border-red-600'; // Verlopen
-        if (dagenTotTHT <= 30) return 'border-l-4 border-yellow-400 dark:border-yellow-600'; // Bijna verlopen
-        return 'border-l-4 border-green-400 dark:border-green-600'; // OK
+        if (dagenTotTHT === 999) return 'border-l-4 border-green-400 dark:border-green-600'; 
+        if (dagenTotTHT < 0) return 'border-l-4 border-red-500 bg-red-50 dark:bg-red-900/10 dark:border-red-600'; 
+        if (dagenTotTHT <= 30) return 'border-l-4 border-yellow-400 dark:border-yellow-600'; 
+        return 'border-l-4 border-green-400 dark:border-green-600'; 
     } else {
-        // Vriezer logica (leeftijd)
         if (dagenOud > 180) return 'border-l-4 border-red-500 dark:border-red-600'; 
         if (dagenOud > 90) return 'border-l-4 border-yellow-400 dark:border-yellow-600';
         return 'border-l-4 border-green-400 dark:border-green-600';
@@ -229,12 +188,12 @@ const logAction = async (action, itemNaam, details, actorUser, targetUserId) => 
     if (!actorUser) return;
     try {
         await db.collection('logs').add({
-            action: action, // 'Toevoegen', 'Verwijderen', 'Bewerken'
+            action: action, 
             item: itemNaam,
             details: details,
             actorId: actorUser.uid,
             actorName: actorUser.displayName || actorUser.email,
-            targetUserId: targetUserId, // De eigenaar van de vriezer
+            targetUserId: targetUserId, 
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
     } catch (e) {
@@ -336,7 +295,6 @@ function App() {
     
     // User Settings
     const [hiddenTabs, setHiddenTabs] = useState([]);
-    // State voor DarkMode (initieel false)
     const [darkMode, setDarkMode] = useState(false);
     
     // Data
@@ -344,9 +302,8 @@ function App() {
     const [items, setItems] = useState([]);
     const [vriezers, setVriezers] = useState([]);
     const [lades, setLades] = useState([]);
-    const [logs, setLogs] = useState([]); // Nieuwe state voor logs
+    const [logs, setLogs] = useState([]); 
     
-    // Gescheiden Custom Units
     const [customUnitsVries, setCustomUnitsVries] = useState([]);
     const [customUnitsVoorraad, setCustomUnitsVoorraad] = useState([]);
     
@@ -358,7 +315,6 @@ function App() {
     const [editingItem, setEditingItem] = useState(null);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     
-    // Notifications
     const [notification, setNotification] = useState(null);
     
     // Modals & Menu
@@ -370,7 +326,7 @@ function App() {
     const [showProfileMenu, setShowProfileMenu] = useState(false); 
     const [showUserAdminModal, setShowUserAdminModal] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
-    const [showLogModal, setShowLogModal] = useState(false); // Logboek Modal
+    const [showLogModal, setShowLogModal] = useState(false); 
     const [beheerTab, setBeheerTab] = useState('locaties');
 
     // Forms
@@ -380,29 +336,25 @@ function App() {
     });
     const [rememberLocation, setRememberLocation] = useState(false); 
     const [newLocatieNaam, setNewLocatieNaam] = useState('');
-    const [newLocatieColor, setNewLocatieColor] = useState('blue'); // Nieuw state voor kleur
+    const [newLocatieColor, setNewLocatieColor] = useState('blue'); 
     const [selectedLocatieForBeheer, setSelectedLocatieForBeheer] = useState(null);
     const [newLadeNaam, setNewLadeNaam] = useState('');
     const [newUnitNaam, setNewUnitNaam] = useState('');
     const [shareEmail, setShareEmail] = useState('');
     
-    // Instellingen Filter (voor Eenheden)
-    const [eenheidFilter, setEenheidFilter] = useState('vries'); // 'vries' or 'voorraad'
+    const [eenheidFilter, setEenheidFilter] = useState('vries'); 
 
-    // Edit States voor Beheer
+    // Edit States
     const [editingLadeId, setEditingLadeId] = useState(null);
     const [editingLadeName, setEditingLadeName] = useState('');
     const [editingUnitName, setEditingUnitName] = useState(null); 
     const [editUnitInput, setEditUnitInput] = useState('');
-    
-    // Edit States voor Categorieën
     const [newCatName, setNewCatName] = useState('');
     const [newCatColor, setNewCatColor] = useState('gray');
     const [editingCatName, setEditingCatName] = useState(null);
     const [editCatInputName, setEditCatInputName] = useState('');
     const [editCatInputColor, setEditCatInputColor] = useState('gray');
 
-    // Effect voor Dark Mode (reageert op state wijziging)
     useEffect(() => {
         if (darkMode) {
             document.documentElement.classList.add('dark');
@@ -411,11 +363,9 @@ function App() {
         }
     }, [darkMode]);
 
-    // Functie om Dark Mode te toggelen in Database
     const toggleDarkMode = async () => {
         if (!user) return;
         const newStatus = !darkMode;
-        // Direct lokaal updaten voor snelheid (optimistic UI)
         setDarkMode(newStatus);
         
         try {
@@ -434,18 +384,14 @@ function App() {
                 setUser(u);
                 setBeheerdeUserId(u.uid);
                 
-                // Listener op EIGEN user doc voor persoonlijke instellingen (zoals hiddenTabs & darkMode)
                 db.collection('users').doc(u.uid).onSnapshot(doc => {
                     if(doc.exists) {
                         const data = doc.data();
                         setHiddenTabs(data.hiddenTabs || []); 
-                        
-                        // Checken of darkMode in DB staat, anders false
                         if (data.darkMode !== undefined) {
                             setDarkMode(data.darkMode);
                         }
                     } else {
-                        // Profiel aanmaken als het niet bestaat
                         db.collection('users').doc(u.uid).set({
                             customCategories: CATEGORIEEN_VRIES,
                             customUnitsVries: [],
@@ -516,51 +462,47 @@ function App() {
         }
     }, [isAdmin]);
 
-    // LOGS FETCHEN
+    // OPTIMALISATIE: Logs fetchen ALLEEN als de modal open is EN voor de beheerde user
     useEffect(() => {
-        if (!user) return;
+        if (!user || !showLogModal || !beheerdeUserId) return;
 
-        let query = db.collection('logs').orderBy('timestamp', 'desc').limit(50);
-        
-        // Als je geen admin bent, zie je alleen logs van JOUW eigen voorraad 
-        // (dus waar targetUserId == jouw ID).
-        if (!isAdmin) {
-            query = query.where('targetUserId', '==', user.uid);
-        }
+        // We filteren nu op targetUserId == beheerdeUserId (de eigenaar van de vriezer)
+        // Hierdoor zien gedeelde gebruikers de logs van de vriezer die ze bekijken
+        let query = db.collection('logs')
+            .where('targetUserId', '==', beheerdeUserId) 
+            .orderBy('timestamp', 'desc')
+            .limit(25); // Limiet op 25 om reads te besparen
 
         const unsubLogs = query.onSnapshot(snap => {
             setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         });
 
         return () => unsubLogs();
-    }, [user, isAdmin]);
+    }, [user, showLogModal, beheerdeUserId]);
 
 
-    // Slimmere Alerts Logic
+    // Alerts Logic
     const alerts = items.filter(i => {
-        // Zoek locatie om type te bepalen (vriezer vs stock)
         const loc = vriezers.find(v => v.id === i.vriezerId);
         const type = loc ? (loc.type || 'vriezer') : 'vriezer';
 
         if (type === 'voorraad') {
-             // Voorraad: Alert als THT verlopen is (dagenTotTHT < 0)
              return getDagenTotTHT(i.houdbaarheidsDatum) < 0; 
         } else {
-             // Vriezer: Alert als ouder dan 6 maanden
              return getDagenOud(i.ingevrorenOp) > 180;
         }
     });
 
+    // FIX: Alleen melding tonen bij nieuwe versie, niet bij item changes
     useEffect(() => {
-        if (items.length > 0) {
-            const lastVersion = localStorage.getItem('app_version');
-            
-            if (alerts.length > 0 || lastVersion !== APP_VERSION) {
-                setShowWhatsNew(true);
-                localStorage.setItem('app_version', APP_VERSION);
-            }
+        const lastVersion = localStorage.getItem('app_version');
+        
+        if (lastVersion !== APP_VERSION) {
+            setShowWhatsNew(true);
+            localStorage.setItem('app_version', APP_VERSION);
         }
-    }, [items.length, alerts.length]); 
+        // Removed items.length and alerts.length from dependencies to prevent popup spam
+    }, []); 
 
     // Derived
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
@@ -570,19 +512,15 @@ function App() {
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
         : [];
     
-    // Bepaal de context (vriezer of stock) van de geselecteerde locatie in het formulier
     const formLocationType = vriezers.find(v => v.id === formData.vriezerId)?.type || activeTab;
 
-    // Filter eenheden en categorieën op basis van context
     const contextEenheden = formLocationType === 'voorraad' ? EENHEDEN_VOORRAAD : EENHEDEN_VRIES;
     const contextCategorieen = formLocationType === 'voorraad' ? CATEGORIEEN_VOORRAAD : CATEGORIEEN_VRIES;
     const andereCategorieen = formLocationType === 'voorraad' ? CATEGORIEEN_VRIES : CATEGORIEEN_VOORRAAD;
     
-    // Actieve Custom Units voor deze context
     const activeCustomUnits = formLocationType === 'voorraad' ? customUnitsVoorraad : customUnitsVries;
     const alleEenheden = [...new Set([...contextEenheden, ...activeCustomUnits])].sort();
 
-    // SLIMMER FILTEREN voor categorieën
     const actieveCategorieen = [
         ...contextCategorieen, 
         ...customCategories.filter(cc => {
@@ -618,7 +556,6 @@ function App() {
     const handleOpenAdd = () => {
         setEditingItem(null);
         const defaultLoc = filteredLocaties.length > 0 ? filteredLocaties[0].id : '';
-        // Bepaal de standaard categorie obv het tabblad/type
         const defaultCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
         
         if (!rememberLocation) {
@@ -756,14 +693,12 @@ function App() {
         e.preventDefault();
         const naam = newUnitNaam.trim().toLowerCase();
         
-        // Selecteer juiste lijst obv filter
         const standardList = eenheidFilter === 'voorraad' ? EENHEDEN_VOORRAAD : EENHEDEN_VRIES;
         const currentCustom = eenheidFilter === 'voorraad' ? customUnitsVoorraad : customUnitsVries;
         const dbField = eenheidFilter === 'voorraad' ? 'customUnitsVoorraad' : 'customUnitsVries';
 
         if(naam && !standardList.includes(naam) && !currentCustom.includes(naam)) {
             const updated = [...currentCustom, naam];
-            // Gebruik set met merge om zeker te zijn
             await db.collection('users').doc(beheerdeUserId).set({[dbField]: updated}, {merge:true});
             setNewUnitNaam('');
         }
@@ -1356,11 +1291,11 @@ function App() {
                 )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.0</h4>
+                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.1</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Logboek toegevoegd: Bekijk wie wat toevoegt of verwijdert.</span></li>
-                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Footer toegevoegd onderaan de pagina.</span></li>
-                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Verbeterde weergave voor donkere modus.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Fout opgelost waarbij dit meldingenscherm telkens terugkwam.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Logboek werkt nu correct voor gedeelde gebruikers.</span></li>
+                             <li className="flex gap-2"><Badge type="patch" text="Fix" /><span>Logboek laadt alleen bij openen om data te besparen.</span></li>
                         </ul>
                     </div>
                 </div>
