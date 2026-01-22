@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '6.4'; // Versie opgehoogd (Index fix)
+const APP_VERSION = '6.5'; // Versie opgehoogd (Gebruiker status & voorkeuren)
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -295,9 +295,10 @@ function App() {
     const [usersList, setUsersList] = useState([]);
     
     // User Settings
-    // managedUserHiddenTabs bevat de settings van de persoon die je NU bekijkt
     const [managedUserHiddenTabs, setManagedUserHiddenTabs] = useState([]);
     const [darkMode, setDarkMode] = useState(false);
+    // Tijdelijke opslag voor voorkeuren voordat lades geladen zijn
+    const [savedOpenLades, setSavedOpenLades] = useState(null);
     
     // Data
     const [activeTab, setActiveTab] = useState('vriezer');
@@ -388,6 +389,14 @@ function App() {
                 setUser(u);
                 setBeheerdeUserId(u.uid);
                 
+                // Update 'laatstGezien' direct bij inloggen/openen app
+                try {
+                    await db.collection('users').doc(u.uid).set({
+                        laatstGezien: firebase.firestore.FieldValue.serverTimestamp(),
+                        email: u.email
+                    }, { merge: true });
+                } catch(e) { console.error("Kon laatstGezien niet updaten", e); }
+
                 db.collection('users').doc(u.uid).onSnapshot(doc => {
                     if(doc.exists) {
                         const data = doc.data();
@@ -395,13 +404,18 @@ function App() {
                         if (data.darkMode !== undefined) {
                             setDarkMode(data.darkMode);
                         }
+                        // Laad open lades voorkeur (voor later gebruik)
+                        if (data.openLades && Array.isArray(data.openLades)) {
+                            setSavedOpenLades(data.openLades);
+                        }
                     } else {
                         db.collection('users').doc(u.uid).set({
                             customCategories: CATEGORIEEN_VRIES,
                             customUnitsVries: [],
                             customUnitsVoorraad: [],
                             hiddenTabs: [],
-                            darkMode: false
+                            darkMode: false,
+                            openLades: [] // Start leeg
                         });
                     }
                 });
@@ -449,14 +463,28 @@ function App() {
         const unsubL = db.collection('lades').where('userId', '==', beheerdeUserId).onSnapshot(s => {
             const loadedLades = s.docs.map(d => ({id: d.id, ...d.data()}));
             setLades(loadedLades);
+            
+            // Initiële status instellen (alleen de eerste keer laden)
             if (!isDataLoaded && loadedLades.length > 0) {
-                setCollapsedLades(new Set(loadedLades.map(l => l.id)));
+                // Standaard ALLES dicht (dus alles in collapsed set)
+                const initialCollapsed = new Set(loadedLades.map(l => l.id));
+                
+                // Als er opgeslagen open lades zijn, haal die uit de 'dicht' set
+                if (savedOpenLades && savedOpenLades.length > 0) {
+                    savedOpenLades.forEach(id => {
+                        if (initialCollapsed.has(id)) {
+                            initialCollapsed.delete(id);
+                        }
+                    });
+                }
+                
+                setCollapsedLades(initialCollapsed);
                 setIsDataLoaded(true);
             }
         });
         const unsubI = db.collection('items').where('userId', '==', beheerdeUserId).onSnapshot(s => setItems(s.docs.map(d => ({id: d.id, ...d.data()}))));
         return () => { unsubV(); unsubL(); unsubI(); };
-    }, [beheerdeUserId, isDataLoaded]);
+    }, [beheerdeUserId, isDataLoaded, savedOpenLades]); // savedOpenLades toegevoegd als dependency voor init
 
     useEffect(() => {
         if (isAdmin) {
@@ -801,12 +829,42 @@ function App() {
         await db.collection('users').doc(userId).set({ hiddenTabs: newTabs }, { merge: true });
     };
 
-    const toggleLade = (id) => {
+    const toggleLade = async (id) => {
         const newSet = new Set(collapsedLades);
-        if(newSet.has(id)) newSet.delete(id); else newSet.add(id);
+        // Toggle logic
+        if(newSet.has(id)) newSet.delete(id); // Was dicht, nu open
+        else newSet.add(id); // Was open, nu dicht
+        
         setCollapsedLades(newSet);
+
+        // Update in DB (openLades array)
+        if(user) {
+            // Bereken welke lades NU open zijn (alles wat NIET in collapsedLades zit)
+            // Let op: lades is de complete lijst.
+            const openLadesArray = lades
+                .filter(l => !newSet.has(l.id))
+                .map(l => l.id);
+            
+            try {
+                await db.collection('users').doc(user.uid).set({ openLades: openLadesArray }, { merge: true });
+            } catch(e) { console.error("Kon lade status niet opslaan", e); }
+        }
     };
-    const toggleAll = () => setCollapsedLades(collapsedLades.size > 0 ? new Set() : new Set(lades.map(l => l.id)));
+
+    const toggleAll = async () => {
+        const isAllesDicht = collapsedLades.size === lades.length; // Of eigenlijk > 0 in huidige logica
+        const expanding = collapsedLades.size > 0; // Als er iets dicht is, gaan we alles openen
+        
+        const newSet = expanding ? new Set() : new Set(lades.map(l => l.id));
+        setCollapsedLades(newSet);
+
+        if (user) {
+            const openLadesArray = expanding ? lades.map(l => l.id) : [];
+            try {
+                await db.collection('users').doc(user.uid).set({ openLades: openLadesArray }, { merge: true });
+            } catch(e) { console.error("Kon lade status niet opslaan", e); }
+        }
+    };
 
     // --- RENDER ---
     if (!user) return (
@@ -1306,9 +1364,10 @@ function App() {
                 )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.4</h4>
+                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.5</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Database sortering geactiveerd voor sneller logboek.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>App onthoudt nu welke lades open of dicht stonden.</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Laatst gezien status wordt nu correct bijgewerkt.</span></li>
                         </ul>
                     </div>
                 </div>
