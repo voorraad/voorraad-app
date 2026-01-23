@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '6.8'; // Versie opgehoogd (Fix verborgen tabs shared user)
+const APP_VERSION = '7.0'; // Versie opgehoogd (Frig. tabblad toegevoegd)
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -55,6 +55,10 @@ const CATEGORIEEN_VRIES = [
 ];
 const EENHEDEN_VRIES = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak"];
 
+// Frig gebruikt dezelfde basis als vriezer, maar kan eigen eenheden hebben in de toekomst
+const CATEGORIEEN_FRIG = [...CATEGORIEEN_VRIES];
+const EENHEDEN_FRIG = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "pak", "fles", "pot"];
+
 const CATEGORIEEN_VOORRAAD = [
     { name: "Pasta", color: "yellow" }, { name: "Rijst", color: "gray" }, { name: "Conserven", color: "red" },
     { name: "Saus", color: "red" }, { name: "Kruiden", color: "green" }, { name: "Bakproducten", color: "yellow" },
@@ -72,7 +76,7 @@ const EMOJI_CATEGORIES = {
     "Fastfood.": ["🍟", "🥪", "🌮", "🌯", "🫔", "🥙", "🧆", "🥘", "🍲", "🫕", "🥣", "🥗", "🍿", "🧈", "🧂", "🥫", "🍱", "🍘", "🍙", "🍚", "🍛", "🍢", "🍥", "🍡"],
     "Dessert.": ["🍦", "🍧", "🍨", "🍩", "🍪", "🎂", "🍰", "🧁", "🥧", "🍫", "🍬", "🍭", "🍮", "🍯"],
     "Drinken.": ["🍼", "🥛", "☕", "🫖", "🍵", "🍶", "🍾", "🍷", "🍸", "🍹", "🍺", "🍻", "🥂", "🥃", "🥤", "🧃", "🧉"],
-     "Dieren.": ["😺","🐈","🐄", "🐂", "🐃", "🐖", "🐏", "🐑", "🐐", "🐓", "🦃", "🦆", "🕊️", "🦢", "🪿", "🦤", "🐤", "🦬", "🐫", "🦘", "🐇", "🐷", "🐮", "🐔", "🐗", "🐴", "🫎", "🦏", "🐊"],
+     "Dieren.": ["🐄", "🐂", "🐃", "🐖", "🐏", "🐑", "🐐", "🐓", "🦃", "🦆", "🕊️", "🦢", "🪿", "🦤", "🐤", "🦬", "🐫", "🦘", "🐇", "🐷", "🐮", "🐔", "🐗", "🐴", "🫎", "🦏", "🐊"],
     "Voorraad basis.": ["🍝", "🍚", "🥫", "🫙", "🥡", "🧂", "🍾", "🥤", "🧃", "☕", "🍪", "🍫", "🥖", "🥞"],
     "Overig.": ["❄️", "🧊", "🏷️", "📦", "🛒", "🛍️", "🍽️", "🔪", "🥄", "👩🏼‍🍳", "👨🏼‍🍳", "👍🏼", "👎🏼", "🎆", "🎉", "🎊", "🎃", "🎄", "🎁", "👑"]
 };
@@ -106,7 +110,8 @@ const Icons = {
     Sun: <g><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></g>,
     Moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>,
     LogBook: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></g>,
-    Lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></g>
+    Lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></g>,
+    Fridge: <path d="M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 6h14m-7-6v20"/>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -160,7 +165,7 @@ const getEmojiForCategory = (cat) => {
 };
 
 const getStatusColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999) => {
-    if (type === 'voorraad') {
+    if (type === 'voorraad' || type === 'frig') {
         if (dagenTotTHT === 999) return 'border-l-4 border-green-400 dark:border-green-600'; 
         if (dagenTotTHT < 0) return 'border-l-4 border-red-500 bg-red-50 dark:bg-red-900/10 dark:border-red-600'; 
         if (dagenTotTHT <= 30) return 'border-l-4 border-yellow-400 dark:border-yellow-600'; 
@@ -173,7 +178,7 @@ const getStatusColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999) => {
 };
 
 const getDateTextColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999) => {
-    if (type === 'voorraad') {
+    if (type === 'voorraad' || type === 'frig') {
         if (dagenTotTHT < 0) return 'text-red-600 dark:text-red-400 font-bold'; 
         if (dagenTotTHT <= 30) return 'text-orange-500 dark:text-orange-400 font-bold';
         return 'text-green-600 dark:text-green-400 font-medium';
@@ -296,10 +301,8 @@ function App() {
     
     // User Settings
     const [managedUserHiddenTabs, setManagedUserHiddenTabs] = useState([]);
-    // NIEUW: myHiddenTabs bewaart de instellingen van de INGELOGDE gebruiker
     const [myHiddenTabs, setMyHiddenTabs] = useState([]);
     const [darkMode, setDarkMode] = useState(false);
-    // Tijdelijke opslag voor voorkeuren voordat lades geladen zijn. Start op NULL om te weten dat we nog wachten.
     const [savedOpenLades, setSavedOpenLades] = useState(null);
     
     // Data
@@ -310,6 +313,7 @@ function App() {
     const [logs, setLogs] = useState([]); 
     
     const [customUnitsVries, setCustomUnitsVries] = useState([]);
+    const [customUnitsFrig, setCustomUnitsFrig] = useState([]);
     const [customUnitsVoorraad, setCustomUnitsVoorraad] = useState([]);
     
     const [customCategories, setCustomCategories] = useState([]);
@@ -402,29 +406,25 @@ function App() {
                 db.collection('users').doc(u.uid).onSnapshot(doc => {
                     if(doc.exists) {
                         const data = doc.data();
-                        // Dit zijn de settings van de *ingelogde* user zelf
                         if (data.darkMode !== undefined) {
                             setDarkMode(data.darkMode);
                         }
-                        // Laad de eigen hiddenTabs
                         setMyHiddenTabs(data.hiddenTabs || []);
 
-                        // Laad open lades voorkeur (voor later gebruik)
                         if (data.openLades && Array.isArray(data.openLades)) {
                             setSavedOpenLades(data.openLades);
                         } else {
-                            // Wel profiel, maar geen lades opgeslagen -> lege lijst
                             setSavedOpenLades([]);
                         }
                     } else {
-                        // Nog geen profiel -> aanmaken
                         db.collection('users').doc(u.uid).set({
                             customCategories: CATEGORIEEN_VRIES,
                             customUnitsVries: [],
+                            customUnitsFrig: [],
                             customUnitsVoorraad: [],
                             hiddenTabs: [],
                             darkMode: false,
-                            openLades: [] // Start leeg
+                            openLades: [] 
                         });
                         setSavedOpenLades([]);
                         setMyHiddenTabs([]);
@@ -458,8 +458,9 @@ function App() {
                     vriesUnits = data.customUnits;
                 }
                 setCustomUnitsVries(vriesUnits || []);
+                setCustomUnitsFrig(data.customUnitsFrig || []);
                 setCustomUnitsVoorraad(data.customUnitsVoorraad || []);
-                setManagedUserHiddenTabs(data.hiddenTabs || []); // Haal hiddenTabs van de *bekeken* user op
+                setManagedUserHiddenTabs(data.hiddenTabs || []); 
 
                 setCustomCategories(data.customCategories && data.customCategories.length > 0 ? data.customCategories : CATEGORIEEN_VRIES);
             }
@@ -475,13 +476,8 @@ function App() {
             const loadedLades = s.docs.map(d => ({id: d.id, ...d.data()}));
             setLades(loadedLades);
             
-            // FIX: Wacht tot loadedLades > 0 EN savedOpenLades niet meer null is (dus geladen uit profiel)
-            // Dit voorkomt dat de app te vroeg "alles dicht" zet.
             if (!isDataLoaded && loadedLades.length > 0 && savedOpenLades !== null) {
-                // Standaard ALLES dicht (dus alles in collapsed set)
                 const initialCollapsed = new Set(loadedLades.map(l => l.id));
-                
-                // Als er opgeslagen open lades zijn, haal die uit de 'dicht' set
                 if (savedOpenLades && savedOpenLades.length > 0) {
                     savedOpenLades.forEach(id => {
                         if (initialCollapsed.has(id)) {
@@ -489,7 +485,6 @@ function App() {
                         }
                     });
                 }
-                
                 setCollapsedLades(initialCollapsed);
                 setIsDataLoaded(true);
             }
@@ -507,8 +502,6 @@ function App() {
         }
     }, [isAdmin]);
 
-    // OPTIMALISATIE: Logs fetchen ALLEEN als de modal open is EN voor de beheerde user
-    // Nu mèt server-side sortering omdat de index bestaat
     useEffect(() => {
         if (!user || !showLogModal || !beheerdeUserId) return;
 
@@ -530,25 +523,21 @@ function App() {
         const loc = vriezers.find(v => v.id === i.vriezerId);
         const type = loc ? (loc.type || 'vriezer') : 'vriezer';
 
-        if (type === 'voorraad') {
+        if (type === 'voorraad' || type === 'frig') {
              return getDagenTotTHT(i.houdbaarheidsDatum) < 0; 
         } else {
              return getDagenOud(i.ingevrorenOp) > 180;
         }
     });
 
-    // Meldingen Check - Eenmalig bij laden van data
     useEffect(() => {
-        // Alleen uitvoeren als data geladen is en we nog niet gecheckt hebben deze sessie
         if (isDataLoaded && !hasCheckedAlerts.current) {
             const lastVersion = localStorage.getItem('app_version');
-            
-            // Toon als er een nieuwe versie is OF als er alerts zijn
             if (lastVersion !== APP_VERSION || alerts.length > 0) {
                 setShowWhatsNew(true);
                 if (lastVersion !== APP_VERSION) localStorage.setItem('app_version', APP_VERSION);
             }
-            hasCheckedAlerts.current = true; // Markeer als gecheckt
+            hasCheckedAlerts.current = true; 
         }
     }, [isDataLoaded, alerts.length]); 
 
@@ -562,19 +551,28 @@ function App() {
     
     const formLocationType = vriezers.find(v => v.id === formData.vriezerId)?.type || activeTab;
 
-    const contextEenheden = formLocationType === 'voorraad' ? EENHEDEN_VOORRAAD : EENHEDEN_VRIES;
-    const contextCategorieen = formLocationType === 'voorraad' ? CATEGORIEEN_VOORRAAD : CATEGORIEEN_VRIES;
-    const andereCategorieen = formLocationType === 'voorraad' ? CATEGORIEEN_VRIES : CATEGORIEEN_VOORRAAD;
+    let contextEenheden = EENHEDEN_VRIES;
+    let contextCategorieen = CATEGORIEEN_VRIES;
+    let activeCustomUnits = customUnitsVries;
+
+    if (formLocationType === 'voorraad') {
+        contextEenheden = EENHEDEN_VOORRAAD;
+        contextCategorieen = CATEGORIEEN_VOORRAAD;
+        activeCustomUnits = customUnitsVoorraad;
+    } else if (formLocationType === 'frig') {
+        contextEenheden = EENHEDEN_FRIG;
+        contextCategorieen = CATEGORIEEN_FRIG;
+        activeCustomUnits = customUnitsFrig;
+    }
     
-    const activeCustomUnits = formLocationType === 'voorraad' ? customUnitsVoorraad : customUnitsVries;
     const alleEenheden = [...new Set([...contextEenheden, ...activeCustomUnits])].sort();
 
     const actieveCategorieen = [
         ...contextCategorieen, 
         ...customCategories.filter(cc => {
             const inHuidig = contextCategorieen.some(c => c.name === cc.name);
-            const inAnder = andereCategorieen.some(c => c.name === cc.name);
-            return !inHuidig && !inAnder;
+            // Voorlopig simpele check, kan complexer als nodig
+            return !inHuidig;
         })
     ];
 
@@ -636,17 +634,13 @@ function App() {
         try {
             if(editingItem) {
                 await db.collection('items').doc(editingItem.id).update(data);
-                // Log Bewerken
                 await logAction('Bewerkt', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
-                
                 showNotification(`Product '${data.naam}' is bijgewerkt!`, 'success');
                 setEditingItem(null);
                 setShowAddModal(false);
             } else {
                 await db.collection('items').add(data);
-                // Log Toevoegen
                 await logAction('Toevoegen', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
-
                 showNotification(`Product '${data.naam}' is toegevoegd!`, 'success');
                 if (rememberLocation) {
                     setFormData(prev => ({
@@ -668,9 +662,7 @@ function App() {
         if(confirm(`Verwijder '${naam}'?`)) {
             try {
                 await db.collection('items').doc(id).delete();
-                // Log Verwijderen
                 await logAction('Verwijderd', naam, 'Item verwijderd', user, beheerdeUserId);
-                
                 showNotification(`Product '${naam}' is verwijderd.`, 'success');
             } catch(err) {
                 showNotification("Kon niet verwijderen", 'error');
@@ -741,9 +733,19 @@ function App() {
         e.preventDefault();
         const naam = newUnitNaam.trim().toLowerCase();
         
-        const standardList = eenheidFilter === 'voorraad' ? EENHEDEN_VOORRAAD : EENHEDEN_VRIES;
-        const currentCustom = eenheidFilter === 'voorraad' ? customUnitsVoorraad : customUnitsVries;
-        const dbField = eenheidFilter === 'voorraad' ? 'customUnitsVoorraad' : 'customUnitsVries';
+        let standardList = EENHEDEN_VRIES;
+        let currentCustom = customUnitsVries;
+        let dbField = 'customUnitsVries';
+
+        if (eenheidFilter === 'voorraad') {
+            standardList = EENHEDEN_VOORRAAD;
+            currentCustom = customUnitsVoorraad;
+            dbField = 'customUnitsVoorraad';
+        } else if (eenheidFilter === 'frig') {
+            standardList = EENHEDEN_FRIG;
+            currentCustom = customUnitsFrig;
+            dbField = 'customUnitsFrig';
+        }
 
         if(naam && !standardList.includes(naam) && !currentCustom.includes(naam)) {
             const updated = [...currentCustom, naam];
@@ -754,8 +756,16 @@ function App() {
 
     const handleDeleteUnit = async (unit) => {
         if(confirm(`Verwijder eenheid '${unit}'?`)) {
-            const currentCustom = eenheidFilter === 'voorraad' ? customUnitsVoorraad : customUnitsVries;
-            const dbField = eenheidFilter === 'voorraad' ? 'customUnitsVoorraad' : 'customUnitsVries';
+            let currentCustom = customUnitsVries;
+            let dbField = 'customUnitsVries';
+
+            if (eenheidFilter === 'voorraad') {
+                currentCustom = customUnitsVoorraad;
+                dbField = 'customUnitsVoorraad';
+            } else if (eenheidFilter === 'frig') {
+                currentCustom = customUnitsFrig;
+                dbField = 'customUnitsFrig';
+            }
             
             const updated = currentCustom.filter(u => u !== unit);
             await db.collection('users').doc(beheerdeUserId).set({[dbField]: updated}, {merge:true});
@@ -765,8 +775,17 @@ function App() {
     const startEditUnit = (u) => { setEditingUnitName(u); setEditUnitInput(u); };
     const saveUnitName = async () => {
         if(!editUnitInput.trim()) return;
-        const currentCustom = eenheidFilter === 'voorraad' ? customUnitsVoorraad : customUnitsVries;
-        const dbField = eenheidFilter === 'voorraad' ? 'customUnitsVoorraad' : 'customUnitsVries';
+        
+        let currentCustom = customUnitsVries;
+        let dbField = 'customUnitsVries';
+
+        if (eenheidFilter === 'voorraad') {
+            currentCustom = customUnitsVoorraad;
+            dbField = 'customUnitsVoorraad';
+        } else if (eenheidFilter === 'frig') {
+            currentCustom = customUnitsFrig;
+            dbField = 'customUnitsFrig';
+        }
 
         const updated = currentCustom.map(u => u === editingUnitName ? editUnitInput : u);
         await db.collection('users').doc(beheerdeUserId).set({[dbField]: updated}, {merge:true});
@@ -830,33 +849,28 @@ function App() {
         await db.collection('users').doc(userId).update({ disabled: !currentStatus }); 
     };
 
-    const toggleUserTabVisibility = async (userId, userHiddenTabs) => {
+    const toggleUserTabVisibility = async (userId, userHiddenTabs, tabName) => {
         const tabs = userHiddenTabs || [];
         let newTabs;
-        if (tabs.includes('voorraad')) {
-            newTabs = tabs.filter(t => t !== 'voorraad');
+        if (tabs.includes(tabName)) {
+            newTabs = tabs.filter(t => t !== tabName);
         } else {
-            newTabs = [...tabs, 'voorraad'];
+            newTabs = [...tabs, tabName];
         }
         await db.collection('users').doc(userId).set({ hiddenTabs: newTabs }, { merge: true });
     };
 
     const toggleLade = async (id) => {
         const newSet = new Set(collapsedLades);
-        // Toggle logic
-        if(newSet.has(id)) newSet.delete(id); // Was dicht, nu open
-        else newSet.add(id); // Was open, nu dicht
+        if(newSet.has(id)) newSet.delete(id); 
+        else newSet.add(id); 
         
         setCollapsedLades(newSet);
 
-        // Update in DB (openLades array)
         if(user) {
-            // Bereken welke lades NU open zijn (alles wat NIET in collapsedLades zit)
-            // Let op: lades is de complete lijst.
             const openLadesArray = lades
                 .filter(l => !newSet.has(l.id))
                 .map(l => l.id);
-            
             try {
                 await db.collection('users').doc(user.uid).set({ openLades: openLadesArray }, { merge: true });
             } catch(e) { console.error("Kon lade status niet opslaan", e); }
@@ -864,9 +878,7 @@ function App() {
     };
 
     const toggleAll = async () => {
-        const isAllesDicht = collapsedLades.size === lades.length; // Of eigenlijk > 0 in huidige logica
-        const expanding = collapsedLades.size > 0; // Als er iets dicht is, gaan we alles openen
-        
+        const expanding = collapsedLades.size > 0; 
         const newSet = expanding ? new Set() : new Set(lades.map(l => l.id));
         setCollapsedLades(newSet);
 
@@ -923,20 +935,9 @@ function App() {
                                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{user.displayName || 'Gebruiker'}</p>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
                                     </div>
-                                    
-                                    {/* Toggle Dark Mode Button (Database Linked) */}
                                     <button onClick={toggleDarkMode} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
-                                        {darkMode ? (
-                                            <>
-                                                <Icon path={Icons.Sun} size={16} /> Licht modus.
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Icon path={Icons.Moon} size={16} /> Donkere modus.
-                                            </>
-                                        )}
+                                        {darkMode ? <><Icon path={Icons.Sun} size={16} /> Licht modus.</> : <><Icon path={Icons.Moon} size={16} /> Donkere modus.</>}
                                     </button>
-
                                     {isAdmin && (
                                         <button onClick={() => { setShowUserAdminModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                                             <Icon path={Icons.Users} size={16}/> Gebruikers.
@@ -961,14 +962,18 @@ function App() {
                 </div>
                 <div className="max-w-7xl mx-auto px-4 flex space-x-6 border-b border-gray-100 dark:border-gray-700">
                     <button onClick={() => setActiveTab('vriezer')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='vriezer' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}><Icon path={Icons.Snowflake}/> Vriez.</button>
-                    {/* Alleen tonen als het niet verborgen is OF als je admin bent */}
+                    {/* Frig Tab */}
+                    {(!myHiddenTabs.includes('frig') || isAdmin) && (
+                        <button onClick={() => setActiveTab('frig')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='frig' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
+                            <Icon path={Icons.Fridge}/> Frig.
+                            {isAdmin && managedUserHiddenTabs.includes('frig') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
+                        </button>
+                    )}
+                    {/* Stock Tab */}
                     {(!myHiddenTabs.includes('voorraad') || isAdmin) && (
                         <button onClick={() => setActiveTab('voorraad')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
                             <Icon path={Icons.Box}/> Stock.
-                            {/* Toon slotje als admin kijkt en het verborgen is voor de user */}
-                            {isAdmin && managedUserHiddenTabs.includes('voorraad') && (
-                                <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>
-                            )}
+                            {isAdmin && managedUserHiddenTabs.includes('voorraad') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
                     )}
                 </div>
@@ -1024,7 +1029,7 @@ function App() {
                                                         ladeItems.map(item => {
                                                             const dagenOud = getDagenOud(item.ingevrorenOp);
                                                             const dagenTotTHT = getDagenTotTHT(item.houdbaarheidsDatum);
-                                                            const isStockItem = vriezer.type === 'voorraad';
+                                                            const isStockItem = vriezer.type === 'voorraad' || vriezer.type === 'frig';
                                                             
                                                             const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT);
                                                             const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT);
@@ -1073,10 +1078,10 @@ function App() {
             <footer className="bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 py-6 print:hidden transition-colors duration-300">
                 <div className="max-w-7xl mx-auto px-4 text-center">
                     <p className="text-sm text-gray-400 dark:text-gray-500 mb-1">
-                        &copy; {new Date().getFullYear()} Voorraad. Versie {APP_VERSION}
+                        &copy; {new Date().getFullYear()} Voorraad App. Versie {APP_VERSION}
                     </p>
                     <p className="text-xs text-gray-300 dark:text-gray-600">
-                        Beheer je voorraad snel en eenvoudig.
+                        Beheer je vriezer en voorraad eenvoudig.
                     </p>
                 </div>
             </footer>
@@ -1123,7 +1128,7 @@ function App() {
                                 <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                             </div>
                         )}
-                        {formLocationType === 'voorraad' && (
+                        {(formLocationType === 'voorraad' || formLocationType === 'frig') && (
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Houdbaarheidsdatum (THT) (Optioneel).</label>
                             <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                         )}
@@ -1283,12 +1288,17 @@ function App() {
                     <div>
                         <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Mijn eenheden</h4>
                         
-                        {/* Toggle Vries/Stock */}
+                        {/* Toggle Vries/Frig/Stock */}
                         <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4">
                             <button onClick={() => setEenheidFilter('vries')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'vries' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>
                                 Vriezer.
                             </button>
-                            {!myHiddenTabs.includes('voorraad') && (
+                            {(!myHiddenTabs.includes('frig') || isAdmin) && (
+                                <button onClick={() => setEenheidFilter('frig')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'frig' ? 'bg-white dark:bg-gray-600 shadow text-green-600 dark:text-green-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                                    Frig.
+                                </button>
+                            )}
+                            {(!myHiddenTabs.includes('voorraad') || isAdmin) && (
                                 <button onClick={() => setEenheidFilter('voorraad')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'voorraad' ? 'bg-white dark:bg-gray-600 shadow text-orange-600 dark:text-orange-300' : 'text-gray-500 dark:text-gray-400'}`}>
                                     Stock.
                                 </button>
@@ -1296,8 +1306,16 @@ function App() {
                         </div>
 
                         <ul className="space-y-2 mb-3">
-                            {(eenheidFilter === 'voorraad' ? customUnitsVoorraad : customUnitsVries).length === 0 ? <li className="text-gray-400 italic">Geen eigen eenheden voor {eenheidFilter}.</li> : 
-                            (eenheidFilter === 'voorraad' ? customUnitsVoorraad : customUnitsVries).map(u => (
+                            {(
+                                eenheidFilter === 'voorraad' ? customUnitsVoorraad : 
+                                eenheidFilter === 'frig' ? customUnitsFrig :
+                                customUnitsVries
+                            ).length === 0 ? <li className="text-gray-400 italic">Geen eigen eenheden voor {eenheidFilter}.</li> : 
+                            (
+                                eenheidFilter === 'voorraad' ? customUnitsVoorraad : 
+                                eenheidFilter === 'frig' ? customUnitsFrig :
+                                customUnitsVries
+                            ).map(u => (
                                 <li key={u} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">
                                     {editingUnitName === u ? 
                                         <div className="flex gap-2 w-full"><input className="flex-grow border p-1 rounded dark:bg-gray-600 dark:text-white" value={editUnitInput} onChange={e=>setEditUnitInput(e.target.value)} /><button onClick={saveUnitName} className="text-green-600"><Icon path={Icons.Check}/></button></div>
@@ -1307,7 +1325,7 @@ function App() {
                                 </li>
                             ))}
                         </ul>
-                        <form onSubmit={handleAddUnit} className="flex gap-2"><input className="flex-grow border p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" placeholder="Nieuwe eenheid" value={newUnitNaam} onChange={e=>setNewUnitNaam(e.target.value)} required /><button className={`text-white px-3 rounded ${eenheidFilter === 'voorraad' ? 'bg-orange-500' : 'bg-blue-600'}`}>+</button></form>
+                        <form onSubmit={handleAddUnit} className="flex gap-2"><input className="flex-grow border p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" placeholder="Nieuwe eenheid" value={newUnitNaam} onChange={e=>setNewUnitNaam(e.target.value)} required /><button className={`text-white px-3 rounded ${eenheidFilter === 'voorraad' ? 'bg-orange-500' : eenheidFilter === 'frig' ? 'bg-green-600' : 'bg-blue-600'}`}>+</button></form>
                     </div>
                 )}
             </Modal>
@@ -1326,15 +1344,25 @@ function App() {
                                     {u.disabled ? 'Geblokkeerd' : 'Actief'}
                                 </button>
                             </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                                <input 
-                                    type="checkbox" 
-                                    checked={(u.hiddenTabs || []).includes('voorraad')} 
-                                    onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs)}
-                                />
-                                <span>Verberg 'Stock.' tabblad</span>
+                            <div className="flex flex-col gap-1 mt-1">
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={(u.hiddenTabs || []).includes('frig')} 
+                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'frig')}
+                                    />
+                                    <span>Verberg 'Frig.' tabblad</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={(u.hiddenTabs || []).includes('voorraad')} 
+                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'voorraad')}
+                                    />
+                                    <span>Verberg 'Stock.' tabblad</span>
+                                </div>
                             </div>
-                            <p className="text-xs text-gray-400">
+                            <p className="text-xs text-gray-400 mt-1">
                                 Laatst gezien: {u.laatstGezien ? formatDateTime(u.laatstGezien) : 'Nooit'}
                             </p>
                         </li>
@@ -1360,7 +1388,7 @@ function App() {
                             {alerts.map(i => {
                                 const loc = vriezers.find(v => v.id === i.vriezerId);
                                 const type = loc ? (loc.type || 'vriezer') : 'vriezer';
-                                const isStock = type === 'voorraad';
+                                const isStock = type === 'voorraad' || type === 'frig';
                                 
                                 return (
                                     <li key={i.id} className="text-red-700 dark:text-red-300">
@@ -1379,9 +1407,10 @@ function App() {
                 )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 6.8</h4>
+                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 7.0</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Fix" /><span>Opgelost: Verborgen tabbladen werken nu correct voor gedeelde gebruikers.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Nieuw tabblad 'Frig.' toegevoegd!</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Frig. gebruikt THT datum net als Stock.</span></li>
                         </ul>
                     </div>
                 </div>
