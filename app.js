@@ -23,10 +23,10 @@ const APP_VERSION = '7.3';
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
-    { version: '7.3', type: 'minor', changes: ['Nieuw: Versie geschiedenis bekijken via footer.', 'Update: Footer tekst aangepast.', 'Update: Nieuws pagina layout vernieuwd met iconen.'] },
+    { version: '7.3', type: 'minor', changes: ['Nieuw: Versie geschiedenis bekijken via footer.', 'Update: Footer tekst aangepast.', 'Update: Nieuws pagina layout vernieuwd met iconen.', 'Update: Meldingen venster gebruikt nu ook iconen.'] },
     { version: '7.2', type: 'minor', changes: ['Update: Footer styling aangepast (logo kleur en versie kleiner).'] },
-    { version: '7.1', type: 'major', changes: ['Feature: Koelkast categorieën aangepast (Zuivel, Kaas, Beleg toegevoegd).', "Update: Automatische emoji's toegevoegd voor nieuwe categorieën."] },
-    { version: '7.0', type: 'major', changes: ["Feature: Nieuw tabblad 'Frig.' toegevoegd!", 'Update: Frig. gebruikt THT datum net als Stock.'] },
+    { version: '7.1', type: 'major', changes: ['Feature: Koelkast categorieën aangepast (Zuivel, Kaas, Beleg toegevoegd).', 'Update: Automatische emoji\'s toegevoegd voor nieuwe categorieën.'] },
+    { version: '7.0', type: 'major', changes: ['Feature: Nieuw tabblad \'Frig.\' toegevoegd!', 'Update: Frig. gebruikt THT datum net als Stock.'] },
     { version: '6.8', type: 'major', changes: ['Fix: Opgelost: Verborgen tabbladen werken nu correct voor gedeelde gebruikers.'] },
     { version: '6.7', type: 'major', changes: ['Fix: Opgelost: Foutmelding bij openen van Instellingen verholpen.'] },
     { version: '6.6', type: 'major', changes: ['Fix: Opgelost: Opgeslagen open lades laden nu correct bij opstarten.', 'Update: Laatst gezien datum nu zichtbaar voor beheerders.'] },
@@ -183,6 +183,7 @@ const getEmojiForCategory = (cat) => {
         "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", 
         "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", 
         "Soep": "🍲", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳",
+        // Nieuwe categorieen voor Frig
         "Zuivel": "🥛", "Kaas": "🧀", "Beleg": "🥪"
     };
     return emojis[cat] || "📦";
@@ -929,6 +930,8 @@ function App() {
         </div>
     );
 
+    const currentVersionData = VERSION_HISTORY.find(v => v.version === APP_VERSION);
+
     return (
         <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-100 transition-colors duration-300">
              {/* Render Notification if active */}
@@ -1445,13 +1448,41 @@ function App() {
                     </div>
                 )}
                 <div className="space-y-4">
-                    <div>
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 7.3</h4>
-                        <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Nieuw scherm voor versiegeschiedenis.</span></li>
-                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Footer tekst en layout aangepast.</span></li>
-                        </ul>
-                    </div>
+                    {currentVersionData && (
+                        <div>
+                            <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-4 text-lg">Versie {APP_VERSION}</h4>
+                            <ul className="space-y-3">
+                                {currentVersionData.changes.map((change, idx) => {
+                                    const parts = change.split(': ');
+                                    const type = parts[0];
+                                    const text = parts.slice(1).join(': ');
+                                    
+                                    let IconComp = Icons.Zap;
+                                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
+
+                                    if (type.includes('Feature') || type.includes('Nieuw')) {
+                                        IconComp = Icons.Star;
+                                        iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
+                                    } else if (type.includes('Fix') || type.includes('Opgelost')) {
+                                        IconComp = Icons.Wrench;
+                                        iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
+                                    }
+
+                                    return (
+                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start">
+                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
+                                                <Icon path={IconComp} size={14} />
+                                            </div>
+                                             <div className="pt-1.5">
+                                                <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span>
+                                                <span className="leading-relaxed">{text || change}</span>
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
+                    )}
                 </div>
             </Modal>
 
@@ -1500,7 +1531,7 @@ function App() {
                                     }
 
                                     return (
-                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300">
+                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start">
                                             <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
                                                 <Icon path={IconComp} size={14} />
                                             </div>
