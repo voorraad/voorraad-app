@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '7.1'; // Versie opgehoogd (Unieke Frig. Categorieën)
+const APP_VERSION = '7.2'; // Versie opgehoogd (Footer styling)
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -1085,9 +1085,12 @@ function App() {
             <footer className="bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 py-6 print:hidden transition-colors duration-300">
                 <div className="max-w-7xl mx-auto px-4 text-center">
                     <p className="text-sm text-gray-400 dark:text-gray-500 mb-1">
-                        &copy; {new Date().getFullYear()} Voorraad App. Versie {APP_VERSION}
+                        &copy; {new Date().getFullYear()} <span className="font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">Voorraad.</span>
                     </p>
-                    <p className="text-xs text-gray-300 dark:text-gray-600">
+                    <p className="text-[10px] text-gray-300 dark:text-gray-600">
+                        Versie {APP_VERSION}
+                    </p>
+                    <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-1">
                         Beheer je vriezer en voorraad eenvoudig.
                     </p>
                 </div>
@@ -1414,10 +1417,9 @@ function App() {
                 )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 7.1</h4>
+                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 7.2</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Koelkast categorieën aangepast (Zuivel, Kaas, Beleg toegevoegd).</span></li>
-                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Automatische emoji's toegevoegd voor nieuwe categorieën.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Footer styling aangepast (logo kleur en versie kleiner).</span></li>
                         </ul>
                     </div>
                 </div>
