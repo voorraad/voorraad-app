@@ -1121,9 +1121,6 @@ function App() {
                     <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-1">
                         Beheer je voorraad snel en eenvoudig.
                     </p>
-                    <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-0.5">
-                        Gemaakt door Jaider.
-                    </p>
                 </div>
             </footer>
 
