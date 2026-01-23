@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '7.0'; // Versie opgehoogd (Frig. tabblad toegevoegd)
+const APP_VERSION = '7.1'; // Versie opgehoogd (Unieke Frig. Categorieën)
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -55,8 +55,13 @@ const CATEGORIEEN_VRIES = [
 ];
 const EENHEDEN_VRIES = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak"];
 
-// Frig gebruikt dezelfde basis als vriezer, maar kan eigen eenheden hebben in de toekomst
-const CATEGORIEEN_FRIG = [...CATEGORIEEN_VRIES];
+// Frig Specifiek: Geen ijs/friet/pizza, wel Zuivel/Kaas/Beleg
+const CATEGORIEEN_FRIG = [
+    { name: "Vlees", color: "red" }, { name: "Vis", color: "blue" }, { name: "Groenten", color: "green" },
+    { name: "Fruit", color: "yellow" }, { name: "Zuivel", color: "blue" }, { name: "Kaas", color: "yellow" },
+    { name: "Beleg", color: "pink" }, { name: "Drank", color: "blue" }, { name: "Saus", color: "red" },
+    { name: "Restjes", color: "gray" }, { name: "Soep", color: "orange" }, { name: "Ander", color: "gray" }
+];
 const EENHEDEN_FRIG = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "pak", "fles", "pot"];
 
 const CATEGORIEEN_VOORRAAD = [
@@ -159,7 +164,9 @@ const getEmojiForCategory = (cat) => {
         "Vlees": "🥩", "Vis": "🐟", "Groenten": "🥦", "Fruit": "🍎", "Brood": "🍞", "IJs": "🍦", 
         "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", 
         "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", 
-        "Soep": "🍲", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳" 
+        "Soep": "🍲", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳",
+        // Nieuwe categorieen voor Frig
+        "Zuivel": "🥛", "Kaas": "🧀", "Beleg": "🥪"
     };
     return emojis[cat] || "📦";
 };
@@ -1407,10 +1414,10 @@ function App() {
                 )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 7.0</h4>
+                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 7.1</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Nieuw tabblad 'Frig.' toegevoegd!</span></li>
-                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Frig. gebruikt THT datum net als Stock.</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Koelkast categorieën aangepast (Zuivel, Kaas, Beleg toegevoegd).</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Automatische emoji's toegevoegd voor nieuwe categorieën.</span></li>
                         </ul>
                     </div>
                 </div>
