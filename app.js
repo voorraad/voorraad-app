@@ -971,11 +971,11 @@ function App() {
                                     <button onClick={toggleDarkMode} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                                         {darkMode ? (
                                             <>
-                                                <Icon path={Icons.Sun} size={16} /> Licht modus.
+                                                <Icon path={Icons.Sun} size={16} /> Licht.
                                             </>
                                         ) : (
                                             <>
-                                                <Icon path={Icons.Moon} size={16} /> Donkere modus.
+                                                <Icon path={Icons.Moon} size={16} /> Donker.
                                             </>
                                         )}
                                     </button>
@@ -1379,7 +1379,7 @@ function App() {
             </Modal>
             
             {/* User Management Modal */}
-            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers Beheer" color="pink">
+            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers." color="pink">
                 <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                     {usersList.map(u => (
                         <li key={u.id} className="p-3 flex flex-col gap-2">
