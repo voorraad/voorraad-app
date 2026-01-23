@@ -19,10 +19,11 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '7.4.1'; // Versie opgehoogd (Footer fix)
+const APP_VERSION = '7.4.2'; // Versie opgehoogd (Styling nieuws titel)
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { version: '7.4.2', type: 'patch', changes: ['Update: Styling van nieuws-titel aangepast (kleiner en subtieler).'] },
     { version: '7.4.1', type: 'patch', changes: ['Fix: Footer layout hersteld (Copyright terug, jaartal weg).'] },
     { version: '7.4', type: 'minor', changes: ['Update: Footer layout compacter gemaakt (versie naast logo).'] },
     { version: '7.3', type: 'minor', changes: ['Nieuw: Versie geschiedenis bekijken via footer.', 'Update: Footer tekst aangepast.', 'Update: Nieuws pagina layout vernieuwd met iconen.', 'Update: Meldingen venster gebruikt nu ook iconen.'] },
