@@ -19,10 +19,11 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '7.3'; 
+const APP_VERSION = '7.4'; // Versie opgehoogd (Footer update)
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { version: '7.4', type: 'minor', changes: ['Update: Footer layout compacter gemaakt (versie naast logo).'] },
     { version: '7.3', type: 'minor', changes: ['Nieuw: Versie geschiedenis bekijken via footer.', 'Update: Footer tekst aangepast.', 'Update: Nieuws pagina layout vernieuwd met iconen.', 'Update: Meldingen venster gebruikt nu ook iconen.'] },
     { version: '7.2', type: 'minor', changes: ['Update: Footer styling aangepast (logo kleur en versie kleiner).'] },
     { version: '7.1', type: 'major', changes: ['Feature: Koelkast categorieën aangepast (Zuivel, Kaas, Beleg toegevoegd).', 'Update: Automatische emoji\'s toegevoegd voor nieuwe categorieën.'] },
@@ -1196,47 +1197,6 @@ function App() {
                 <EmojiGrid onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
             </Modal>
 
-            {/* Logboek Modal */}
-            <Modal isOpen={showLogModal} onClose={() => setShowLogModal(false)} title="Logboek." color="teal">
-                {logs.length === 0 ? (
-                    <p className="text-gray-500 dark:text-gray-400 text-center italic py-4">Nog geen activiteiten.</p>
-                ) : (
-                    <ul className="space-y-3">
-                        {logs.map(log => {
-                            const isMine = log.targetUserId === user.uid;
-                            const isAdded = log.action === 'Toevoegen';
-                            const isDeleted = log.action === 'Verwijderd';
-                            
-                            return (
-                                <li key={log.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 border border-gray-100 dark:border-gray-600 text-sm">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <span className="font-bold text-gray-700 dark:text-gray-200">{log.item}</span>
-                                        <span className="text-xs text-gray-400 dark:text-gray-500">{formatDateTime(log.timestamp)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center mt-2">
-                                        <div className="flex gap-2">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isAdded ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : isDeleted ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
-                                                {log.action}
-                                            </span>
-                                            {/* Admin: Toon van wie deze voorraad is */}
-                                            {isAdmin && (
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${isMine ? 'border-green-300 text-green-600 dark:border-green-700 dark:text-green-400' : 'border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400'}`}>
-                                                    {isMine ? 'Eigen' : 'Ander'}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                                            <Icon path={Icons.User} size={12}/> {log.actorName}
-                                        </div>
-                                    </div>
-                                    {log.details && <p className="text-xs text-gray-400 mt-1 pl-1 border-l-2 border-gray-200 dark:border-gray-600">{log.details}</p>}
-                                </li>
-                            );
-                        })}
-                    </ul>
-                )}
-            </Modal>
-
             {/* Beheer Modal */}
             <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen." color="purple">
                 <div className="flex border-b dark:border-gray-700 mb-4">
@@ -1489,8 +1449,8 @@ function App() {
             {/* Version History Modal */}
             <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Nieuws." color="blue">
                 <div className="mb-8 text-center px-4">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
-                        Ontdek alle updates en verbeteringen aan <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Voorraad.</span>
+                    <h3 className="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 mb-2">
+                        Ontdek alle updates en verbeteringen aan Voorraad.
                     </h3>
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-full border border-blue-100 dark:border-blue-800">
                         <span className="text-xs font-medium text-blue-600 dark:text-blue-300">Huidige versie {APP_VERSION}</span>
