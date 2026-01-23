@@ -19,14 +19,14 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '7.3'; // Versie opgehoogd (Nieuws historie toegevoegd)
+const APP_VERSION = '7.3'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
-    { version: '7.3', type: 'minor', changes: ['Nieuw: Versie geschiedenis bekijken via footer.', 'Update: Footer tekst aangepast.'] },
+    { version: '7.3', type: 'minor', changes: ['Nieuw: Versie geschiedenis bekijken via footer.', 'Update: Footer tekst aangepast.', 'Update: Nieuws pagina layout vernieuwd met iconen.'] },
     { version: '7.2', type: 'minor', changes: ['Update: Footer styling aangepast (logo kleur en versie kleiner).'] },
-    { version: '7.1', type: 'major', changes: ['Feature: Koelkast categorieën aangepast (Zuivel, Kaas, Beleg toegevoegd).', 'Update: Automatische emoji\'s toegevoegd voor nieuwe categorieën.'] },
-    { version: '7.0', type: 'major', changes: ['Feature: Nieuw tabblad \'Frig.\' toegevoegd!', 'Update: Frig. gebruikt THT datum net als Stock.'] },
+    { version: '7.1', type: 'major', changes: ['Feature: Koelkast categorieën aangepast (Zuivel, Kaas, Beleg toegevoegd).', "Update: Automatische emoji's toegevoegd voor nieuwe categorieën."] },
+    { version: '7.0', type: 'major', changes: ["Feature: Nieuw tabblad 'Frig.' toegevoegd!", 'Update: Frig. gebruikt THT datum net als Stock.'] },
     { version: '6.8', type: 'major', changes: ['Fix: Opgelost: Verborgen tabbladen werken nu correct voor gedeelde gebruikers.'] },
     { version: '6.7', type: 'major', changes: ['Fix: Opgelost: Foutmelding bij openen van Instellingen verholpen.'] },
     { version: '6.6', type: 'major', changes: ['Fix: Opgelost: Opgeslagen open lades laden nu correct bij opstarten.', 'Update: Laatst gezien datum nu zichtbaar voor beheerders.'] },
@@ -71,7 +71,6 @@ const CATEGORIEEN_VRIES = [
 ];
 const EENHEDEN_VRIES = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak"];
 
-// Frig Specifiek: Geen ijs/friet/pizza, wel Zuivel/Kaas/Beleg
 const CATEGORIEEN_FRIG = [
     { name: "Vlees", color: "red" }, { name: "Vis", color: "blue" }, { name: "Groenten", color: "green" },
     { name: "Fruit", color: "yellow" }, { name: "Zuivel", color: "blue" }, { name: "Kaas", color: "yellow" },
@@ -132,7 +131,10 @@ const Icons = {
     Moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>,
     LogBook: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></g>,
     Lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></g>,
-    Fridge: <path d="M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 6h14m-7-6v20"/>
+    Fridge: <path d="M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 6h14m-7-6v20"/>,
+    Star: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>,
+    Zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>, 
+    Wrench: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -181,7 +183,6 @@ const getEmojiForCategory = (cat) => {
         "Restjes": "🥡", "Saus": "🥫", "Friet": "🍟", "Pizza": "🍕", "Pasta": "🍝", "Rijst": "🍚", 
         "Conserven": "🥫", "Kruiden": "🌿", "Bakproducten": "🥖", "Snacks": "🍿", "Drank": "🥤", 
         "Soep": "🍲", "Huishoud": "🧻", "Ander": "📦", "Geen": "🔳",
-        // Nieuwe categorieen voor Frig
         "Zuivel": "🥛", "Kaas": "🧀", "Beleg": "🥪"
     };
     return emojis[cat] || "📦";
@@ -797,7 +798,7 @@ function App() {
     };
     
     const startEditUnit = (u) => { setEditingUnitName(u); setEditUnitInput(u); };
-    const saveUnitName = async () => {
+    const saveUnitName = async (id) => {
         if(!editUnitInput.trim()) return;
         
         let currentCustom = customUnitsVries;
@@ -1456,30 +1457,57 @@ function App() {
 
             {/* Version History Modal */}
             <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Nieuws." color="blue">
-                <div className="space-y-6">
+                <div className="mb-8 text-center px-4">
+                    <h3 className="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 mb-2">
+                        Ontdek alle updates en verbeteringen aan Voorraad.
+                    </h3>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-full border border-blue-100 dark:border-blue-800">
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-300">Huidige versie {APP_VERSION}</span>
+                    </div>
+                </div>
+
+                <div className="space-y-8 relative pl-2">
+                    {/* Vertical line connecting versions */}
+                    <div className="absolute left-[19px] top-2 bottom-4 w-0.5 bg-gray-100 dark:bg-gray-700"></div>
+
                     {VERSION_HISTORY.map((v, i) => (
-                        <div key={v.version} className="relative pl-4 border-l-2 border-gray-200 dark:border-gray-700">
-                            <div className="flex items-center gap-2 mb-1">
-                                <span className="font-bold text-gray-800 dark:text-gray-200">v{v.version}</span>
-                                {v.type === 'major' && <Badge type="major" text="Major" />}
-                                {v.type === 'minor' && <Badge type="minor" text="Minor" />}
-                                {v.type === 'patch' && <Badge type="patch" text="Patch" />}
+                        <div key={v.version} className="relative pl-10">
+                            {/* Dot on timeline */}
+                            <div className={`absolute left-[13px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-800 z-10 ${i === 0 ? 'bg-blue-500 shadow-md shadow-blue-200' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
+
+                            <div className="mb-3">
+                                <span className={`text-lg font-bold ${i === 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>v{v.version}</span>
                             </div>
-                            <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                            
+                            <ul className="space-y-3">
                                 {v.changes.map((change, idx) => {
                                     const parts = change.split(': ');
                                     const type = parts[0];
                                     const text = parts.slice(1).join(': ');
                                     
-                                    let badgeType = 'gray';
-                                    if (type.includes('Feature') || type.includes('Nieuw')) badgeType = 'major';
-                                    else if (type.includes('Update')) badgeType = 'minor';
-                                    else if (type.includes('Fix') || type.includes('Opgelost')) badgeType = 'patch';
+                                    let IconComp = Icons.Zap;
+                                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
+
+                                    if (type.includes('Feature') || type.includes('Nieuw')) {
+                                        IconComp = Icons.Star;
+                                        iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
+                                    } else if (type.includes('Fix') || type.includes('Opgelost')) {
+                                        IconComp = Icons.Wrench;
+                                        iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
+                                    } else if (type.includes('Update')) {
+                                         IconComp = Icons.Zap;
+                                         iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
+                                    }
 
                                     return (
-                                        <li key={idx} className="flex gap-2 items-start text-sm text-gray-600 dark:text-gray-300">
-                                            <Badge type={badgeType} text={type} />
-                                            <span className="mt-0.5">{text || change}</span> 
+                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300">
+                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
+                                                <Icon path={IconComp} size={14} />
+                                            </div>
+                                            <div className="pt-1.5">
+                                                <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span>
+                                                <span className="leading-relaxed">{text || change}</span>
+                                            </div>
                                         </li>
                                     );
                                 })}
