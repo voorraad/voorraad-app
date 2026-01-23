@@ -19,7 +19,23 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '7.2'; // Versie opgehoogd (Footer styling)
+const APP_VERSION = '7.3'; // Versie opgehoogd (Nieuws historie toegevoegd)
+
+// Versie Geschiedenis Data
+const VERSION_HISTORY = [
+    { version: '7.3', type: 'minor', changes: ['Nieuw: Versie geschiedenis bekijken via footer.', 'Update: Footer tekst aangepast.'] },
+    { version: '7.2', type: 'minor', changes: ['Update: Footer styling aangepast (logo kleur en versie kleiner).'] },
+    { version: '7.1', type: 'major', changes: ['Feature: Koelkast categorieën aangepast (Zuivel, Kaas, Beleg toegevoegd).', 'Update: Automatische emoji\'s toegevoegd voor nieuwe categorieën.'] },
+    { version: '7.0', type: 'major', changes: ['Feature: Nieuw tabblad \'Frig.\' toegevoegd!', 'Update: Frig. gebruikt THT datum net als Stock.'] },
+    { version: '6.8', type: 'major', changes: ['Fix: Opgelost: Verborgen tabbladen werken nu correct voor gedeelde gebruikers.'] },
+    { version: '6.7', type: 'major', changes: ['Fix: Opgelost: Foutmelding bij openen van Instellingen verholpen.'] },
+    { version: '6.6', type: 'major', changes: ['Fix: Opgelost: Opgeslagen open lades laden nu correct bij opstarten.', 'Update: Laatst gezien datum nu zichtbaar voor beheerders.'] },
+    { version: '6.5', type: 'major', changes: ['Feature: App onthoudt nu welke lades open of dicht stonden.', 'Update: Laatst gezien status wordt nu correct bijgewerkt.'] },
+    { version: '6.4', type: 'major', changes: ['Update: Database sortering geactiveerd voor sneller logboek.'] },
+    { version: '6.3', type: 'major', changes: ['Fix: Logboek werkt nu zonder complexe database instellingen.'] },
+    { version: '6.2', type: 'major', changes: ['Feature: Meldingenscherm opent nu automatisch bij opstarten als er aandachtspunten zijn.'] },
+    { version: '6.0', type: 'major', changes: ['Feature: Logboek toegevoegd.', 'Update: Footer toegevoegd.'] }
+];
 
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
@@ -336,6 +352,7 @@ function App() {
     // Modals & Menu
     const [showAddModal, setShowAddModal] = useState(false);
     const [showWhatsNew, setShowWhatsNew] = useState(false);
+    const [showVersionHistory, setShowVersionHistory] = useState(false); // Nieuw state voor versie geschiedenis
     const [showSwitchAccount, setShowSwitchAccount] = useState(false);
     const [showBeheerModal, setShowBeheerModal] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -942,9 +959,20 @@ function App() {
                                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{user.displayName || 'Gebruiker'}</p>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
                                     </div>
+                                    
+                                    {/* Toggle Dark Mode Button (Database Linked) */}
                                     <button onClick={toggleDarkMode} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
-                                        {darkMode ? <><Icon path={Icons.Sun} size={16} /> Licht modus.</> : <><Icon path={Icons.Moon} size={16} /> Donkere modus.</>}
+                                        {darkMode ? (
+                                            <>
+                                                <Icon path={Icons.Sun} size={16} /> Licht modus.
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Icon path={Icons.Moon} size={16} /> Donkere modus.
+                                            </>
+                                        )}
                                     </button>
+
                                     {isAdmin && (
                                         <button onClick={() => { setShowUserAdminModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                                             <Icon path={Icons.Users} size={16}/> Gebruikers.
@@ -1087,11 +1115,11 @@ function App() {
                     <p className="text-sm text-gray-400 dark:text-gray-500 mb-1">
                         &copy; {new Date().getFullYear()} <span className="font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">Voorraad.</span>
                     </p>
-                    <p className="text-[10px] text-gray-300 dark:text-gray-600">
+                    <button onClick={() => setShowVersionHistory(true)} className="text-[10px] text-gray-300 dark:text-gray-600 hover:text-blue-500 transition-colors cursor-pointer">
                         Versie {APP_VERSION}
-                    </p>
+                    </button>
                     <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-1">
-                        Beheer je vriezer en voorraad eenvoudig.
+                        Beheer je voorraad snel en eenvoudig.
                     </p>
                 </div>
             </footer>
@@ -1417,11 +1445,33 @@ function App() {
                 )}
                 <div className="space-y-4">
                     <div>
-                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 7.2</h4>
+                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-2">Versie 7.3</h4>
                         <ul className="space-y-2">
-                             <li className="flex gap-2"><Badge type="major" text="Update" /><span>Footer styling aangepast (logo kleur en versie kleiner).</span></li>
+                             <li className="flex gap-2"><Badge type="major" text="Feature" /><span>Nieuw scherm voor versiegeschiedenis.</span></li>
+                             <li className="flex gap-2"><Badge type="minor" text="Update" /><span>Footer tekst en layout aangepast.</span></li>
                         </ul>
                     </div>
+                </div>
+            </Modal>
+
+            {/* Version History Modal */}
+            <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Nieuws." color="blue">
+                <div className="space-y-6">
+                    {VERSION_HISTORY.map((v, i) => (
+                        <div key={v.version} className="relative pl-4 border-l-2 border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="font-bold text-gray-800 dark:text-gray-200">v{v.version}</span>
+                                {v.type === 'major' && <Badge type="major" text="Major" />}
+                                {v.type === 'minor' && <Badge type="minor" text="Minor" />}
+                                {v.type === 'patch' && <Badge type="patch" text="Patch" />}
+                            </div>
+                            <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                {v.changes.map((change, idx) => (
+                                    <li key={idx}>- {change}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
                 </div>
             </Modal>
 
