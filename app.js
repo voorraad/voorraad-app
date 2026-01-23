@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '7.4.2'; // Versie opgehoogd (Styling nieuws titel)
+const APP_VERSION = '7.4.2'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
@@ -1495,8 +1495,8 @@ function App() {
             {/* Version History Modal */}
             <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Nieuws." color="blue">
                 <div className="mb-8 text-center px-4">
-                    <h3 className="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500 mb-2">
-                        Ontdek alle updates en verbeteringen aan Voorraad.
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
+                        Ontdek alle updates en verbeteringen aan <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Voorraad.</span>
                     </h3>
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-full border border-blue-100 dark:border-blue-800">
                         <span className="text-xs font-medium text-blue-600 dark:text-blue-300">Huidige versie {APP_VERSION}</span>
