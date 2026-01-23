@@ -1466,9 +1466,23 @@ function App() {
                                 {v.type === 'patch' && <Badge type="patch" text="Patch" />}
                             </div>
                             <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                                {v.changes.map((change, idx) => (
-                                    <li key={idx}>- {change}</li>
-                                ))}
+                                {v.changes.map((change, idx) => {
+                                    const parts = change.split(': ');
+                                    const type = parts[0];
+                                    const text = parts.slice(1).join(': ');
+                                    
+                                    let badgeType = 'gray';
+                                    if (type.includes('Feature') || type.includes('Nieuw')) badgeType = 'major';
+                                    else if (type.includes('Update')) badgeType = 'minor';
+                                    else if (type.includes('Fix') || type.includes('Opgelost')) badgeType = 'patch';
+
+                                    return (
+                                        <li key={idx} className="flex gap-2 items-start text-sm text-gray-600 dark:text-gray-300">
+                                            <Badge type={badgeType} text={type} />
+                                            <span className="mt-0.5">{text || change}</span> 
+                                        </li>
+                                    );
+                                })}
                             </ul>
                         </div>
                     ))}
