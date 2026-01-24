@@ -19,58 +19,38 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.1.5'; 
+const APP_VERSION = '8.1.6'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
     { 
+        version: '8.1.6', 
+        type: 'patch', 
+        changes: [
+            'Update: Lay-out wijziging bij toevoegen: Datums en Categorieën staan nu naast elkaar om breedte te besparen op mobiel.',
+            'Fix: Datumvelden geforceerd binnen de schermranden gehouden.'
+        ] 
+    },
+    { 
         version: '8.1.5', 
         type: 'patch', 
         changes: [
-            'Fix: Datumvelden hebben nu exact dezelfde breedte en padding als de Categorie-balk.',
-            'Update: "Wat eten we?" knop is nog compacter gemaakt op mobiel (40px).',
-            'Update: "Alles open/dicht" knop neemt alle resterende ruimte in.'
+            'Fix: Datumvelden styling gelijkgetrokken met Categorie.',
+            'Update: "Wat eten we?" knop compacter.'
         ] 
     },
     { 
         version: '8.1.4', 
         type: 'patch', 
         changes: [
-            'Fix: Datumvelden (THT/Invries) versmald zodat ze beter passen op mobiele schermen.'
+            'Fix: Datumvelden versmald.'
         ] 
     },
     { 
         version: '8.1.3', 
         type: 'patch', 
         changes: [
-            'Update: "Wat eten we?" knop is compacter op mobiel.',
-            'Fix: Invriesdatum en THT staan nu onder elkaar op kleine schermen (Vriezer).'
-        ] 
-    },
-    { 
-        version: '8.1.1', 
-        type: 'patch', 
-        changes: [
-            'Fix: THT datum valt niet meer weg op kleine schermen (tekst loopt nu door).',
-            'Fix: Boodschappenlijst knoppen vallen nu netjes binnen de balk op mobiel.',
-            'Update: Labels/Tags functionaliteit volledig verwijderd.'
-        ] 
-    },
-    { 
-        version: '8.1.0', 
-        type: 'major', 
-        changes: [
-            'Update: Lay-out geoptimaliseerd voor mobiel (zoekbalk en knoppen stapelen).',
-            'Fix: Items vallen niet meer buiten beeld op kleine schermen.'
-        ] 
-    },
-    { 
-        version: '8.0.0', 
-        type: 'major', 
-        changes: [
-            'Nieuw: Boodschappenlijst toegevoegd (apart tabblad).', 
-            'Nieuw: Verspillingsmonitor (reden van verwijderen opgeven).', 
-            'Nieuw: Slimme maaltijdsuggesties ("Wat eten we?").'
+            'Update: Knoppen lay-out mobiel verbeterd.'
         ] 
     }
 ];
@@ -1237,7 +1217,7 @@ function App() {
                                 
                                 <div className="flex gap-2 w-full sm:w-auto">
                                     {/* Wat eten we knop: klein vierkant op mobiel */}
-                                    <button onClick={() => setShowSuggestionModal(true)} className="flex-none sm:flex-none w-10 h-10 sm:w-auto sm:h-auto bg-yellow-100 text-yellow-600 sm:p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
+                                    <button onClick={() => setShowSuggestionModal(true)} className="flex-none sm:flex-none w-12 h-12 sm:w-auto sm:h-auto bg-yellow-100 text-yellow-600 sm:p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
                                         <Icon path={Icons.Utensils}/>
                                     </button>
                                     
@@ -1386,7 +1366,7 @@ function App() {
                     
                     {/* Conditonele Datum Velden */}
                     {formLocationType === 'vriezer' && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Invriesdatum.</label>
                             <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">THT (Optioneel)</label>
@@ -1394,14 +1374,23 @@ function App() {
                         </div>
                     )}
                     {(formLocationType === 'voorraad' || formLocationType === 'frig') && (
-                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Houdbaarheidsdatum (THT).</label>
-                        <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Houdbaarheidsdatum (THT).</label>
+                            <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Categorie.</label>
+                            <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
+                                {actieveCategorieen.map(c => <option key={c.name||c} value={c.name||c}>{c.name||c}</option>)}
+                            </select></div>
+                        </div>
                     )}
 
-                    <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Categorie.</label>
-                    <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
-                        {actieveCategorieen.map(c => <option key={c.name||c} value={c.name||c}>{c.name||c}</option>)}
-                    </select></div>
+                    {/* Alleen Categorie tonen als deze niet al naast de datum staat (dus alleen bij Vriezer) */}
+                    {formLocationType === 'vriezer' && (
+                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Categorie.</label>
+                        <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
+                            {actieveCategorieen.map(c => <option key={c.name||c} value={c.name||c}>{c.name||c}</option>)}
+                        </select></div>
+                    )}
                     
                     {!editingItem && (
                         <div className="flex items-center gap-2">
@@ -1699,154 +1688,6 @@ function App() {
                             <p className="text-xs text-gray-400 mt-1">
                                 Laatst gezien: {u.laatstGezien ? formatDateTime(u.laatstGezien) : 'Nooit'}
                             </p>
-                        </li>
-                    ))}
-                </ul>
-            </Modal>
-
-            {/* Share Modal */}
-            <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Voorraad Delen" color="green">
-                <form onSubmit={handleShare} className="space-y-4">
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Nodig iemand uit om je voorraad te beheren.</p>
-                    <input type="email" className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Email adres" value={shareEmail} onChange={e => setShareEmail(e.target.value)} required />
-                    <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">Verstuur Uitnodiging</button>
-                </form>
-            </Modal>
-
-            {/* Updates Modal */}
-            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red">
-                {alerts.length > 0 && (
-                    <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 dark:bg-red-900/20">
-                        <h4 className="font-bold text-red-800 dark:text-red-300">Let op!</h4>
-                        <ul>
-                            {alerts.map(i => {
-                                const loc = vriezers.find(v => v.id === i.vriezerId);
-                                const type = loc ? (loc.type || 'vriezer') : 'vriezer';
-                                const isStock = type === 'voorraad' || type === 'frig';
-                                
-                                return (
-                                    <li key={i.id} className="text-red-700 dark:text-red-300">
-                                        {i.naam} 
-                                        <span className="text-xs ml-1 font-semibold opacity-75">
-                                            {isStock 
-                                                ? `(Verlopen: ${formatDate(i.houdbaarheidsDatum)})` 
-                                                : `(${getDagenOud(i.ingevrorenOp)} dagen oud)`
-                                            }
-                                        </span>
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    </div>
-                )}
-                <div className="space-y-4">
-                    {currentVersionData && (
-                        <div>
-                            <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-4 text-lg">Versie {APP_VERSION}</h4>
-                            <ul className="space-y-3">
-                                {currentVersionData.changes.map((change, idx) => {
-                                    const parts = change.split(': ');
-                                    const type = parts[0];
-                                    const text = parts.slice(1).join(': ');
-                                    
-                                    let IconComp = Icons.Zap;
-                                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
-
-                                    if (type.includes('Feature') || type.includes('Nieuw')) {
-                                        IconComp = Icons.Star;
-                                        iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
-                                    } else if (type.includes('Fix') || type.includes('Opgelost')) {
-                                        IconComp = Icons.Wrench;
-                                        iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
-                                    }
-
-                                    return (
-                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start">
-                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
-                                                <Icon path={IconComp} size={14} />
-                                            </div>
-                                             <div className="pt-1.5">
-                                                <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span>
-                                                <span className="leading-relaxed">{text || change}</span>
-                                            </div>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        </div>
-                    )}
-                </div>
-            </Modal>
-
-            {/* Version History Modal */}
-            <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Nieuws." color="blue">
-                <div className="mb-8 text-center px-4">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
-                        Ontdek alle updates en verbeteringen aan <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Voorraad.</span>
-                    </h3>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-full border border-blue-100 dark:border-blue-800">
-                        <span className="text-xs font-medium text-blue-600 dark:text-blue-300">Huidige versie {APP_VERSION}</span>
-                    </div>
-                </div>
-
-                <div className="space-y-8 relative pl-2">
-                    {/* Vertical line connecting versions */}
-                    <div className="absolute left-[19px] top-2 bottom-4 w-0.5 bg-gray-100 dark:bg-gray-700"></div>
-
-                    {VERSION_HISTORY.map((v, i) => (
-                        <div key={v.version} className="relative pl-10">
-                            {/* Dot on timeline */}
-                            <div className={`absolute left-[13px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-800 z-10 ${i === 0 ? 'bg-blue-500 shadow-md shadow-blue-200' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
-
-                            <div className="mb-3">
-                                <span className={`text-lg font-bold ${i === 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>v{v.version}</span>
-                            </div>
-                            
-                            <ul className="space-y-3">
-                                {v.changes.map((change, idx) => {
-                                    const parts = change.split(': ');
-                                    const type = parts[0];
-                                    const text = parts.slice(1).join(': ');
-                                    
-                                    let IconComp = Icons.Zap;
-                                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
-
-                                    if (type.includes('Feature') || type.includes('Nieuw')) {
-                                        IconComp = Icons.Star;
-                                        iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
-                                    } else if (type.includes('Fix') || type.includes('Opgelost')) {
-                                        IconComp = Icons.Wrench;
-                                        iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
-                                    } else if (type.includes('Update')) {
-                                         IconComp = Icons.Zap;
-                                         iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
-                                    }
-
-                                    return (
-                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start">
-                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
-                                                <Icon path={IconComp} size={14} />
-                                            </div>
-                                            <div className="pt-1.5">
-                                                <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span>
-                                                <span className="leading-relaxed">{text || change}</span>
-                                            </div>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        </div>
-                    ))}
-                </div>
-            </Modal>
-
-            {/* Switch Account Modal (Admin) */}
-            <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel account." color="gray">
-                <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {usersList.map(u => (
-                        <li key={u.id} className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer flex justify-between" onClick={() => { setBeheerdeUserId(u.id); setShowSwitchAccount(false); }}>
-                            <span className="font-medium dark:text-white">{u.email || u.displayName}</span>
-                            {u.id === beheerdeUserId && <Icon path={Icons.Check} className="text-blue-500"/>}
                         </li>
                     ))}
                 </ul>
