@@ -709,13 +709,13 @@ function App() {
             if(editingItem) {
                 await db.collection('items').doc(editingItem.id).update(data);
                 await logAction('Bewerkt', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
-                showNotification(`Product '${data.naam}' is bijgewerkt!`, 'success');
+                showNotification(`${data.naam} is bijgewerkt!`, 'success');
                 setEditingItem(null);
                 setShowAddModal(false);
             } else {
                 await db.collection('items').add(data);
                 await logAction('Toevoegen', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
-                showNotification(`Product '${data.naam}' is toegevoegd!`, 'success');
+                showNotification(`${data.naam} is toegevoegd!`, 'success');
                 if (rememberLocation) {
                     setFormData(prev => ({
                         ...prev, 
@@ -754,7 +754,7 @@ function App() {
             }
 
             await logAction('Verwijderd', itemToDelete.naam, logDetail, user, beheerdeUserId);
-            showNotification(`Product '${itemToDelete.naam}' is verwijderd.`, 'success');
+            showNotification(`${itemToDelete.naam} is verwijderd.`, 'success');
             
             // Optie: Toevoegen aan boodschappenlijst?
             if (confirm("Dit item toevoegen aan de boodschappenlijst?")) {
