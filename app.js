@@ -19,17 +19,24 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.1.4'; 
+const APP_VERSION = '8.1.5'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
     { 
+        version: '8.1.5', 
+        type: 'patch', 
+        changes: [
+            'Update: Datumvelden hebben nu exact dezelfde stijl en breedte als Categorie.',
+            'Update: "Wat eten we?" knop is nu een compacte vierkante knop.',
+            'Update: "Alles open/dicht" knop vult de rest van de breedte.'
+        ] 
+    },
+    { 
         version: '8.1.4', 
         type: 'patch', 
         changes: [
-            'Fix: Datumvelden nog compacter gemaakt zodat ze gegarandeerd binnen het scherm passen.',
-            'Update: "Wat eten we?" knop is nu een klein vierkant icoon op mobiel.',
-            'Update: "Alles open/dicht" knop vult nu de rest van de breedte.'
+            'Fix: Datumvelden (THT/Invries) versmald zodat ze beter passen op mobiele schermen.'
         ] 
     },
     { 
@@ -44,32 +51,34 @@ const VERSION_HISTORY = [
         version: '8.1.2', 
         type: 'patch', 
         changes: [
-            'Fix: THT invoerveld bij toevoegen is smaller gemaakt.',
-            'Update: "Wat eten we?" knop is nu enkel een icoon op mobiel.'
+            'Update: "Wat eten we?" knop is nu enkel een icoon op mobiel voor meer ruimte.',
+            'Fix: THT invoerveld bij toevoegen is smaller gemaakt zodat het op mobiel binnen het kader past.'
         ] 
     },
     { 
         version: '8.1.1', 
         type: 'patch', 
         changes: [
-            'Fix: THT datum tekst loopt nu door (wrap) ipv afkappen.',
-            'Fix: Boodschappenlijst knoppen passen beter.',
-            'Update: Labels/Tags volledig verwijderd.'
+            'Fix: THT datum valt niet meer weg op kleine schermen (tekst loopt nu door).',
+            'Fix: Boodschappenlijst knoppen vallen nu netjes binnen de balk op mobiel.',
+            'Update: Labels/Tags functionaliteit volledig verwijderd.'
         ] 
     },
     { 
         version: '8.1.0', 
         type: 'major', 
         changes: [
-            'Update: Mobiele lay-out geoptimaliseerd.',
-            'Fix: Items vallen niet meer buiten beeld.'
+            'Update: Lay-out geoptimaliseerd voor mobiel (zoekbalk en knoppen stapelen).',
+            'Fix: Items vallen niet meer buiten beeld op kleine schermen.'
         ] 
     },
     { 
         version: '8.0.0', 
         type: 'major', 
         changes: [
-            'Nieuw: Boodschappenlijst, Verspillingsmonitor & Maaltijdsuggesties.'
+            'Nieuw: Boodschappenlijst toegevoegd (apart tabblad).', 
+            'Nieuw: Verspillingsmonitor (reden van verwijderen opgeven).', 
+            'Nieuw: Slimme maaltijdsuggesties ("Wat eten we?").'
         ] 
     }
 ];
@@ -1235,10 +1244,12 @@ function App() {
                                 </div>
                                 
                                 <div className="flex gap-2 w-full sm:w-auto">
-                                    <button onClick={() => setShowSuggestionModal(true)} className="flex-none sm:flex-none bg-yellow-100 text-yellow-600 p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
+                                    {/* Wat eten we knop: klein vierkant op mobiel */}
+                                    <button onClick={() => setShowSuggestionModal(true)} className="flex-none sm:flex-none w-12 h-12 sm:w-auto sm:h-auto bg-yellow-100 text-yellow-600 sm:p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
                                         <Icon path={Icons.Utensils}/>
                                     </button>
                                     
+                                    {/* Alles open/dicht knop: vult de rest */}
                                     <button onClick={toggleAll} className="flex-grow sm:flex-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap text-center">
                                         {collapsedLades.size > 0 ? "Alles open" : "Alles dicht"}
                                     </button>
@@ -1385,14 +1396,14 @@ function App() {
                     {formLocationType === 'vriezer' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Invriesdatum.</label>
-                            <input type="date" className="w-full p-2 max-w-full bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg text-sm box-border" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
+                            <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">THT (Optioneel)</label>
-                            <input type="date" className="w-full p-2 max-w-full bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg text-sm box-border" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
+                            <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                         </div>
                     )}
                     {(formLocationType === 'voorraad' || formLocationType === 'frig') && (
                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Houdbaarheidsdatum (THT).</label>
-                        <input type="date" className="w-full p-2 max-w-full bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg text-sm box-border" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
+                        <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                     )}
 
                     <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Categorie.</label>
