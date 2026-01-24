@@ -19,10 +19,20 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.1.2'; 
+const APP_VERSION = '8.1.3'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.1.3', 
+        type: 'patch', 
+        changes: [
+            'Update: "Wat eten we?" knop is compacter op mobiel.',
+            'Update: "Alles open/dicht" knop is breder op mobiel.',
+            'Fix: Invriesdatum en THT staan nu onder elkaar op kleine schermen (Vriezer).',
+            'Fix: Breedte van datumvelden geoptimaliseerd voor mobiel.'
+        ] 
+    },
     { 
         version: '8.1.2', 
         type: 'patch', 
@@ -1220,11 +1230,11 @@ function App() {
                                 </div>
                                 
                                 <div className="flex gap-2 w-full sm:w-auto">
-                                    <button onClick={() => setShowSuggestionModal(true)} className="flex-1 sm:flex-none bg-yellow-100 text-yellow-600 p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
+                                    <button onClick={() => setShowSuggestionModal(true)} className="flex-none sm:flex-none bg-yellow-100 text-yellow-600 p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
                                         <Icon path={Icons.Utensils}/>
                                     </button>
                                     
-                                    <button onClick={toggleAll} className="flex-1 sm:flex-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap text-center">
+                                    <button onClick={toggleAll} className="flex-grow sm:flex-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap text-center">
                                         {collapsedLades.size > 0 ? "Alles open" : "Alles dicht"}
                                     </button>
                                 </div>
@@ -1368,11 +1378,11 @@ function App() {
                     
                     {/* Conditonele Datum Velden */}
                     {formLocationType === 'vriezer' && (
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Invriesdatum.</label>
                             <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">THT (Optioneel)</label>
-                            <input type="date" className="w-full p-2 max-w-full bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
+                            <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                         </div>
                     )}
                     {(formLocationType === 'voorraad' || formLocationType === 'frig') && (
