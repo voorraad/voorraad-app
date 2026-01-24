@@ -19,10 +19,18 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.1.1'; 
+const APP_VERSION = '8.1.2'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.1.2', 
+        type: 'patch', 
+        changes: [
+            'Update: "Wat eten we?" knop is nu enkel een icoon op mobiel voor meer ruimte.',
+            'Fix: THT invoerveld bij toevoegen is smaller gemaakt zodat het op mobiel binnen het kader past.'
+        ] 
+    },
     { 
         version: '8.1.1', 
         type: 'patch', 
@@ -48,22 +56,7 @@ const VERSION_HISTORY = [
             'Nieuw: Verspillingsmonitor (reden van verwijderen opgeven).', 
             'Nieuw: Slimme maaltijdsuggesties ("Wat eten we?").'
         ] 
-    },
-    { version: '7.4.2', type: 'patch', changes: ['Update: Styling van nieuws-titel aangepast (kleiner en subtieler).'] },
-    { version: '7.4.1', type: 'patch', changes: ['Fix: Footer layout hersteld (Copyright terug, jaartal weg).'] },
-    { version: '7.4', type: 'minor', changes: ['Update: Footer layout compacter gemaakt (versie naast logo).'] },
-    { version: '7.3', type: 'minor', changes: ['Nieuw: Versie geschiedenis bekijken via footer.', 'Update: Footer tekst aangepast.', 'Update: Nieuws pagina layout vernieuwd met iconen.', 'Update: Meldingen venster gebruikt nu ook iconen.'] },
-    { version: '7.2', type: 'minor', changes: ['Update: Footer styling aangepast (logo kleur en versie kleiner).'] },
-    { version: '7.1', type: 'major', changes: ['Feature: Koelkast categorieën aangepast (Zuivel, Kaas, Beleg toegevoegd).', 'Update: Automatische emoji\'s toegevoegd voor nieuwe categorieën.'] },
-    { version: '7.0', type: 'major', changes: ['Feature: Nieuw tabblad \'Frig.\' toegevoegd!', 'Update: Frig. gebruikt THT datum net als Stock.'] },
-    { version: '6.8', type: 'major', changes: ['Fix: Opgelost: Verborgen tabbladen werken nu correct voor gedeelde gebruikers.'] },
-    { version: '6.7', type: 'major', changes: ['Fix: Opgelost: Foutmelding bij openen van Instellingen verholpen.'] },
-    { version: '6.6', type: 'major', changes: ['Fix: Opgelost: Opgeslagen open lades laden nu correct bij opstarten.', 'Update: Laatst gezien datum nu zichtbaar voor beheerders.'] },
-    { version: '6.5', type: 'major', changes: ['Feature: App onthoudt nu welke lades open of dicht stonden.', 'Update: Laatst gezien status wordt nu correct bijgewerkt.'] },
-    { version: '6.4', type: 'major', changes: ['Update: Database sortering geactiveerd voor sneller logboek.'] },
-    { version: '6.3', type: 'major', changes: ['Fix: Logboek werkt nu zonder complexe database instellingen.'] },
-    { version: '6.2', type: 'major', changes: ['Feature: Meldingenscherm opent nu automatisch bij opstarten als er aandachtspunten zijn.'] },
-    { version: '6.0', type: 'major', changes: ['Feature: Logboek toegevoegd.', 'Update: Footer toegevoegd.'] }
+    }
 ];
 
 // Standaard kleuren voor badges
@@ -1228,7 +1221,7 @@ function App() {
                                 
                                 <div className="flex gap-2 w-full sm:w-auto">
                                     <button onClick={() => setShowSuggestionModal(true)} className="flex-1 sm:flex-none bg-yellow-100 text-yellow-600 p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
-                                        <Icon path={Icons.Utensils}/> <span className="sm:hidden font-bold">Wat eten we?</span>
+                                        <Icon path={Icons.Utensils}/>
                                     </button>
                                     
                                     <button onClick={toggleAll} className="flex-1 sm:flex-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap text-center">
@@ -1379,12 +1372,12 @@ function App() {
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Invriesdatum.</label>
                             <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">THT (Optioneel)</label>
-                            <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
+                            <input type="date" className="w-full p-2 max-w-full bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                         </div>
                     )}
                     {(formLocationType === 'voorraad' || formLocationType === 'frig') && (
                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Houdbaarheidsdatum (THT).</label>
-                        <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
+                        <input type="date" className="w-full p-2 max-w-full bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                     )}
 
                     <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Categorie.</label>
