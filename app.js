@@ -19,10 +19,20 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '7.4.2'; 
+const APP_VERSION = '8.0.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.0.0', 
+        type: 'major', 
+        changes: [
+            'Nieuw: Boodschappenlijst toegevoegd (apart tabblad).', 
+            'Nieuw: Verspillingsmonitor (reden van verwijderen opgeven).', 
+            'Nieuw: Slimme maaltijdsuggesties ("Wat eten we?").', 
+            'Nieuw: Labels/Tags ondersteuning voor producten.'
+        ] 
+    },
     { version: '7.4.2', type: 'patch', changes: ['Update: Styling van nieuws-titel aangepast (kleiner en subtieler).'] },
     { version: '7.4.1', type: 'patch', changes: ['Fix: Footer layout hersteld (Copyright terug, jaartal weg).'] },
     { version: '7.4', type: 'minor', changes: ['Update: Footer layout compacter gemaakt (versie naast logo).'] },
@@ -137,7 +147,12 @@ const Icons = {
     Fridge: <path d="M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 6h14m-7-6v20"/>,
     Star: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>,
     Zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>, 
-    Wrench: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+    Wrench: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>,
+    ShoppingCart: <g><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></g>,
+    Tag: <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>,
+    PieChart: <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>,
+    UtensilsCrossed: <g><path d="m3 2 14.5 14.5"/><path d="m3 16.5 14.5-14.5"/><path d="M12.5 11.5 21 20"/><path d="M20 21 11.5 12.5"/><path d="m20 3-8.5 8.5"/><path d="M3 20 11.5 11.5"/></g>,
+    Utensils: <g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></g>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -280,21 +295,20 @@ const Modal = ({ isOpen, onClose, title, children, color = "blue" }) => {
 
 const Badge = ({ type, text }) => {
     let colorClass = BADGE_COLORS[type];
+    if (!colorClass) colorClass = "bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600";
     
-    if (!colorClass) {
-        if (type === 'minor') colorClass = "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/50 dark:text-blue-200 dark:border-blue-800";
-        else if (type === 'patch') colorClass = "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/50 dark:text-green-200 dark:border-green-800";
-        else if (type === 'major') colorClass = "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/50 dark:text-purple-200 dark:border-purple-800";
-        else if (type === 'alert') colorClass = "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/50 dark:text-red-200 dark:border-red-800";
-        else colorClass = "bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"; 
-    }
-
     return (
         <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colorClass}`}>
             {text}
         </span>
     );
 };
+
+const TagBadge = ({ text }) => (
+    <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 text-[10px] font-bold border border-blue-100 dark:border-blue-800 flex items-center gap-1">
+        <Icon path={Icons.Tag} size={10} /> {text}
+    </span>
+);
 
 const EmojiGrid = ({ onSelect }) => {
     return (
@@ -332,6 +346,7 @@ function App() {
     const [myHiddenTabs, setMyHiddenTabs] = useState([]);
     const [darkMode, setDarkMode] = useState(false);
     const [savedOpenLades, setSavedOpenLades] = useState(null);
+    const [stats, setStats] = useState({ wasted: 0, consumed: 0 });
     
     // Data
     const [activeTab, setActiveTab] = useState('vriezer');
@@ -339,11 +354,11 @@ function App() {
     const [vriezers, setVriezers] = useState([]);
     const [lades, setLades] = useState([]);
     const [logs, setLogs] = useState([]); 
+    const [shoppingList, setShoppingList] = useState([]);
     
     const [customUnitsVries, setCustomUnitsVries] = useState([]);
     const [customUnitsFrig, setCustomUnitsFrig] = useState([]);
     const [customUnitsVoorraad, setCustomUnitsVoorraad] = useState([]);
-    
     const [customCategories, setCustomCategories] = useState([]);
 
     // UI
@@ -351,13 +366,12 @@ function App() {
     const [collapsedLades, setCollapsedLades] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
-    
     const [notification, setNotification] = useState(null);
     
     // Modals & Menu
     const [showAddModal, setShowAddModal] = useState(false);
     const [showWhatsNew, setShowWhatsNew] = useState(false);
-    const [showVersionHistory, setShowVersionHistory] = useState(false); // Nieuw state voor versie geschiedenis
+    const [showVersionHistory, setShowVersionHistory] = useState(false);
     const [showSwitchAccount, setShowSwitchAccount] = useState(false);
     const [showBeheerModal, setShowBeheerModal] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -365,13 +379,32 @@ function App() {
     const [showUserAdminModal, setShowUserAdminModal] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [showLogModal, setShowLogModal] = useState(false); 
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState(null);
+    const [showStatsModal, setShowStatsModal] = useState(false);
+    const [showSuggestionModal, setShowSuggestionModal] = useState(false);
     const [beheerTab, setBeheerTab] = useState('locaties');
 
     // Forms
     const [formData, setFormData] = useState({
-        naam: '', aantal: 1, eenheid: 'stuks', vriezerId: '', ladeId: '', categorie: 'Vlees', 
-        ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
+        naam: '', 
+        aantal: 1, 
+        eenheid: 'stuks', 
+        vriezerId: '', 
+        ladeId: '', 
+        categorie: 'Vlees', 
+        ingevrorenOp: new Date().toISOString().split('T')[0], 
+        houdbaarheidsDatum: '', 
+        emoji: '', 
+        tags: ''
     });
+    
+    const [shoppingFormData, setShoppingFormData] = useState({ 
+        naam: '', 
+        aantal: 1, 
+        eenheid: 'stuks' 
+    });
+    
     const [rememberLocation, setRememberLocation] = useState(false); 
     const [newLocatieNaam, setNewLocatieNaam] = useState('');
     const [newLocatieColor, setNewLocatieColor] = useState('blue'); 
@@ -393,7 +426,7 @@ function App() {
     const [editCatInputName, setEditCatInputName] = useState('');
     const [editCatInputColor, setEditCatInputColor] = useState('gray');
 
-    const hasCheckedAlerts = useRef(false); // Ref om te voorkomen dat meldingen bij elke render poppen
+    const hasCheckedAlerts = useRef(false);
 
     useEffect(() => {
         if (darkMode) {
@@ -424,7 +457,6 @@ function App() {
                 setUser(u);
                 setBeheerdeUserId(u.uid);
                 
-                // Update 'laatstGezien' direct bij inloggen/openen app
                 try {
                     await db.collection('users').doc(u.uid).set({
                         laatstGezien: firebase.firestore.FieldValue.serverTimestamp(),
@@ -445,6 +477,9 @@ function App() {
                         } else {
                             setSavedOpenLades([]);
                         }
+                        if (data.stats) {
+                            setStats(data.stats);
+                        }
                     } else {
                         db.collection('users').doc(u.uid).set({
                             customCategories: CATEGORIEEN_VRIES,
@@ -453,7 +488,8 @@ function App() {
                             customUnitsVoorraad: [],
                             hiddenTabs: [],
                             darkMode: false,
-                            openLades: [] 
+                            openLades: [],
+                            stats: { wasted: 0, consumed: 0 }
                         });
                         setSavedOpenLades([]);
                         setMyHiddenTabs([]);
@@ -492,6 +528,9 @@ function App() {
                 setManagedUserHiddenTabs(data.hiddenTabs || []); 
 
                 setCustomCategories(data.customCategories && data.customCategories.length > 0 ? data.customCategories : CATEGORIEEN_VRIES);
+                if (data.stats) {
+                    setStats(data.stats);
+                }
             }
         });
         return () => unsub();
@@ -519,7 +558,9 @@ function App() {
             }
         });
         const unsubI = db.collection('items').where('userId', '==', beheerdeUserId).onSnapshot(s => setItems(s.docs.map(d => ({id: d.id, ...d.data()}))));
-        return () => { unsubV(); unsubL(); unsubI(); };
+        const unsubS = db.collection('shoppingList').where('userId', '==', beheerdeUserId).onSnapshot(s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()})))); // Boodschappenlijst listener
+
+        return () => { unsubV(); unsubL(); unsubI(); unsubS(); };
     }, [beheerdeUserId, isDataLoaded, savedOpenLades]); 
 
     useEffect(() => {
@@ -546,29 +587,6 @@ function App() {
         return () => unsubLogs();
     }, [user, showLogModal, beheerdeUserId]);
 
-
-    // Alerts Logic
-    const alerts = items.filter(i => {
-        const loc = vriezers.find(v => v.id === i.vriezerId);
-        const type = loc ? (loc.type || 'vriezer') : 'vriezer';
-
-        if (type === 'voorraad' || type === 'frig') {
-             return getDagenTotTHT(i.houdbaarheidsDatum) < 0; 
-        } else {
-             return getDagenOud(i.ingevrorenOp) > 180;
-        }
-    });
-
-    useEffect(() => {
-        if (isDataLoaded && !hasCheckedAlerts.current) {
-            const lastVersion = localStorage.getItem('app_version');
-            if (lastVersion !== APP_VERSION || alerts.length > 0) {
-                setShowWhatsNew(true);
-                if (lastVersion !== APP_VERSION) localStorage.setItem('app_version', APP_VERSION);
-            }
-            hasCheckedAlerts.current = true; 
-        }
-    }, [isDataLoaded, alerts.length]); 
 
     // Derived
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
@@ -600,7 +618,6 @@ function App() {
         ...contextCategorieen, 
         ...customCategories.filter(cc => {
             const inHuidig = contextCategorieen.some(c => c.name === cc.name);
-            // Voorlopig simpele check, kan complexer als nodig
             return !inHuidig;
         })
     ];
@@ -615,6 +632,29 @@ function App() {
     const showNotification = (msg, type = 'success') => {
         setNotification({ msg, type, id: Date.now() });
     };
+
+    // Alerts Logic
+    const alerts = items.filter(i => {
+        const loc = vriezers.find(v => v.id === i.vriezerId);
+        const type = loc ? (loc.type || 'vriezer') : 'vriezer';
+
+        if (type === 'voorraad' || type === 'frig') {
+             return getDagenTotTHT(i.houdbaarheidsDatum) < 0; 
+        } else {
+             return getDagenOud(i.ingevrorenOp) > 180;
+        }
+    });
+
+    useEffect(() => {
+        if (isDataLoaded && !hasCheckedAlerts.current) {
+            const lastVersion = localStorage.getItem('app_version');
+            if (lastVersion !== APP_VERSION || alerts.length > 0) {
+                setShowWhatsNew(true);
+                if (lastVersion !== APP_VERSION) localStorage.setItem('app_version', APP_VERSION);
+            }
+            hasCheckedAlerts.current = true; 
+        }
+    }, [isDataLoaded, alerts.length]); 
 
     // --- HANDLERS ---
     const handleGoogleLogin = async () => { 
@@ -636,13 +676,13 @@ function App() {
         if (!rememberLocation) {
             setFormData({
                 naam: '', aantal: 1, eenheid: 'stuks', vriezerId: defaultLoc, ladeId: '', 
-                categorie: defaultCat, ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
+                categorie: defaultCat, ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: '', tags: ''
             });
         } else {
              setFormData(prev => ({
                 ...prev,
                 naam: '', aantal: 1, categorie: defaultCat, 
-                ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
+                ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: '', tags: ''
             }));
         }
         setShowAddModal(true);
@@ -651,6 +691,10 @@ function App() {
     const handleSaveItem = async (e) => {
         e.preventDefault();
         const lade = lades.find(l => l.id === formData.ladeId);
+        
+        // Tags verwerken: string naar array
+        const tagsArray = formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(t => t) : [];
+
         const data = {
             ...formData,
             aantal: parseFloat(formData.aantal),
@@ -658,7 +702,8 @@ function App() {
             ingevrorenOp: new Date(formData.ingevrorenOp),
             houdbaarheidsDatum: formData.houdbaarheidsDatum ? new Date(formData.houdbaarheidsDatum) : null,
             userId: beheerdeUserId,
-            emoji: formData.emoji || getEmojiForCategory(formData.categorie)
+            emoji: formData.emoji || getEmojiForCategory(formData.categorie),
+            tags: tagsArray
         };
         try {
             if(editingItem) {
@@ -676,34 +721,126 @@ function App() {
                         ...prev, 
                         naam: '', aantal: 1, emoji: '', 
                         ingevrorenOp: new Date().toISOString().split('T')[0],
-                        houdbaarheidsDatum: ''
+                        houdbaarheidsDatum: '',
+                        tags: ''
                     }));
                 } else {
                     const defaultCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
-                    setFormData(prev => ({...prev, naam: '', aantal: 1, emoji: '', categorie: defaultCat})); 
+                    setFormData(prev => ({...prev, naam: '', aantal: 1, emoji: '', categorie: defaultCat, tags: ''})); 
                 }
                 setShowAddModal(false);
             }
         } catch(err) { showNotification("Er ging iets mis: " + err.message, 'error'); }
     };
 
-    const handleDelete = async (id, naam) => { 
-        if(confirm(`Verwijder '${naam}'?`)) {
-            try {
-                await db.collection('items').doc(id).delete();
-                await logAction('Verwijderd', naam, 'Item verwijderd', user, beheerdeUserId);
-                showNotification(`Product '${naam}' is verwijderd.`, 'success');
-            } catch(err) {
-                showNotification("Kon niet verwijderen", 'error');
+    // Nieuw: Delete met reden voor Verspillingsmonitor
+    const initDelete = (item) => {
+        setItemToDelete(item);
+        setShowDeleteModal(true);
+    };
+
+    const confirmDelete = async (reason) => {
+        if (!itemToDelete) return;
+        
+        try {
+            await db.collection('items').doc(itemToDelete.id).delete();
+            
+            let logDetail = 'Item verwijderd';
+            if (reason === 'consumed') {
+                logDetail = 'Opgegeten';
+                await db.collection('users').doc(beheerdeUserId).update({ 'stats.consumed': firebase.firestore.FieldValue.increment(1) });
+            } else if (reason === 'wasted') {
+                logDetail = 'Weggegooid (Verspild)';
+                await db.collection('users').doc(beheerdeUserId).update({ 'stats.wasted': firebase.firestore.FieldValue.increment(1) });
             }
+
+            await logAction('Verwijderd', itemToDelete.naam, logDetail, user, beheerdeUserId);
+            showNotification(`Product '${itemToDelete.naam}' is verwijderd.`, 'success');
+            
+            // Optie: Toevoegen aan boodschappenlijst?
+            if (confirm("Dit item toevoegen aan de boodschappenlijst?")) {
+                await db.collection('shoppingList').add({
+                    naam: itemToDelete.naam,
+                    aantal: 1,
+                    eenheid: itemToDelete.eenheid || 'stuks',
+                    checked: false,
+                    userId: beheerdeUserId
+                });
+                showNotification("Aan boodschappenlijst toegevoegd.", "success");
+            }
+
+        } catch(err) {
+            showNotification("Kon niet verwijderen", 'error');
         }
+        setShowDeleteModal(false);
+        setItemToDelete(null);
+    };
+
+    // --- BOODSCHAPPENLIJST HANDLERS ---
+    const handleAddShoppingItem = async (e) => {
+        e.preventDefault();
+        await db.collection('shoppingList').add({
+            ...shoppingFormData,
+            checked: false,
+            userId: beheerdeUserId
+        });
+        setShoppingFormData({ naam: '', aantal: 1, eenheid: 'stuks' });
+    };
+
+    const toggleShoppingItem = async (item) => {
+        await db.collection('shoppingList').doc(item.id).update({ checked: !item.checked });
+    };
+
+    const deleteShoppingItem = async (id) => {
+        await db.collection('shoppingList').doc(id).delete();
+    };
+    
+    const moveShoppingToStock = async (item) => {
+        // Opent de "Toevoegen" modal met data van boodschappenlijst
+        setEditingItem(null);
+        setFormData({
+            naam: item.naam, aantal: item.aantal, eenheid: item.eenheid, 
+            vriezerId: '', ladeId: '', categorie: 'Overig', 
+            ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: '', tags: ''
+        });
+        setActiveTab('voorraad'); // Ga naar stock tab als suggestie
+        setShowAddModal(true);
+        // We verwijderen hem nog niet, pas als gebruiker opslaat kan hij hem daar wissen of handmatig doen
+        if(confirm("Verwijder van boodschappenlijst?")) {
+            deleteShoppingItem(item.id);
+        }
+    };
+
+    // --- SUGGESTIE LOGICA (Wat eten we vandaag?) ---
+    const getSuggestions = () => {
+        const scoredItems = items.map(item => {
+            let score = 0;
+            const daysTHT = item.houdbaarheidsDatum ? getDagenTotTHT(item.houdbaarheidsDatum) : 999;
+            const daysOld = getDagenOud(item.ingevrorenOp);
+            const loc = vriezers.find(v => v.id === item.vriezerId);
+            const type = loc?.type || 'vriezer';
+
+            // Score logica: Hoe hoger, hoe urgenter
+            if (type === 'vriezer') {
+                if (daysOld > 180) score += 50; // Te oud
+                else if (daysOld > 90) score += 20;
+            } else { // Frig of Voorraad
+                if (daysTHT < 0) score += 100; // Over datum
+                else if (daysTHT <= 3) score += 80; // Bijna over datum
+                else if (daysTHT <= 7) score += 40;
+            }
+            return { ...item, score, daysTHT, daysOld, type };
+        });
+
+        return scoredItems.filter(i => i.score > 0).sort((a,b) => b.score - a.score).slice(0, 5);
     };
 
     const openEdit = (item) => {
         setEditingItem(item);
         setFormData({
             naam: item.naam, aantal: item.aantal, eenheid: item.eenheid, vriezerId: item.vriezerId, ladeId: item.ladeId, categorie: item.categorie,
-            ingevrorenOp: toInputDate(item.ingevrorenOp), houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), emoji: item.emoji
+            ingevrorenOp: toInputDate(item.ingevrorenOp), houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), emoji: item.emoji,
+            tags: item.tags ? item.tags.join(', ') : ''
         });
         setShowAddModal(true);
     };
@@ -967,7 +1104,6 @@ function App() {
                                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
                                     </div>
                                     
-                                    {/* Toggle Dark Mode Button (Database Linked) */}
                                     <button onClick={toggleDarkMode} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                                         {darkMode ? (
                                             <>
@@ -985,6 +1121,9 @@ function App() {
                                             <Icon path={Icons.Users} size={16}/> Gebruikers.
                                         </button>
                                     )}
+                                    <button onClick={() => { setShowStatsModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
+                                        <Icon path={Icons.PieChart} size={16}/> Statistieken.
+                                    </button>
                                     <button onClick={() => { setShowLogModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                                         <Icon path={Icons.LogBook} size={16}/> Logboek.
                                     </button>
@@ -1002,118 +1141,176 @@ function App() {
                         </div>
                     </div>
                 </div>
-                <div className="max-w-7xl mx-auto px-4 flex space-x-6 border-b border-gray-100 dark:border-gray-700">
+                <div className="max-w-7xl mx-auto px-4 flex space-x-6 border-b border-gray-100 dark:border-gray-700 overflow-x-auto">
                     <button onClick={() => setActiveTab('vriezer')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='vriezer' ? 'border-purple-400 text-purple-500' : 'border-transparent text-gray-500 dark:text-gray-400'}`}><Icon path={Icons.Snowflake}/> Vriez.</button>
-                    {/* Frig Tab */}
                     {(!myHiddenTabs.includes('frig') || isAdmin) && (
                         <button onClick={() => setActiveTab('frig')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='frig' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
                             <Icon path={Icons.Fridge}/> Frig.
                             {isAdmin && managedUserHiddenTabs.includes('frig') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
                     )}
-                    {/* Stock Tab */}
                     {(!myHiddenTabs.includes('voorraad') || isAdmin) && (
                         <button onClick={() => setActiveTab('voorraad')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
                             <Icon path={Icons.Box}/> Stock.
                             {isAdmin && managedUserHiddenTabs.includes('voorraad') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
                     )}
+                    {/* NIEUW TABBLAD: LIJST */}
+                    <button onClick={() => setActiveTab('lijst')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='lijst' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
+                        <Icon path={Icons.ShoppingCart}/> Lijst.
+                    </button>
                 </div>
             </header>
 
             {/* Main Content */}
             <main className="max-w-7xl mx-auto p-4 space-y-6 flex-grow w-full">
-                {/* Tools */}
-                <div className="flex flex-col gap-4 print:hidden">
-                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                        <div className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm font-bold">{activeItems.length} items</div>
-                        {filteredLocaties.map(l => <div key={l.id} className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm">{items.filter(i=>i.vriezerId===l.id).length} {l.naam}</div>)}
-                    </div>
-                    <div className="flex gap-2">
-                        <div className="relative group flex-grow">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Icon path={Icons.Search} className="text-gray-400"/></div>
-                            <input type="text" className="block w-full pl-10 pr-3 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400" placeholder="Zoek..." value={search} onChange={e=>setSearch(e.target.value)}/>
+                
+                {/* TABBLAD: BOODSCHAPPENLIJST */}
+                {activeTab === 'lijst' ? (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-4">
+                            <form onSubmit={handleAddShoppingItem} className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    placeholder="Wat moet je kopen?" 
+                                    className="flex-grow p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                                    value={shoppingFormData.naam} 
+                                    onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} 
+                                    required
+                                />
+                                <input 
+                                    type="number" 
+                                    className="w-16 p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 outline-none dark:text-white text-center" 
+                                    value={shoppingFormData.aantal} 
+                                    onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
+                                />
+                                <button type="submit" className="bg-blue-600 text-white px-4 rounded-xl font-bold"><Icon path={Icons.Plus}/></button>
+                            </form>
                         </div>
-                        <button onClick={toggleAll} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap">{collapsedLades.size>0 ? "Alles open" : "Alles dicht"}</button>
-                    </div>
-                </div>
 
-                {/* Lijsten Grid Container */}
-                <div className={`grid gap-6 items-start ${gridClass}`}>
-                    {filteredLocaties.map(vriezer => {
-                        const gradientKeys = Object.keys(GRADIENTS);
-                        let hash = 0;
-                        for (let i = 0; i < vriezer.id.length; i++) hash = (hash << 5) - hash + vriezer.id.charCodeAt(i);
-                        
-                        const colorKey = vriezer.color || gradientKeys[Math.abs(hash) % gradientKeys.length];
-                        const gradientClass = GRADIENTS[colorKey] || GRADIENTS.blue;
-
-                        return (
-                            <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
-                                <h2 className={`text-lg font-bold mb-3 flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{vriezer.naam}</h2>
-                                <div className="space-y-4">
-                                    {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(lade => {
-                                        const ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
-                                        if (ladeItems.length === 0 && search) return null;
-                                        const isCollapsed = collapsedLades.has(lade.id) && !search;
-                                        
-                                        return (
-                                            <div key={lade.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden page-break-inside-avoid transition-colors">
-                                                <div className="bg-gray-50/50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 print:bg-white" onClick={() => toggleLade(lade.id)}>
-                                                    <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-sm flex items-center gap-2">
-                                                        {isCollapsed ? <Icon path={Icons.ChevronRight} className="print:hidden"/> : <Icon path={Icons.ChevronDown} className="print:hidden"/>} 
-                                                        {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
-                                                    </h3>
-                                                </div>
-                                                {!isCollapsed && (
-                                                    <ul className="block"> 
-                                                        {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
-                                                        ladeItems.map(item => {
-                                                            const dagenOud = getDagenOud(item.ingevrorenOp);
-                                                            const dagenTotTHT = getDagenTotTHT(item.houdbaarheidsDatum);
-                                                            const isStockItem = vriezer.type === 'voorraad' || vriezer.type === 'frig';
-                                                            
-                                                            const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT);
-                                                            const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT);
-                                                            
-                                                            const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
-                                                            const catColor = catObj ? (catObj.color || 'gray') : 'gray';
-
-                                                            return (
-                                                                <li key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0`}>
-                                                                    <div className="flex items-center gap-3 overflow-hidden">
-                                                                        <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
-                                                                        <div className="min-w-0">
-                                                                            <div className="flex items-center gap-2">
-                                                                                <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
-                                                                                {item.categorie && item.categorie !== "Geen" && (
-                                                                                    <Badge type={catColor} text={item.categorie} />
-                                                                                )}
-                                                                            </div>
-                                                                            <p className="text-sm text-gray-700 dark:text-gray-300 mt-0.5">
-                                                                                <span className="font-bold">{item.aantal} {item.eenheid}</span>
-                                                                                {!isStockItem && <span className={`text-xs ml-2 ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
-                                                                                {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ml-2 ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
-                                                                            </p>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1 flex-shrink-0 print:hidden">
-                                                                        <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50"><Icon path={Icons.Edit2} size={16}/></button>
-                                                                        <button onClick={()=>handleDelete(item.id, item.naam)} className="p-2 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50"><Icon path={Icons.Trash2} size={16}/></button>
-                                                                    </div>
-                                                                </li>
-                                                            );
-                                                        })}
-                                                    </ul>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+                        <div className="space-y-2">
+                            {shoppingList.length === 0 && <p className="text-center text-gray-400 py-8">Je boodschappenlijst is leeg.</p>}
+                            {shoppingList.sort((a,b) => a.checked - b.checked).map(item => (
+                                <div key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border ${item.checked ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800' : 'border-gray-200 dark:border-gray-700'}`}>
+                                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => toggleShoppingItem(item)}>
+                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${item.checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-500'}`}>
+                                            {item.checked && <Icon path={Icons.Check} size={14} className="text-white"/>}
+                                        </div>
+                                        <span className={`font-medium ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
+                                            {item.aantal > 1 && <span className="font-bold text-blue-600 mr-1">{item.aantal}x</span>}
+                                            {item.naam}
+                                        </span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => moveShoppingToStock(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg" title="Naar voorraad"><Icon path={Icons.Box} size={18}/></button>
+                                        <button onClick={() => deleteShoppingItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Icon path={Icons.Trash2} size={18}/></button>
+                                    </div>
                                 </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        {/* VOORRAAD TABS CONTENT */}
+                        <div className="flex flex-col gap-4 print:hidden">
+                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                <div className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm font-bold">{activeItems.length} items</div>
+                                {filteredLocaties.map(l => <div key={l.id} className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm">{items.filter(i=>i.vriezerId===l.id).length} {l.naam}</div>)}
                             </div>
-                        );
-                    })}
-                </div>
+                            <div className="flex gap-2 items-center">
+                                <div className="relative group flex-grow">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Icon path={Icons.Search} className="text-gray-400"/></div>
+                                    <input type="text" className="block w-full pl-10 pr-3 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400" placeholder="Zoek..." value={search} onChange={e=>setSearch(e.target.value)}/>
+                                </div>
+                                
+                                {/* SUGGESTIE KNOP */}
+                                <button onClick={() => setShowSuggestionModal(true)} className="bg-yellow-100 text-yellow-600 p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors" title="Wat eten we vandaag?"><Icon path={Icons.Utensils}/></button>
+                                
+                                <button onClick={toggleAll} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap">{collapsedLades.size>0 ? "Alles open" : "Alles dicht"}</button>
+                            </div>
+                        </div>
+
+                        {/* Lijsten Grid Container */}
+                        <div className={`grid gap-6 items-start ${gridClass}`}>
+                            {filteredLocaties.map(vriezer => {
+                                const gradientKeys = Object.keys(GRADIENTS);
+                                let hash = 0;
+                                for (let i = 0; i < vriezer.id.length; i++) hash = (hash << 5) - hash + vriezer.id.charCodeAt(i);
+                                
+                                const colorKey = vriezer.color || gradientKeys[Math.abs(hash) % gradientKeys.length];
+                                const gradientClass = GRADIENTS[colorKey] || GRADIENTS.blue;
+
+                                return (
+                                    <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
+                                        <h2 className={`text-lg font-bold mb-3 flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{vriezer.naam}</h2>
+                                        <div className="space-y-4">
+                                            {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(lade => {
+                                                const ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
+                                                if (ladeItems.length === 0 && search) return null;
+                                                const isCollapsed = collapsedLades.has(lade.id) && !search;
+                                                
+                                                return (
+                                                    <div key={lade.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden page-break-inside-avoid transition-colors">
+                                                        <div className="bg-gray-50/50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 print:bg-white" onClick={() => toggleLade(lade.id)}>
+                                                            <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-sm flex items-center gap-2">
+                                                                {isCollapsed ? <Icon path={Icons.ChevronRight} className="print:hidden"/> : <Icon path={Icons.ChevronDown} className="print:hidden"/>} 
+                                                                {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
+                                                            </h3>
+                                                        </div>
+                                                        {!isCollapsed && (
+                                                            <ul className="block"> 
+                                                                {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
+                                                                ladeItems.map(item => {
+                                                                    const dagenOud = getDagenOud(item.ingevrorenOp);
+                                                                    const dagenTotTHT = getDagenTotTHT(item.houdbaarheidsDatum);
+                                                                    const isStockItem = vriezer.type === 'voorraad' || vriezer.type === 'frig';
+                                                                    
+                                                                    const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT);
+                                                                    const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT);
+                                                                    
+                                                                    const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
+                                                                    const catColor = catObj ? (catObj.color || 'gray') : 'gray';
+
+                                                                    return (
+                                                                        <li key={item.id} className={`relative flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0`}>
+                                                                            <div className="flex items-center gap-3 overflow-hidden">
+                                                                                <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
+                                                                                <div className="min-w-0">
+                                                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                                                        <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
+                                                                                        {item.categorie && item.categorie !== "Geen" && (
+                                                                                            <Badge type={catColor} text={item.categorie} />
+                                                                                        )}
+                                                                                        {/* TAGS WEERGEVEN */}
+                                                                                        {item.tags && item.tags.map(tag => <TagBadge key={tag} text={tag} />)}
+                                                                                    </div>
+                                                                                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-0.5">
+                                                                                        <span className="font-bold">{item.aantal} {item.eenheid}</span>
+                                                                                        {!isStockItem && <span className={`text-xs ml-2 ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
+                                                                                        {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ml-2 ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
+                                                                                    </p>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1 flex-shrink-0 print:hidden">
+                                                                                <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50"><Icon path={Icons.Edit2} size={16}/></button>
+                                                                                {/* DELETE KNOP OPENT NU CONFIRM MODAL */}
+                                                                                <button onClick={()=>initDelete(item)} className="p-2 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50"><Icon path={Icons.Trash2} size={16}/></button>
+                                                                            </div>
+                                                                        </li>
+                                                                    );
+                                                                })}
+                                                            </ul>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
+                )}
             </main>
 
             {/* Footer */}
@@ -1125,7 +1322,7 @@ function App() {
                              Voorraad.
                          </span>
                          <button onClick={() => setShowVersionHistory(true)} className="text-[10px] text-gray-300 dark:text-gray-600 hover:text-blue-500 transition-colors cursor-pointer">
-                            Versie {APP_VERSION}
+                            v{APP_VERSION}
                         </button>
                     </div>
                     <p className="text-[10px] text-gray-300 dark:text-gray-600">
@@ -1135,7 +1332,9 @@ function App() {
             </footer>
 
             {/* FAB */}
-            <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 print:hidden hover:scale-105 transition-transform"><Icon path={Icons.Plus} size={28}/></button>
+            {activeTab !== 'lijst' && (
+                <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 print:hidden hover:scale-105 transition-transform"><Icon path={Icons.Plus} size={28}/></button>
+            )}
 
             {/* Add/Edit Modal */}
             <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken." : "Toevoegen."} color="blue">
@@ -1166,25 +1365,31 @@ function App() {
                             </select>
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 gap-4">
-                        {/* Conditonele Datum Velden */}
-                        {formLocationType === 'vriezer' && (
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Invriesdatum.</label>
-                                <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
-                                <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">THT (Optioneel)</label>
-                                <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
-                            </div>
-                        )}
-                        {(formLocationType === 'voorraad' || formLocationType === 'frig') && (
-                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Houdbaarheidsdatum (THT) (Optioneel).</label>
+                    
+                    {/* Conditonele Datum Velden */}
+                    {formLocationType === 'vriezer' && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Invriesdatum.</label>
+                            <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">THT (Optioneel)</label>
                             <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
-                        )}
-                    </div>
+                        </div>
+                    )}
+                    {(formLocationType === 'voorraad' || formLocationType === 'frig') && (
+                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Houdbaarheidsdatum (THT).</label>
+                        <input type="date" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
+                    )}
+
                     <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Categorie.</label>
                     <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
                         {actieveCategorieen.map(c => <option key={c.name||c} value={c.name||c}>{c.name||c}</option>)}
                     </select></div>
+
+                    {/* TAGS INPUT */}
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase flex items-center gap-2"><Icon path={Icons.Tag} size={12}/> Labels (Tags).</label>
+                        <input type="text" placeholder="Bijv: Vega, Kinderen, Weekend (komma gescheiden)" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.tags} onChange={e => setFormData({...formData, tags: e.target.value})} />
+                    </div>
                     
                     {!editingItem && (
                         <div className="flex items-center gap-2">
@@ -1200,6 +1405,71 @@ function App() {
             {/* Emoji Modal */}
             <Modal isOpen={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} title="Emoji." color="orange">
                 <EmojiGrid onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
+            </Modal>
+
+            {/* Delete Confirmation Modal (Verspillingsmonitor) */}
+            <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Product verwijderen." color="red">
+                <p className="text-gray-800 dark:text-gray-200 mb-6">Wat is de reden voor het verwijderen van <strong>{itemToDelete?.naam}</strong>?</p>
+                <div className="grid grid-cols-1 gap-3">
+                    <button onClick={() => confirmDelete('consumed')} className="flex items-center justify-center gap-2 p-3 bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-200 rounded-xl font-bold hover:bg-green-200 dark:hover:bg-green-900/60 transition">
+                        <Icon path={Icons.Utensils} /> Opgegeten
+                    </button>
+                    <button onClick={() => confirmDelete('wasted')} className="flex items-center justify-center gap-2 p-3 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200 rounded-xl font-bold hover:bg-red-200 dark:hover:bg-red-900/60 transition">
+                        <Icon path={Icons.Trash2} /> Weggegooid (Verspild)
+                    </button>
+                    <button onClick={() => confirmDelete('other')} className="flex items-center justify-center gap-2 p-3 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 transition">
+                        Andere reden / Foutje
+                    </button>
+                </div>
+            </Modal>
+
+            {/* Stats Modal */}
+            <Modal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} title="Statistieken." color="purple">
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl text-center border border-green-100 dark:border-green-800">
+                        <span className="block text-3xl font-bold text-green-600 dark:text-green-400">{stats.consumed}</span>
+                        <span className="text-xs uppercase tracking-wide text-green-800 dark:text-green-200">Producten gegeten</span>
+                    </div>
+                    <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl text-center border border-red-100 dark:border-red-800">
+                        <span className="block text-3xl font-bold text-red-600 dark:text-red-400">{stats.wasted}</span>
+                        <span className="text-xs uppercase tracking-wide text-red-800 dark:text-red-200">Weggegooid</span>
+                    </div>
+                </div>
+                {stats.consumed + stats.wasted > 0 ? (
+                    <div className="relative pt-1">
+                        <div className="flex mb-2 items-center justify-between">
+                            <span className="text-xs font-semibold inline-block text-blue-600 dark:text-blue-400">Verspillingspercentage</span>
+                            <span className="text-xs font-semibold inline-block text-blue-600 dark:text-blue-400">
+                                {Math.round((stats.wasted / (stats.consumed + stats.wasted)) * 100)}%
+                            </span>
+                        </div>
+                        <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-green-200 dark:bg-green-900">
+                            <div style={{ width: `${Math.round((stats.wasted / (stats.consumed + stats.wasted)) * 100)}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-red-500"></div>
+                        </div>
+                        <p className="text-xs text-center text-gray-500 italic">Gebaseerd op handmatige invoer bij verwijderen.</p>
+                    </div>
+                ) : <p className="text-center text-gray-400 text-sm">Nog geen data beschikbaar.</p>}
+            </Modal>
+            
+            {/* Suggestion Modal (Wat eten we vandaag) */}
+            <Modal isOpen={showSuggestionModal} onClose={() => setShowSuggestionModal(false)} title="Wat eten we vandaag?" color="yellow">
+                <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">Deze producten hebben prioriteit op basis van houdbaarheid:</p>
+                <div className="space-y-3">
+                    {getSuggestions().length === 0 ? <p className="italic text-gray-400 text-center">Alles lijkt vers!</p> : getSuggestions().map(item => (
+                        <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-xl border border-yellow-200 dark:border-gray-600 shadow-sm">
+                            <div className="flex items-center gap-3">
+                                <span className="text-2xl">{item.emoji}</span>
+                                <div>
+                                    <p className="font-bold text-gray-800 dark:text-gray-100">{item.naam}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {item.type === 'vriezer' ? `${item.daysOld} dgn in vriezer` : `THT: ${formatDate(item.houdbaarheidsDatum)}`}
+                                    </p>
+                                </div>
+                            </div>
+                            <Badge type="yellow" text="Eet mij!" />
+                        </div>
+                    ))}
+                </div>
             </Modal>
 
             {/* Logboek Modal */}
