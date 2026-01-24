@@ -27,9 +27,9 @@ const VERSION_HISTORY = [
         version: '8.1.5', 
         type: 'patch', 
         changes: [
-            'Update: Datumvelden hebben nu exact dezelfde stijl en breedte als Categorie.',
-            'Update: "Wat eten we?" knop is nu een compacte vierkante knop.',
-            'Update: "Alles open/dicht" knop vult de rest van de breedte.'
+            'Fix: Datumvelden hebben nu exact dezelfde breedte en padding als de Categorie-balk.',
+            'Update: "Wat eten we?" knop is nog compacter gemaakt op mobiel (40px).',
+            'Update: "Alles open/dicht" knop neemt alle resterende ruimte in.'
         ] 
     },
     { 
@@ -45,14 +45,6 @@ const VERSION_HISTORY = [
         changes: [
             'Update: "Wat eten we?" knop is compacter op mobiel.',
             'Fix: Invriesdatum en THT staan nu onder elkaar op kleine schermen (Vriezer).'
-        ] 
-    },
-    { 
-        version: '8.1.2', 
-        type: 'patch', 
-        changes: [
-            'Update: "Wat eten we?" knop is nu enkel een icoon op mobiel voor meer ruimte.',
-            'Fix: THT invoerveld bij toevoegen is smaller gemaakt zodat het op mobiel binnen het kader past.'
         ] 
     },
     { 
@@ -1245,7 +1237,7 @@ function App() {
                                 
                                 <div className="flex gap-2 w-full sm:w-auto">
                                     {/* Wat eten we knop: klein vierkant op mobiel */}
-                                    <button onClick={() => setShowSuggestionModal(true)} className="flex-none sm:flex-none w-12 h-12 sm:w-auto sm:h-auto bg-yellow-100 text-yellow-600 sm:p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
+                                    <button onClick={() => setShowSuggestionModal(true)} className="flex-none sm:flex-none w-10 h-10 sm:w-auto sm:h-auto bg-yellow-100 text-yellow-600 sm:p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
                                         <Icon path={Icons.Utensils}/>
                                     </button>
                                     
@@ -1865,3 +1857,4 @@ function App() {
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
+
