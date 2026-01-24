@@ -1353,12 +1353,12 @@ function App() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Locatie.</label>
-                        <select className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.vriezerId} onChange={e => setFormData({...formData, vriezerId: e.target.value})} required>
+                        <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.vriezerId} onChange={e => setFormData({...formData, vriezerId: e.target.value})} required>
                             <option value="" disabled>Kies...</option>
                             {filteredLocaties.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
                         </select></div>
                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Lade.</label>
-                        <select className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ladeId} onChange={e => setFormData({...formData, ladeId: e.target.value})} required>
+                        <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ladeId} onChange={e => setFormData({...formData, ladeId: e.target.value})} required>
                             <option value="" disabled>Kies...</option>
                             {formLades.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
                         </select></div>
@@ -1395,7 +1395,7 @@ function App() {
         type="date" 
         value={formData.houdbaarheidsDatum || ''} 
         onChange={(e) => setFormData({...formData, houdbaarheidsDatum: e.target.value})}
-        className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:text-white transition-all max-w-none md:max-w-md"
+        className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:text-white transition-all max-w-none md:max-w-md"
       />
     </div>
   </div>
