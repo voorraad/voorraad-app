@@ -1194,12 +1194,55 @@ function App() {
                                     onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} 
                                     required
                                 />
-                                <input 
-                                    type="number" 
-                                    className="w-16 p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 outline-none dark:text-white text-center flex-shrink-0" 
-                                    value={shoppingFormData.aantal} 
-                                    onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
-                                />
+                                <div className="flex gap-2">
+  <input type="text" placeholder="Wat moet je kopen?" className="flex-grow..." value={shoppingFormData.naam} onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} required />
+  
+  <div className="flex gap-4 items-end w-32">
+    <div className="relative w-full">
+      <input 
+        type="number" 
+        step="0.25" 
+        min="0" 
+        max="99.75"
+        className="w-full text-center h-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg pr-8 pl-8 focus:ring-2 focus:ring-blue-500 outline-none appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+        value={shoppingFormData.aantal} 
+        onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})}
+      />
+      {/* Up */}
+    <button 
+      type="button"
+      onClick={() => {
+        const current = parseFloat(formData.aantal) || 0;
+        const next = Math.min(current + 0.25, 99.75);
+        setFormData({...formData, aantal: next.toFixed(2)});
+      }}
+      className="absolute right-1 top-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
+    >
+      <Icon path={Icons.ChevronRight} size={12} className="rotate-[-90deg]" />
+    </button>
+    {/* Down */}
+    <button 
+      type="button"
+      onClick={() => {
+        const current = parseFloat(formData.aantal) || 0;
+        const next = Math.max(current - 0.25, 0);
+        setFormData({...formData, aantal: next.toFixed(2)});
+      }}
+      className="absolute right-1 bottom-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
+    >
+    </div>
+    <select 
+      value={shoppingFormData.eenheid} 
+      onChange={e => setShoppingFormData({...shoppingFormData, eenheid: e.target.value})}
+      className="w-20 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+    >
+      {['stuks', 'pak', 'zak', 'gram', 'kilo'].map((eenheid) => (
+        <option key={eenheid} value={eenheid}>{eenheid}</option>
+      ))}
+    </select>
+  </div>
+</div>
+
                                 <button type="submit" className="bg-blue-600 text-white px-4 rounded-xl font-bold flex-shrink-0"><Icon path={Icons.Plus}/></button>
                             </form>
                         </div>
