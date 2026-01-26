@@ -1382,7 +1382,8 @@ function App() {
                         </select></div>
                     </div>
                 <div className="flex gap-4 items-end">
-  <div className="relative w-24">
+  {/* Aantal met pijltjes */}
+  <div className="relative w-24 flex-1">
     <input 
       type="number" 
       step="0.25" 
@@ -1392,7 +1393,7 @@ function App() {
       value={formData.aantal} 
       onChange={e => setFormData({...formData, aantal: e.target.value})}
     />
-    {/* Up arrow */}
+    {/* Up */}
     <button 
       type="button"
       onClick={() => {
@@ -1404,7 +1405,7 @@ function App() {
     >
       <Icon path={Icons.ChevronRight} size={12} className="rotate-[-90deg]" />
     </button>
-    {/* Down arrow */}
+    {/* Down */}
     <button 
       type="button"
       onClick={() => {
@@ -1417,7 +1418,19 @@ function App() {
       <Icon path={Icons.ChevronRight} size={12} className="rotate-[90deg]" />
     </button>
   </div>
-  {/* eenheid select blijft hetzelfde */}
+  
+  {/* Eenheid select - DEZE WAS WEG! */}
+  <select 
+    value={formData.eenheid} 
+    onChange={e => setFormData({...formData, eenheid: e.target.value})}
+    className="flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+  >
+    {alleEenheden.map((eenheid) => (
+      <option key={eenheid} value={eenheid}>
+        {eenheid}
+      </option>
+    ))}
+  </select>
 </div>
                     {/* Conditonele Datum Velden */}
                     {formLocationType === 'vriezer' && (
