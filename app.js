@@ -1,4 +1,3 @@
-
 const { useState, useEffect, useRef } = React;
 
 // --- 1. FIREBASE CONFIGURATIE ---
