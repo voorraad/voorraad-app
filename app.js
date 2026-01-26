@@ -1,3 +1,4 @@
+
 const { useState, useEffect, useRef } = React;
 
 // --- 1. FIREBASE CONFIGURATIE ---
@@ -396,7 +397,6 @@ function App() {
     const [itemToDelete, setItemToDelete] = useState(null);
     const [showStatsModal, setShowStatsModal] = useState(false);
     const [showSuggestionModal, setShowSuggestionModal] = useState(false);
-    const [showShoppingModal, setShowShoppingModal] = useState(false);
     const [beheerTab, setBeheerTab] = useState('locaties');
 
     // Forms
@@ -1108,19 +1108,6 @@ function App() {
                     <div className="flex gap-2 relative">
                         <button onClick={() => { setSelectedLocatieForBeheer(null); setBeheerdeUserId(beheerdeUserId); setShowBeheerModal(true); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><Icon path={Icons.Settings}/></button>
                         {isAdmin && <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors"><Icon path={Icons.Users}/></button>}
-<button 
-  onClick={() => setShowShoppingModal(true)}
-  className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors relative"
-  title="Boodschappenlijst"
->
-  <Icon path={Icons.ShoppingCart} />
-  {shoppingList.length > 0 && (
-    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold border-2 border-white shadow-sm">
-      {shoppingList.length}
-    </span>
-  )}
-</button>
-
                         <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 relative hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"><Icon path={Icons.Info}/>{alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>}</button>
                         
                         <div className="relative">
@@ -1185,6 +1172,10 @@ function App() {
                             {isAdmin && managedUserHiddenTabs.includes('voorraad') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
                     )}
+                    {/* NIEUW TABBLAD: LIJST */}
+                    <button onClick={() => setActiveTab('lijst')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='lijst' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
+                        <Icon path={Icons.ShoppingCart}/> Lijst.
+                    </button>
                 </div>
             </header>
 
@@ -1364,6 +1355,11 @@ function App() {
                     </p>
                 </div>
             </footer>
+
+            {/* FAB */}
+            {activeTab !== 'lijst' && (
+                <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 print:hidden hover:scale-105 transition-transform"><Icon path={Icons.Plus} size={28}/></button>
+            )}
 
             {/* Add/Edit Modal */}
             <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken." : "Toevoegen."} color="blue">
@@ -1765,98 +1761,6 @@ function App() {
                     <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">Verstuur Uitnodiging</button>
                 </form>
             </Modal>
-{/* Lijst Modal */}
-const ShoppingModal = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
-  
-  const uncheckedList = shoppingList.filter(item => !item.checked);
-  
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title="🛒 Boodschappenlijst" color="orange">
-      <div className="space-y-4">
-        {/* Add form */}
-        <form onSubmit={handleAddShoppingItem} className="flex gap-2 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
-          <input 
-            type="text" 
-            placeholder="Wat moet je kopen?" 
-            className="flex-grow p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-orange-500 dark:text-white" 
-            value={shoppingFormData.naam} 
-            onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} 
-            required 
-          />
-          <input 
-            type="number" 
-            step="0.25" 
-            placeholder="1" 
-            className="w-16 p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-center focus:ring-2 focus:ring-orange-500 dark:text-white" 
-            value={shoppingFormData.aantal} 
-            onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})}
-          />
-          <select 
-            value={shoppingFormData.eenheid} 
-            onChange={e => setShoppingFormData({...shoppingFormData, eenheid: e.target.value})}
-            className="w-20 p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-orange-500 dark:text-white"
-          >
-            <option>stuks</option>
-            <option>pak</option>
-            <option>zak</option>
-          </select>
-          <button type="submit" className="bg-orange-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-700">
-            <Icon path={Icons.Plus} />
-          </button>
-        </form>
-
-        {/* Lijst */}
-        {shoppingList.length === 0 ? (
-          <p className="text-center text-gray-400 py-8 italic">Je boodschappenlijst is leeg</p>
-        ) : (
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {shoppingList.sort((a,b) => a.checked - b.checked).map(item => (
-              <div key={item.id} className={`flex items-center justify-between p-4 rounded-xl border ${
-                item.checked 
-                  ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800' 
-                  : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
-              }`}>
-                <div className="flex items-center gap-3 cursor-pointer flex-grow" onClick={() => toggleShoppingItem(item)}>
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    item.checked 
-                      ? 'bg-orange-500 border-orange-500' 
-                      : 'border-gray-300 dark:border-gray-500'
-                  }`}>
-                    {item.checked && <Icon path={Icons.Check} size={14} className="text-white" />}
-                  </div>
-                  <div className="min-w-0 flex-grow">
-                    <span className={`font-medium truncate ${
-                      item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'
-                    }`}>
-                      {formatAantal(item.aantal)}x {item.naam}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-2 flex-shrink-0">
-                  <button 
-                    onClick={() => moveShoppingToStock(item)}
-                    className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg"
-                    title="Naar voorraad"
-                  >
-                    <Icon path={Icons.Box} size={18} />
-                  </button>
-                  <button 
-                    onClick={() => deleteShoppingItem(item.id)}
-                    className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
-                  >
-                    <Icon path={Icons.Trash2} size={18} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </Modal>
-  );
-};
-
 
             {/* Updates Modal */}
             <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red">
