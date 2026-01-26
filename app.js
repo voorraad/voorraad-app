@@ -19,40 +19,46 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.2.1'; 
+const APP_VERSION = '8.1.7'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
     { 
-        version: '8.2.1', 
+        version: '8.1.7', 
         type: 'patch', 
         changes: [
-            'Fix: Logboek sortering hersteld naar Firestore (vereist mogelijk index aanmaak).',
-            'Fix: Datumvelden en Categorie staan nu strak onder elkaar op mobiel (even breed).',
-            'Fix: Boodschappenlijst synchronisatie voor admins verbeterd.'
+            'Fix: Layout hersteld - Datumvelden en Categorie staan nu netjes onder elkaar voor maximale leesbaarheid op mobiel.',
+            'Fix: Codebestand volledig gegenereerd.'
         ] 
     },
     { 
-        version: '8.2.0', 
-        type: 'major', 
-        changes: [
-            'Fix: Logboek en Boodschappenlijst synchronisatie.',
-            'Nieuw: In het profielmenu zie je nu wiens voorraad je beheert.'
-        ] 
-    },
-    { 
-        version: '8.1.8', 
+        version: '8.1.6', 
         type: 'patch', 
         changes: [
-            'Update: Code structuur verbeterd.',
-            'Fix: THT en Categorie velden styling.'
+            'Update: Lay-out wijziging bij toevoegen: Datums en Categorieën staan nu naast elkaar om breedte te besparen op mobiel.',
+            'Fix: Datumvelden geforceerd binnen de schermranden gehouden.'
         ] 
     },
     { 
-        version: '8.0.0', 
-        type: 'major', 
+        version: '8.1.5', 
+        type: 'patch', 
         changes: [
-            'Nieuw: Boodschappenlijst, Verspillingsmonitor & Maaltijdsuggesties.'
+            'Fix: Datumvelden styling gelijkgetrokken met Categorie.',
+            'Update: "Wat eten we?" knop compacter.'
+        ] 
+    },
+    { 
+        version: '8.1.4', 
+        type: 'patch', 
+        changes: [
+            'Fix: Datumvelden versmald.'
+        ] 
+    },
+    { 
+        version: '8.1.3', 
+        type: 'patch', 
+        changes: [
+            'Update: Knoppen lay-out mobiel verbeterd.'
         ] 
     }
 ];
@@ -89,7 +95,7 @@ const CATEGORIEEN_VRIES = [
     { name: "Restjes", color: "gray" }, { name: "Saus", color: "red" }, { name: "Friet", color: "yellow" },
     { name: "Pizza", color: "orange" }, { name: "Soep", color: "orange" }, { name: "Ander", color: "gray" }
 ];
-const EENHEDEN_VRIES = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "ijsdoos", "pak"];
+const EENHEDEN_VRIES = ["stuks", "zak", "portie", "doos", "gram", "kilo", "bakje", "pak"];
 
 const CATEGORIEEN_FRIG = [
     { name: "Vlees", color: "red" }, { name: "Vis", color: "blue" }, { name: "Groenten", color: "green" },
@@ -337,7 +343,6 @@ const EmojiGrid = ({ onSelect }) => {
 function App() {
     const [user, setUser] = useState(null);
     const [beheerdeUserId, setBeheerdeUserId] = useState(null);
-    const [beheerdeUserNaam, setBeheerdeUserNaam] = useState(''); // Nieuw: Naam van de eigenaar
     const [isAdmin, setIsAdmin] = useState(false);
     const [usersList, setUsersList] = useState([]);
     
@@ -455,8 +460,7 @@ function App() {
             if (u) {
                 setUser(u);
                 setBeheerdeUserId(u.uid);
-                setBeheerdeUserNaam(u.email); // Default eigen naam
-
+                
                 try {
                     await db.collection('users').doc(u.uid).set({
                         laatstGezien: firebase.firestore.FieldValue.serverTimestamp(),
@@ -499,19 +503,11 @@ function App() {
                 const adminDoc = await db.collection('admins').doc(u.uid).get();
                 setIsAdmin(adminDoc.exists);
 
-                // Verbeterde Share Detectie
-                const shares = await db.collection('shares').where("sharedWithEmail", "==", u.email).where("status", "==", "accepted").limit(1).get();
-                if (!shares.empty) {
-                    const shareData = shares.docs[0].data();
-                    const vCheck = await db.collection('vriezers').where('userId', '==', u.uid).limit(1).get();
-                    
-                    // Als gebruiker geen eigen vriezers heeft, of expliciet gedeeld is: switch
-                    if(vCheck.empty) {
-                        setBeheerdeUserId(shareData.ownerId);
-                        setBeheerdeUserNaam(shareData.ownerEmail);
-                    }
+                const vCheck = await db.collection('vriezers').where('userId', '==', u.uid).limit(1).get();
+                if (vCheck.empty && !adminDoc.exists) {
+                    const shares = await db.collection('shares').where("sharedWithEmail", "==", u.email).where("status", "==", "accepted").limit(1).get();
+                    if (!shares.empty) setBeheerdeUserId(shares.docs[0].data().ownerId);
                 }
-
             } else {
                 setUser(null);
             }
@@ -566,9 +562,7 @@ function App() {
             }
         });
         const unsubI = db.collection('items').where('userId', '==', beheerdeUserId).onSnapshot(s => setItems(s.docs.map(d => ({id: d.id, ...d.data()}))));
-        
-        // FIX: Boodschappenlijst nu ook ophalen voor gedeelde gebruikers
-        const unsubS = db.collection('shoppingList').where('userId', '==', beheerdeUserId).onSnapshot(s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()}))));
+        const unsubS = db.collection('shoppingList').where('userId', '==', beheerdeUserId).onSnapshot(s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()})))); // Boodschappenlijst listener
 
         return () => { unsubV(); unsubL(); unsubI(); unsubS(); };
     }, [beheerdeUserId, isDataLoaded, savedOpenLades]); 
@@ -582,20 +576,16 @@ function App() {
         }
     }, [isAdmin]);
 
-    // FIX: Logboek ophalen MET orderBy in Firestore (vereist index)
     useEffect(() => {
         if (!user || !showLogModal || !beheerdeUserId) return;
 
         let query = db.collection('logs')
             .where('targetUserId', '==', beheerdeUserId)
-            .orderBy('timestamp', 'desc') // Vereist index
-            .limit(100); 
+            .orderBy('timestamp', 'desc')
+            .limit(50); 
 
         const unsubLogs = query.onSnapshot(snap => {
-            const fetchedLogs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            setLogs(fetchedLogs);
-        }, err => {
-            console.error("Fout bij ophalen logboek (mogelijk ontbrekende index):", err);
+            setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         });
 
         return () => unsubLogs();
@@ -719,13 +709,13 @@ function App() {
             if(editingItem) {
                 await db.collection('items').doc(editingItem.id).update(data);
                 await logAction('Bewerkt', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
-                showNotification(`Product '${data.naam}' is bijgewerkt!`, 'success');
+                showNotification(`${data.naam} is bijgewerkt!`, 'success');
                 setEditingItem(null);
                 setShowAddModal(false);
             } else {
                 await db.collection('items').add(data);
                 await logAction('Toevoegen', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
-                showNotification(`Product '${data.naam}' is toegevoegd!`, 'success');
+                showNotification(`${data.naam} is toegevoegd!`, 'success');
                 if (rememberLocation) {
                     setFormData(prev => ({
                         ...prev, 
@@ -742,6 +732,7 @@ function App() {
         } catch(err) { showNotification("Er ging iets mis: " + err.message, 'error'); }
     };
 
+    // Nieuw: Delete met reden voor Verspillingsmonitor
     const initDelete = (item) => {
         setItemToDelete(item);
         setShowDeleteModal(true);
@@ -763,7 +754,7 @@ function App() {
             }
 
             await logAction('Verwijderd', itemToDelete.naam, logDetail, user, beheerdeUserId);
-            showNotification(`Product '${itemToDelete.naam}' is verwijderd.`, 'success');
+            showNotification(`${itemToDelete.naam} is verwijderd.`, 'success');
             
             // Optie: Toevoegen aan boodschappenlijst?
             if (confirm("Dit item toevoegen aan de boodschappenlijst?")) {
@@ -1109,10 +1100,6 @@ function App() {
                                     <div className="px-4 py-3 border-b border-gray-50 dark:border-gray-700">
                                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{user.displayName || 'Gebruiker'}</p>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
-                                        {/* Toon wiens voorraad je beheert */}
-                                        {beheerdeUserId !== user.uid && (
-                                            <p className="text-xs text-blue-500 mt-1 font-bold">Gedeeld door: {beheerdeUserNaam}</p>
-                                        )}
                                     </div>
                                     
                                     <button onClick={toggleDarkMode} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
@@ -1184,14 +1171,14 @@ function App() {
                                 <input 
                                     type="text" 
                                     placeholder="Wat moet je kopen?" 
-                                    className="flex-grow p-2.5 text-sm min-w-0 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                                    className="flex-grow p-3 min-w-0 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
                                     value={shoppingFormData.naam} 
                                     onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} 
                                     required
                                 />
                                 <input 
                                     type="number" 
-                                    className="w-16 p-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 outline-none dark:text-white text-center flex-shrink-0" 
+                                    className="w-16 p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 outline-none dark:text-white text-center flex-shrink-0" 
                                     value={shoppingFormData.aantal} 
                                     onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
                                 />
@@ -1366,12 +1353,12 @@ function App() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Locatie.</label>
-                        <select className="w-full p-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.vriezerId} onChange={e => setFormData({...formData, vriezerId: e.target.value})} required>
+                        <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.vriezerId} onChange={e => setFormData({...formData, vriezerId: e.target.value})} required>
                             <option value="" disabled>Kies...</option>
                             {filteredLocaties.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
                         </select></div>
                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Lade.</label>
-                        <select className="w-full p-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ladeId} onChange={e => setFormData({...formData, ladeId: e.target.value})} required>
+                        <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ladeId} onChange={e => setFormData({...formData, ladeId: e.target.value})} required>
                             <option value="" disabled>Kies...</option>
                             {formLades.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
                         </select></div>
@@ -1385,28 +1372,22 @@ function App() {
                         </div>
                     </div>
                     
-                    {/* Conditonele Datum Velden - ONDER ELKAAR VOOR MOBIEL */}
+                    {/* Conditonele Datum Velden */}
                     {formLocationType === 'vriezer' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Invriesdatum.</label>
-                                <input type="date" className="w-full p-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg box-border" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required />
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">THT (Optioneel)</label>
-                                <input type="date" className="w-full p-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg box-border" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} />
-                            </div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Invriesdatum.</label>
+                            <input type="date" className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
+                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">THT (Optioneel)</label>
+                            <input type="date" className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                         </div>
                     )}
                     {(formLocationType === 'voorraad' || formLocationType === 'frig') && (
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Houdbaarheidsdatum (THT).</label>
-                            <input type="date" className="w-full p-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg box-border" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} />
-                        </div>
+                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Houdbaarheidsdatum (THT).</label>
+                        <input type="date" className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                     )}
 
                     <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Categorie.</label>
-                    <select className="w-full p-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
+                    <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
                         {actieveCategorieen.map(c => <option key={c.name||c} value={c.name||c}>{c.name||c}</option>)}
                     </select></div>
                     
@@ -1430,22 +1411,41 @@ function App() {
             <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Product verwijderen." color="red">
                 <p className="text-gray-800 dark:text-gray-200 mb-6">Wat is de reden voor het verwijderen van <strong>{itemToDelete?.naam}</strong>?</p>
                 <div className="grid grid-cols-1 gap-3">
-                    <button onClick={() => confirmDelete('consumed')} className="flex items-center justify-center gap-2 p-3 bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-200 rounded-xl font-bold hover:bg-green-200 dark:hover:bg-green-900/60 transition"><Icon path={Icons.Utensils} /> Opgegeten</button>
-                    <button onClick={() => confirmDelete('wasted')} className="flex items-center justify-center gap-2 p-3 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200 rounded-xl font-bold hover:bg-red-200 dark:hover:bg-red-900/60 transition"><Icon path={Icons.Trash2} /> Weggegooid (Verspild)</button>
-                    <button onClick={() => confirmDelete('other')} className="flex items-center justify-center gap-2 p-3 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 transition">Andere reden / Foutje</button>
+                    <button onClick={() => confirmDelete('consumed')} className="flex items-center justify-center gap-2 p-3 bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-200 rounded-xl font-bold hover:bg-green-200 dark:hover:bg-green-900/60 transition">
+                        <Icon path={Icons.Utensils} /> Opgegeten
+                    </button>
+                    <button onClick={() => confirmDelete('wasted')} className="flex items-center justify-center gap-2 p-3 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200 rounded-xl font-bold hover:bg-red-200 dark:hover:bg-red-900/60 transition">
+                        <Icon path={Icons.Trash2} /> Weggegooid (Verspild)
+                    </button>
+                    <button onClick={() => confirmDelete('other')} className="flex items-center justify-center gap-2 p-3 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 transition">
+                        Andere reden / Foutje
+                    </button>
                 </div>
             </Modal>
 
             {/* Stats Modal */}
             <Modal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} title="Statistieken." color="purple">
                 <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl text-center border border-green-100 dark:border-green-800"><span className="block text-3xl font-bold text-green-600 dark:text-green-400">{stats.consumed}</span><span className="text-xs uppercase tracking-wide text-green-800 dark:text-green-200">Producten gegeten</span></div>
-                    <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl text-center border border-red-100 dark:border-red-800"><span className="block text-3xl font-bold text-red-600 dark:text-red-400">{stats.wasted}</span><span className="text-xs uppercase tracking-wide text-red-800 dark:text-red-200">Weggegooid</span></div>
+                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl text-center border border-green-100 dark:border-green-800">
+                        <span className="block text-3xl font-bold text-green-600 dark:text-green-400">{stats.consumed}</span>
+                        <span className="text-xs uppercase tracking-wide text-green-800 dark:text-green-200">Producten gegeten</span>
+                    </div>
+                    <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl text-center border border-red-100 dark:border-red-800">
+                        <span className="block text-3xl font-bold text-red-600 dark:text-red-400">{stats.wasted}</span>
+                        <span className="text-xs uppercase tracking-wide text-red-800 dark:text-red-200">Weggegooid</span>
+                    </div>
                 </div>
                 {stats.consumed + stats.wasted > 0 ? (
                     <div className="relative pt-1">
-                        <div className="flex mb-2 items-center justify-between"><span className="text-xs font-semibold inline-block text-blue-600 dark:text-blue-400">Verspillingspercentage</span><span className="text-xs font-semibold inline-block text-blue-600 dark:text-blue-400">{Math.round((stats.wasted / (stats.consumed + stats.wasted)) * 100)}%</span></div>
-                        <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-green-200 dark:bg-green-900"><div style={{ width: `${Math.round((stats.wasted / (stats.consumed + stats.wasted)) * 100)}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-red-500"></div></div>
+                        <div className="flex mb-2 items-center justify-between">
+                            <span className="text-xs font-semibold inline-block text-blue-600 dark:text-blue-400">Verspillingspercentage</span>
+                            <span className="text-xs font-semibold inline-block text-blue-600 dark:text-blue-400">
+                                {Math.round((stats.wasted / (stats.consumed + stats.wasted)) * 100)}%
+                            </span>
+                        </div>
+                        <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-green-200 dark:bg-green-900">
+                            <div style={{ width: `${Math.round((stats.wasted / (stats.consumed + stats.wasted)) * 100)}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-red-500"></div>
+                        </div>
                         <p className="text-xs text-center text-gray-500 italic">Gebaseerd op handmatige invoer bij verwijderen.</p>
                     </div>
                 ) : <p className="text-center text-gray-400 text-sm">Nog geen data beschikbaar.</p>}
@@ -1459,7 +1459,12 @@ function App() {
                         <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-xl border border-yellow-200 dark:border-gray-600 shadow-sm">
                             <div className="flex items-center gap-3">
                                 <span className="text-2xl">{item.emoji}</span>
-                                <div><p className="font-bold text-gray-800 dark:text-gray-100">{item.naam}</p><p className="text-xs text-gray-500 dark:text-gray-400">{item.type === 'vriezer' ? `${item.daysOld} dgn in vriezer` : `THT: ${formatDate(item.houdbaarheidsDatum)}`}</p></div>
+                                <div>
+                                    <p className="font-bold text-gray-800 dark:text-gray-100">{item.naam}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {item.type === 'vriezer' ? `${item.daysOld} dgn in vriezer` : `THT: ${formatDate(item.houdbaarheidsDatum)}`}
+                                    </p>
+                                </div>
                             </div>
                             <Badge type="yellow" text="Eet mij!" />
                         </div>
@@ -1469,51 +1474,370 @@ function App() {
 
             {/* Logboek Modal */}
             <Modal isOpen={showLogModal} onClose={() => setShowLogModal(false)} title="Logboek." color="teal">
-                {logs.length === 0 ? <p className="text-gray-500 dark:text-gray-400 text-center italic py-4">Nog geen activiteiten.</p> :
-                <ul className="space-y-3">
-                    {logs.map(log => {
-                        const isMine = log.targetUserId === user.uid;
-                        const isAdded = log.action === 'Toevoegen';
-                        const isDeleted = log.action === 'Verwijderd';
-                        return (
-                        <li key={log.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 border border-gray-100 dark:border-gray-600 text-sm">
-                            <div className="flex justify-between items-start mb-1"><span className="font-bold text-gray-700 dark:text-gray-200">{log.item}</span><span className="text-xs text-gray-400 dark:text-gray-500">{formatDateTime(log.timestamp)}</span></div>
-                            <div className="flex justify-between items-center mt-2">
-                                <div className="flex gap-2"><span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isAdded ? 'bg-green-100 text-green-700' : isDeleted ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{log.action}</span>{isAdmin && <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${isMine ? 'border-green-300 text-green-600' : 'border-orange-300 text-orange-600'}`}>{isMine ? 'Eigen' : 'Ander'}</span>}</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><Icon path={Icons.User} size={12}/> {log.actorName}</div>
-                            </div>
-                            {log.details && <p className="text-xs text-gray-400 mt-1 pl-1 border-l-2 border-gray-200 dark:border-gray-600">{log.details}</p>}
-                        </li>
-                    )})}
-                </ul>}
+                {logs.length === 0 ? (
+                    <p className="text-gray-500 dark:text-gray-400 text-center italic py-4">Nog geen activiteiten.</p>
+                ) : (
+                    <ul className="space-y-3">
+                        {logs.map(log => {
+                            const isMine = log.targetUserId === user.uid;
+                            const isAdded = log.action === 'Toevoegen';
+                            const isDeleted = log.action === 'Verwijderd';
+                            
+                            return (
+                                <li key={log.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 border border-gray-100 dark:border-gray-600 text-sm">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className="font-bold text-gray-700 dark:text-gray-200">{log.item}</span>
+                                        <span className="text-xs text-gray-400 dark:text-gray-500">{formatDateTime(log.timestamp)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center mt-2">
+                                        <div className="flex gap-2">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isAdded ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : isDeleted ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
+                                                {log.action}
+                                            </span>
+                                            {/* Admin: Toon van wie deze voorraad is */}
+                                            {isAdmin && (
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${isMine ? 'border-green-300 text-green-600 dark:border-green-700 dark:text-green-400' : 'border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400'}`}>
+                                                    {isMine ? 'Eigen' : 'Ander'}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                            <Icon path={Icons.User} size={12}/> {log.actorName}
+                                        </div>
+                                    </div>
+                                    {log.details && <p className="text-xs text-gray-400 mt-1 pl-1 border-l-2 border-gray-200 dark:border-gray-600">{log.details}</p>}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
             </Modal>
-            
-            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red">
-                {alerts.length > 0 && <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 dark:bg-red-900/20"><h4 className="font-bold text-red-800 dark:text-red-300">Let op!</h4><ul>{alerts.map(i=><li key={i.id} className="text-red-700 dark:text-red-300">{i.naam}</li>)}</ul></div>}
-                <div className="space-y-4">{currentVersionData && (<div><h4 className="font-bold text-blue-600 dark:text-blue-400 mb-4 text-lg">Versie {APP_VERSION}</h4><ul className="space-y-3">{currentVersionData.changes.map((change, idx) => { const parts = change.split(': '); const type = parts[0]; const text = parts.slice(1).join(': '); let IconComp = Icons.Zap; let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300"; if (type.includes('Feature') || type.includes('Nieuw')) { IconComp = Icons.Star; iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300"; } else if (type.includes('Fix') || type.includes('Opgelost')) { IconComp = Icons.Wrench; iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300"; } return ( <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start"> <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}> <Icon path={IconComp} size={14} /> </div> <div className="pt-1.5"> <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span> <span className="leading-relaxed">{text || change}</span> </div> </li> ); })}</ul></div>)}</div>
-            </Modal>
-            
-            <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Nieuws." color="blue">
-                {VERSION_HISTORY.map((v, i) => (
-                    <div key={v.version} className="mb-6 last:mb-0"><span className={`text-lg font-bold ${i === 0 ? 'text-blue-600' : 'text-gray-500'}`}>v{v.version}</span><ul className="mt-2 space-y-1 list-disc list-inside text-sm text-gray-600 dark:text-gray-300">{v.changes.map((c,idx)=><li key={idx}>{c}</li>)}</ul></div>
-                ))}
-            </Modal>
-            
-            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers." color="pink">
-                <ul className="divide-y divide-gray-100 dark:divide-gray-700">{usersList.map(u => (<li key={u.id} className="p-3 flex flex-col gap-2"><div className="flex justify-between items-center"><div><p className="font-bold dark:text-white">{u.email || u.displayName}</p><p className="text-xs text-gray-500">{u.id}</p></div><button onClick={() => toggleUserStatus(u.id, u.disabled)} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{u.disabled ? 'Geblokkeerd' : 'Actief'}</button></div><div className="flex flex-col gap-1 mt-1"><div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"><input type="checkbox" checked={(u.hiddenTabs || []).includes('frig')} onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'frig')}/><span>Verberg 'Frig.' tabblad</span></div><div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"><input type="checkbox" checked={(u.hiddenTabs || []).includes('voorraad')} onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'voorraad')}/><span>Verberg 'Stock.' tabblad</span></div></div><p className="text-xs text-gray-400 mt-1">Laatst gezien: {u.laatstGezien ? formatDateTime(u.laatstGezien) : 'Nooit'}</p></li>))}</ul>
-            </Modal>
-            
+
+            {/* Beheer Modal */}
             <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen." color="purple">
-                <div className="flex border-b dark:border-gray-700 mb-4"><button onClick={() => setBeheerTab('locaties')} className={`flex-1 py-2 font-medium ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500 dark:text-gray-400'}`}>Locaties.</button><button onClick={() => setBeheerTab('categorieen')} className={`flex-1 py-2 font-medium ${beheerTab==='categorieen'?'text-purple-600 border-b-2 border-purple-600':'text-gray-500 dark:text-gray-400'}`}>Categorieën.</button><button onClick={() => setBeheerTab('eenheden')} className={`flex-1 py-2 font-medium ${beheerTab==='eenheden'?'text-orange-600 border-b-2 border-orange-600':'text-gray-500 dark:text-gray-400'}`}>Eenheden.</button></div>
+                <div className="flex border-b dark:border-gray-700 mb-4">
+                    <button onClick={() => setBeheerTab('locaties')} className={`flex-1 py-2 font-medium ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500 dark:text-gray-400'}`}>Locaties.</button>
+                    <button onClick={() => setBeheerTab('categorieen')} className={`flex-1 py-2 font-medium ${beheerTab==='categorieen'?'text-purple-600 border-b-2 border-purple-600':'text-gray-500 dark:text-gray-400'}`}>Categorieën.</button>
+                    <button onClick={() => setBeheerTab('eenheden')} className={`flex-1 py-2 font-medium ${beheerTab==='eenheden'?'text-orange-600 border-b-2 border-orange-600':'text-gray-500 dark:text-gray-400'}`}>Eenheden.</button>
+                </div>
+
                 {beheerTab === 'locaties' && (
-                    <div className="space-y-6"><div><h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Locaties</h4><ul className="space-y-2 mb-3">{filteredLocaties.map(l => (<li key={l.id} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center"><div className="flex items-center gap-3"><button onClick={() => cycleLocatieColor(l)} className={`w-6 h-6 rounded-full bg-gradient-to-br ${GRADIENTS[l.color || 'blue']} border border-gray-200 shadow-sm transition-transform hover:scale-110`}></button><span onClick={() => setSelectedLocatieForBeheer(l.id)} className={`cursor-pointer ${selectedLocatieForBeheer===l.id?'text-blue-600 font-bold':''}`}>{l.naam}</span></div><button onClick={() => handleDeleteLocatie(l.id)} className="text-red-500"><Icon path={Icons.Trash2}/></button></li>))}</ul><form onSubmit={handleAddLocatie} className="flex gap-2"><select value={newLocatieColor} onChange={e => setNewLocatieColor(e.target.value)} className="border border-gray-300 dark:border-gray-600 p-2 rounded bg-white dark:bg-gray-700 dark:text-white w-24 text-sm">{Object.keys(GRADIENTS).map(c => <option key={c} value={c}>{c}</option>)}</select><input className="flex-grow border border-gray-300 dark:border-gray-600 p-2 rounded dark:bg-gray-700 dark:text-white" placeholder="Nieuwe locatie" value={newLocatieNaam} onChange={e=>setNewLocatieNaam(e.target.value)} required /><button className="bg-blue-600 text-white px-3 rounded">+</button></form></div>{selectedLocatieForBeheer && (<div className="pt-4 border-t dark:border-gray-700"><h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Lades</h4><ul className="space-y-2 mb-3">{lades.filter(l => l.vriezerId === selectedLocatieForBeheer).sort((a,b)=>a.naam.localeCompare(b.naam)).map(l => (<li key={l.id} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">{editingLadeId === l.id ? <div className="flex gap-2 w-full"><input className="flex-grow border p-1 rounded dark:bg-gray-600 dark:text-white" value={editingLadeName} onChange={e=>setEditingLadeName(e.target.value)} /><button onClick={()=>saveLadeName(l.id)} className="text-green-600"><Icon path={Icons.Check}/></button></div> : <><span>{l.naam}</span><div className="flex gap-2"><button onClick={()=>startEditLade(l)} className="text-blue-500"><Icon path={Icons.Edit2} size={16}/></button><button onClick={() => handleDeleteLade(l.id)} className="text-red-500"><Icon path={Icons.Trash2} size={16}/></button></div></>}</li>))}</ul><form onSubmit={handleAddLade} className="flex gap-2"><input className="flex-grow border border-gray-300 dark:border-gray-600 p-2 rounded dark:bg-gray-700 dark:text-white" placeholder="Nieuwe lade" value={newLadeNaam} onChange={e=>setNewLadeNaam(e.target.value)} required /><button className="bg-blue-600 text-white px-3 rounded">+</button></form></div>)}</div>
+                    <div className="space-y-6">
+                        <div>
+                            <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Locaties</h4>
+                            <ul className="space-y-2 mb-3">
+                                {filteredLocaties.map(l => (
+                                    <li key={l.id} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">
+                                        <div className="flex items-center gap-3">
+                                            <button 
+                                                onClick={() => cycleLocatieColor(l)}
+                                                className={`w-6 h-6 rounded-full bg-gradient-to-br ${GRADIENTS[l.color || 'blue']} border border-gray-200 shadow-sm transition-transform hover:scale-110`}
+                                                title="Klik om kleur te wijzigen"
+                                            ></button>
+                                            <span onClick={() => setSelectedLocatieForBeheer(l.id)} className={`cursor-pointer ${selectedLocatieForBeheer===l.id?'text-blue-600 font-bold':''}`}>{l.naam}</span>
+                                        </div>
+                                        <button onClick={() => handleDeleteLocatie(l.id)} className="text-red-500"><Icon path={Icons.Trash2}/></button>
+                                    </li>
+                                ))}
+                            </ul>
+                            <form onSubmit={handleAddLocatie} className="flex gap-2">
+                                <select 
+                                    value={newLocatieColor} 
+                                    onChange={e => setNewLocatieColor(e.target.value)}
+                                    className="border border-gray-300 dark:border-gray-600 p-2 rounded bg-white dark:bg-gray-700 dark:text-white w-24 text-sm"
+                                >
+                                    {Object.keys(GRADIENTS).map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                <input className="flex-grow border border-gray-300 dark:border-gray-600 p-2 rounded dark:bg-gray-700 dark:text-white" placeholder="Nieuwe locatie" value={newLocatieNaam} onChange={e=>setNewLocatieNaam(e.target.value)} required />
+                                <button className="bg-blue-600 text-white px-3 rounded">+</button>
+                            </form>
+                        </div>
+                        {selectedLocatieForBeheer && (
+                            <div className="pt-4 border-t dark:border-gray-700">
+                                <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Lades</h4>
+                                <ul className="space-y-2 mb-3">
+                                    {lades.filter(l => l.vriezerId === selectedLocatieForBeheer).sort((a,b)=>a.naam.localeCompare(b.naam)).map(l => (
+                                        <li key={l.id} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">
+                                            {editingLadeId === l.id ? 
+                                                <div className="flex gap-2 w-full"><input className="flex-grow border p-1 rounded dark:bg-gray-600 dark:text-white" value={editingLadeName} onChange={e=>setEditingLadeName(e.target.value)} /><button onClick={()=>saveLadeName(l.id)} className="text-green-600"><Icon path={Icons.Check}/></button></div> 
+                                                : 
+                                                <><span>{l.naam}</span><div className="flex gap-2"><button onClick={()=>startEditLade(l)} className="text-blue-500"><Icon path={Icons.Edit2} size={16}/></button><button onClick={() => handleDeleteLade(l.id)} className="text-red-500"><Icon path={Icons.Trash2} size={16}/></button></div></>
+                                            }
+                                        </li>
+                                    ))}
+                                </ul>
+                                <form onSubmit={handleAddLade} className="flex gap-2"><input className="flex-grow border border-gray-300 dark:border-gray-600 p-2 rounded dark:bg-gray-700 dark:text-white" placeholder="Nieuwe lade" value={newLadeNaam} onChange={e=>setNewLadeNaam(e.target.value)} required /><button className="bg-blue-600 text-white px-3 rounded">+</button></form>
+                            </div>
+                        )}
+                    </div>
                 )}
                 {beheerTab === 'categorieen' && (
-                    <div><h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Categorieën</h4><ul className="space-y-2 mb-3">{actieveCategorieen.map(cat => (<li key={cat.name} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">{editingCatName === cat.name ? <div className="flex gap-2 w-full items-center"><input className="flex-grow border p-1 rounded dark:bg-gray-600 dark:text-white" value={editCatInputName} onChange={e=>setEditCatInputName(e.target.value)} /><select className="border p-1 rounded dark:bg-gray-600 dark:text-white" value={editCatInputColor} onChange={e=>setEditCatInputColor(e.target.value)}>{Object.keys(BADGE_COLORS).map(c => <option key={c} value={c}>{c}</option>)}</select><button onClick={saveCat} className="text-green-600"><Icon path={Icons.Check}/></button></div> : <><div className="flex items-center gap-2"><div className={`w-3 h-3 rounded-full bg-${cat.color}-500`}></div><span>{cat.name}</span></div><div className="flex gap-2"><button onClick={()=>startEditCat(cat)} className="text-blue-500"><Icon path={Icons.Edit2} size={16}/></button><button onClick={() => handleDeleteCat(cat.name)} className="text-red-500"><Icon path={Icons.Trash2} size={16}/></button></div></>}</li>))}</ul><form onSubmit={handleAddCat} className="flex gap-2 items-center"><input className="flex-grow border p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" placeholder="Naam" value={newCatName} onChange={e=>setNewCatName(e.target.value)} required /><select className="border p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" value={newCatColor} onChange={e=>setNewCatColor(e.target.value)}>{Object.keys(BADGE_COLORS).map(c => <option key={c} value={c}>{c}</option>)}</select><button className="bg-purple-600 text-white px-3 rounded">+</button></form></div>
+                    <div>
+                        <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Categorieën</h4>
+                        <ul className="space-y-2 mb-3">
+                            {actieveCategorieen.map(cat => (
+                                <li key={cat.name} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">
+                                    {editingCatName === cat.name ?
+                                        <div className="flex gap-2 w-full items-center">
+                                            <input className="flex-grow border p-1 rounded dark:bg-gray-600 dark:text-white" value={editCatInputName} onChange={e=>setEditCatInputName(e.target.value)} />
+                                            <select className="border p-1 rounded dark:bg-gray-600 dark:text-white" value={editCatInputColor} onChange={e=>setEditCatInputColor(e.target.value)}>
+                                                {Object.keys(BADGE_COLORS).map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                            <button onClick={saveCat} className="text-green-600"><Icon path={Icons.Check}/></button>
+                                        </div>
+                                        :
+                                        <>
+                                            <div className="flex items-center gap-2"><div className={`w-3 h-3 rounded-full bg-${cat.color}-500`}></div><span>{cat.name}</span></div>
+                                            <div className="flex gap-2">
+                                                <button onClick={()=>startEditCat(cat)} className="text-blue-500"><Icon path={Icons.Edit2} size={16}/></button>
+                                                <button onClick={() => handleDeleteCat(cat.name)} className="text-red-500"><Icon path={Icons.Trash2} size={16}/></button>
+                                            </div>
+                                        </>
+                                    }
+                                </li>
+                            ))}
+                        </ul>
+                        <form onSubmit={handleAddCat} className="flex gap-2 items-center">
+                            <input className="flex-grow border p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" placeholder="Naam" value={newCatName} onChange={e=>setNewCatName(e.target.value)} required />
+                            <select className="border p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" value={newCatColor} onChange={e=>setNewCatColor(e.target.value)}>
+                                {Object.keys(BADGE_COLORS).map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <button className="bg-purple-600 text-white px-3 rounded">+</button>
+                        </form>
+                    </div>
                 )}
                 {beheerTab === 'eenheden' && (
-                    <div><h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Mijn eenheden</h4><div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4"><button onClick={() => setEenheidFilter('vries')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'vries' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>Vriezer.</button>{(!myHiddenTabs.includes('frig') || isAdmin) && <button onClick={() => setEenheidFilter('frig')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'frig' ? 'bg-white dark:bg-gray-600 shadow text-green-600 dark:text-green-300' : 'text-gray-500 dark:text-gray-400'}`}>Frig.</button>}{(!myHiddenTabs.includes('voorraad') || isAdmin) && <button onClick={() => setEenheidFilter('voorraad')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'voorraad' ? 'bg-white dark:bg-gray-600 shadow text-orange-600 dark:text-orange-300' : 'text-gray-500 dark:text-gray-400'}`}>Stock.</button>}</div><ul className="space-y-2 mb-3">{(eenheidFilter === 'voorraad' ? customUnitsVoorraad : eenheidFilter === 'frig' ? customUnitsFrig : customUnitsVries).length === 0 ? <li className="text-gray-400 italic">Geen eigen eenheden voor {eenheidFilter}.</li> : (eenheidFilter === 'voorraad' ? customUnitsVoorraad : eenheidFilter === 'frig' ? customUnitsFrig : customUnitsVries).map(u => (<li key={u} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">{editingUnitName === u ? <div className="flex gap-2 w-full"><input className="flex-grow border p-1 rounded dark:bg-gray-600 dark:text-white" value={editUnitInput} onChange={e=>setEditUnitInput(e.target.value)} /><button onClick={saveUnitName} className="text-green-600"><Icon path={Icons.Check}/></button></div> : <><span>{u}</span><div className="flex gap-2"><button onClick={()=>startEditUnit(u)} className="text-blue-500"><Icon path={Icons.Edit2} size={16}/></button><button onClick={() => handleDeleteUnit(u)} className="text-red-500"><Icon path={Icons.Trash2} size={16}/></button></div></>}</li>))}</ul><form onSubmit={handleAddUnit} className="flex gap-2"><input className="flex-grow border p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" placeholder="Nieuwe eenheid" value={newUnitNaam} onChange={e=>setNewUnitNaam(e.target.value)} required /><button className={`text-white px-3 rounded ${eenheidFilter === 'voorraad' ? 'bg-orange-500' : eenheidFilter === 'frig' ? 'bg-green-600' : 'bg-blue-600'}`}>+</button></form></div>
+                    <div>
+                        <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Mijn eenheden</h4>
+                        
+                        {/* Toggle Vries/Frig/Stock */}
+                        <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4">
+                            <button onClick={() => setEenheidFilter('vries')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'vries' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                                Vriezer.
+                            </button>
+                            {(!myHiddenTabs.includes('frig') || isAdmin) && (
+                                <button onClick={() => setEenheidFilter('frig')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'frig' ? 'bg-white dark:bg-gray-600 shadow text-green-600 dark:text-green-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                                    Frig.
+                                </button>
+                            )}
+                            {(!myHiddenTabs.includes('voorraad') || isAdmin) && (
+                                <button onClick={() => setEenheidFilter('voorraad')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'voorraad' ? 'bg-white dark:bg-gray-600 shadow text-orange-600 dark:text-orange-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                                    Stock.
+                                </button>
+                            )}
+                        </div>
+
+                        <ul className="space-y-2 mb-3">
+                            {(
+                                eenheidFilter === 'voorraad' ? customUnitsVoorraad : 
+                                eenheidFilter === 'frig' ? customUnitsFrig :
+                                customUnitsVries
+                            ).length === 0 ? <li className="text-gray-400 italic">Geen eigen eenheden voor {eenheidFilter}.</li> : 
+                            (
+                                eenheidFilter === 'voorraad' ? customUnitsVoorraad : 
+                                eenheidFilter === 'frig' ? customUnitsFrig :
+                                customUnitsVries
+                            ).map(u => (
+                                <li key={u} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">
+                                    {editingUnitName === u ? 
+                                        <div className="flex gap-2 w-full"><input className="flex-grow border p-1 rounded dark:bg-gray-600 dark:text-white" value={editUnitInput} onChange={e=>setEditUnitInput(e.target.value)} /><button onClick={saveUnitName} className="text-green-600"><Icon path={Icons.Check}/></button></div>
+                                        :
+                                        <><span>{u}</span><div className="flex gap-2"><button onClick={()=>startEditUnit(u)} className="text-blue-500"><Icon path={Icons.Edit2} size={16}/></button><button onClick={() => handleDeleteUnit(u)} className="text-red-500"><Icon path={Icons.Trash2} size={16}/></button></div></>
+                                    }
+                                </li>
+                            ))}
+                        </ul>
+                        <form onSubmit={handleAddUnit} className="flex gap-2"><input className="flex-grow border p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" placeholder="Nieuwe eenheid" value={newUnitNaam} onChange={e=>setNewUnitNaam(e.target.value)} required /><button className={`text-white px-3 rounded ${eenheidFilter === 'voorraad' ? 'bg-orange-500' : eenheidFilter === 'frig' ? 'bg-green-600' : 'bg-blue-600'}`}>+</button></form>
+                    </div>
                 )}
+            </Modal>
+            
+            {/* User Management Modal */}
+            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers." color="pink">
+                <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {usersList.map(u => (
+                        <li key={u.id} className="p-3 flex flex-col gap-2">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <p className="font-bold dark:text-white">{u.email || u.displayName}</p>
+                                    <p className="text-xs text-gray-500">{u.id}</p>
+                                </div>
+                                <button onClick={() => toggleUserStatus(u.id, u.disabled)} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-200' : 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-200'}`}>
+                                    {u.disabled ? 'Geblokkeerd' : 'Actief'}
+                                </button>
+                            </div>
+                            <div className="flex flex-col gap-1 mt-1">
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={(u.hiddenTabs || []).includes('frig')} 
+                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'frig')}
+                                    />
+                                    <span>Verberg 'Frig.' tabblad</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={(u.hiddenTabs || []).includes('voorraad')} 
+                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'voorraad')}
+                                    />
+                                    <span>Verberg 'Stock.' tabblad</span>
+                                </div>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">
+                                Laatst gezien: {u.laatstGezien ? formatDateTime(u.laatstGezien) : 'Nooit'}
+                            </p>
+                        </li>
+                    ))}
+                </ul>
+            </Modal>
+
+            {/* Share Modal */}
+            <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Voorraad Delen" color="green">
+                <form onSubmit={handleShare} className="space-y-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-300">Nodig iemand uit om je voorraad te beheren.</p>
+                    <input type="email" className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Email adres" value={shareEmail} onChange={e => setShareEmail(e.target.value)} required />
+                    <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">Verstuur Uitnodiging</button>
+                </form>
+            </Modal>
+
+            {/* Updates Modal */}
+            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red">
+                {alerts.length > 0 && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 dark:bg-red-900/20">
+                        <h4 className="font-bold text-red-800 dark:text-red-300">Let op!</h4>
+                        <ul>
+                            {alerts.map(i => {
+                                const loc = vriezers.find(v => v.id === i.vriezerId);
+                                const type = loc ? (loc.type || 'vriezer') : 'vriezer';
+                                const isStock = type === 'voorraad' || type === 'frig';
+                                
+                                return (
+                                    <li key={i.id} className="text-red-700 dark:text-red-300">
+                                        {i.naam} 
+                                        <span className="text-xs ml-1 font-semibold opacity-75">
+                                            {isStock 
+                                                ? `(Verlopen: ${formatDate(i.houdbaarheidsDatum)})` 
+                                                : `(${getDagenOud(i.ingevrorenOp)} dagen oud)`
+                                            }
+                                        </span>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                )}
+                <div className="space-y-4">
+                    {currentVersionData && (
+                        <div>
+                            <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-4 text-lg">Versie {APP_VERSION}</h4>
+                            <ul className="space-y-3">
+                                {currentVersionData.changes.map((change, idx) => {
+                                    const parts = change.split(': ');
+                                    const type = parts[0];
+                                    const text = parts.slice(1).join(': ');
+                                    
+                                    let IconComp = Icons.Zap;
+                                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
+
+                                    if (type.includes('Feature') || type.includes('Nieuw')) {
+                                        IconComp = Icons.Star;
+                                        iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
+                                    } else if (type.includes('Fix') || type.includes('Opgelost')) {
+                                        IconComp = Icons.Wrench;
+                                        iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
+                                    }
+
+                                    return (
+                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start">
+                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
+                                                <Icon path={IconComp} size={14} />
+                                            </div>
+                                             <div className="pt-1.5">
+                                                <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span>
+                                                <span className="leading-relaxed">{text || change}</span>
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+            </Modal>
+
+            {/* Version History Modal */}
+            <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Nieuws." color="blue">
+                <div className="mb-8 text-center px-4">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
+                        Ontdek alle updates en verbeteringen aan <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Voorraad.</span>
+                    </h3>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-full border border-blue-100 dark:border-blue-800">
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-300">Huidige versie {APP_VERSION}</span>
+                    </div>
+                </div>
+
+                <div className="space-y-8 relative pl-2">
+                    {/* Vertical line connecting versions */}
+                    <div className="absolute left-[19px] top-2 bottom-4 w-0.5 bg-gray-100 dark:bg-gray-700"></div>
+
+                    {VERSION_HISTORY.map((v, i) => (
+                        <div key={v.version} className="relative pl-10">
+                            {/* Dot on timeline */}
+                            <div className={`absolute left-[13px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-800 z-10 ${i === 0 ? 'bg-blue-500 shadow-md shadow-blue-200' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
+
+                            <div className="mb-3">
+                                <span className={`text-lg font-bold ${i === 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>v{v.version}</span>
+                            </div>
+                            
+                            <ul className="space-y-3">
+                                {v.changes.map((change, idx) => {
+                                    const parts = change.split(': ');
+                                    const type = parts[0];
+                                    const text = parts.slice(1).join(': ');
+                                    
+                                    let IconComp = Icons.Zap;
+                                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
+
+                                    if (type.includes('Feature') || type.includes('Nieuw')) {
+                                        IconComp = Icons.Star;
+                                        iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
+                                    } else if (type.includes('Fix') || type.includes('Opgelost')) {
+                                        IconComp = Icons.Wrench;
+                                        iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
+                                    } else if (type.includes('Update')) {
+                                         IconComp = Icons.Zap;
+                                         iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
+                                    }
+
+                                    return (
+                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start">
+                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
+                                                <Icon path={IconComp} size={14} />
+                                            </div>
+                                            <div className="pt-1.5">
+                                                <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span>
+                                                <span className="leading-relaxed">{text || change}</span>
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
+                    ))}
+                </div>
+            </Modal>
+
+            {/* Switch Account Modal (Admin) */}
+            <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel account." color="gray">
+                <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {usersList.map(u => (
+                        <li key={u.id} className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer flex justify-between" onClick={() => { setBeheerdeUserId(u.id); setShowSwitchAccount(false); }}>
+                            <span className="font-medium dark:text-white">{u.email || u.displayName}</span>
+                            {u.id === beheerdeUserId && <Icon path={Icons.Check} className="text-blue-500"/>}
+                        </li>
+                    ))}
+                </ul>
             </Modal>
         </div>
     );
