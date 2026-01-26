@@ -577,19 +577,29 @@ function App() {
     }, [isAdmin]);
 
     useEffect(() => {
-        if (!user || !showLogModal || !beheerdeUserId) return;
+    if (!user || !showLogModal) return;
 
-        let query = db.collection('logs')
+    let query;
+    
+    if (isAdmin) {
+        // Admin ziet ALL logs van IEDEREEN
+        query = db.collection('logs')
+            .orderBy('timestamp', 'desc')
+            .limit(50);
+    } else {
+        // Gewone gebruiker ziet ALLEEN zijn eigen logs
+        query = db.collection('logs')
             .where('targetUserId', '==', beheerdeUserId)
             .orderBy('timestamp', 'desc')
-            .limit(50); 
+            .limit(50);
+    }
 
-        const unsubLogs = query.onSnapshot(snap => {
-            setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        });
+    const unsubLogs = query.onSnapshot(snap => {
+        setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
 
-        return () => unsubLogs();
-    }, [user, showLogModal, beheerdeUserId]);
+    return () => unsubLogs();
+}, [user, showLogModal, beheerdeUserId, isAdmin]); 
 
 
     // Derived
