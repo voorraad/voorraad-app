@@ -243,6 +243,14 @@ const getDateTextColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999) => {
     }
 };
 
+const formatAantal = (aantal) => {
+  const num = parseFloat(aantal);
+  if (num === 0.25) return '1/4';
+  if (num === 0.5) return '1/2';
+  if (num === 0.75) return '3/4';
+  return aantal; // Anders decimaal of integer tonen
+};
+
 // --- LOG FUNCTIE ---
 const logAction = async (action, itemNaam, details, actorUser, targetUserId) => {
     if (!actorUser) return;
@@ -1301,7 +1309,7 @@ function App() {
                                                                                     </div>
                                                                                     {/* THT Datum Fix: Wrappen toestaan (flex-wrap) en geen truncate meer */}
                                                                                     <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
-                                                                                        <span className="font-bold">{item.aantal} {item.eenheid}</span>
+                                                                                        <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
                                                                                         {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
                                                                                         {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
                                                                                     </div>
@@ -1373,15 +1381,44 @@ function App() {
                             {formLades.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
                         </select></div>
                     </div>
-                    <div className="flex gap-4 items-end">
-                        <input type="number" step="0.25" className="w-24 text-center h-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg" value={formData.aantal} onChange={e => setFormData({...formData, aantal: e.target.value})} />
-                        <div className="flex-grow relative">
-                            <select className="w-full h-12 px-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white" value={formData.eenheid} onChange={e => setFormData({...formData, eenheid: e.target.value})}>
-                                {alleEenheden.map(e => <option key={e} value={e}>{e}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                    
+                <div className="flex gap-4 items-end">
+  <div className="relative w-24">
+    <input 
+      type="number" 
+      step="0.25" 
+      min="0" 
+      max="99.75"
+      className="w-full text-center h-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg pr-8 pl-8 focus:ring-2 focus:ring-blue-500 outline-none appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+      value={formData.aantal} 
+      onChange={e => setFormData({...formData, aantal: e.target.value})}
+    />
+    {/* Up arrow */}
+    <button 
+      type="button"
+      onClick={() => {
+        const current = parseFloat(formData.aantal) || 0;
+        const next = Math.min(current + 0.25, 99.75);
+        setFormData({...formData, aantal: next.toFixed(2)});
+      }}
+      className="absolute right-1 top-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
+    >
+      <Icon path={Icons.ChevronRight} size={12} className="rotate-[-90deg]" />
+    </button>
+    {/* Down arrow */}
+    <button 
+      type="button"
+      onClick={() => {
+        const current = parseFloat(formData.aantal) || 0;
+        const next = Math.max(current - 0.25, 0);
+        setFormData({...formData, aantal: next.toFixed(2)});
+      }}
+      className="absolute right-1 bottom-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
+    >
+      <Icon path={Icons.ChevronRight} size={12} className="rotate-[90deg]" />
+    </button>
+  </div>
+  {/* eenheid select blijft hetzelfde */}
+</div>
                     {/* Conditonele Datum Velden */}
                     {formLocationType === 'vriezer' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
