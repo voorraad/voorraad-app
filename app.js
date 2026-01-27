@@ -19,10 +19,19 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.1.7'; 
+const APP_VERSION = '8.2.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.2.0', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: Boodschappenlijst is verplaatst naar de header (naast instellingen).',
+            'Nieuw: Boodschappenlijst opent nu als een pop-up venster.',
+            'Nieuw: Teller toegevoegd aan het icoon voor aantal items op de lijst.'
+        ] 
+    },
     { 
         version: '8.1.7', 
         type: 'patch', 
@@ -45,20 +54,6 @@ const VERSION_HISTORY = [
         changes: [
             'Fix: Datumvelden styling gelijkgetrokken met Categorie.',
             'Update: "Wat eten we?" knop compacter.'
-        ] 
-    },
-    { 
-        version: '8.1.4', 
-        type: 'patch', 
-        changes: [
-            'Fix: Datumvelden versmald.'
-        ] 
-    },
-    { 
-        version: '8.1.3', 
-        type: 'patch', 
-        changes: [
-            'Update: Knoppen lay-out mobiel verbeterd.'
         ] 
     }
 ];
@@ -114,7 +109,7 @@ const CATEGORIEEN_VOORRAAD = [
 const EENHEDEN_VOORRAAD = ["stuks", "pak", "fles", "blik", "pot", "liter", "kilo", "gram", "zak", "doos"];
 
 const EMOJI_CATEGORIES = {
-    "Fruit.": ["🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🥑", "🫒", "🍋‍🟩"],
+    "Fruit.": ["🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍎", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🥑", "🫒", "🍋‍🟩"],
     "Groenten.": ["🍆", "🥔", "🥕", "🌽", "🌶️", "🫑", "🥒", "🥬", "🥦", "🧄", "🧅", "🍄", "🥜", "🫘", "🌰", "🍠", "🫛", "🫚", "🍄‍🟫"],
     "Vlees.": ["🥩", "🍗", "🍖", "🥓", "🍔", "🌭", "🍳", "🥚", "🧀"],
     "Vis.": ["🐟", "🐠", "🐡", "🦈", "🐙", "🦀", "🦞", "🦐", "🦑", "🦪", "🍣", "🍤", "🎏"],
@@ -396,6 +391,7 @@ function App() {
     const [itemToDelete, setItemToDelete] = useState(null);
     const [showStatsModal, setShowStatsModal] = useState(false);
     const [showSuggestionModal, setShowSuggestionModal] = useState(false);
+    const [showShoppingModal, setShowShoppingModal] = useState(false); // Nieuw
     const [beheerTab, setBeheerTab] = useState('locaties');
 
     // Forms
@@ -822,6 +818,8 @@ function App() {
         });
         setActiveTab('voorraad'); // Ga naar stock tab als suggestie
         setShowAddModal(true);
+        setShowShoppingModal(false); // Sluit boodschappen modal
+        
         // We verwijderen hem nog niet, pas als gebruiker opslaat kan hij hem daar wissen of handmatig doen
         if(confirm("Verwijder van boodschappenlijst?")) {
             deleteShoppingItem(item.id);
@@ -1105,10 +1103,26 @@ function App() {
                 <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
                     <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">Voorraad.</h1>
                     <div className="flex gap-2 relative">
+                        {/* Instellingen Knop */}
                         <button onClick={() => { setSelectedLocatieForBeheer(null); setBeheerdeUserId(beheerdeUserId); setShowBeheerModal(true); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><Icon path={Icons.Settings}/></button>
+
+                        {/* NIEUW: Boodschappenlijst Knop met Badge */}
+                        <button onClick={() => setShowShoppingModal(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 relative hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-blue-600 dark:text-blue-400">
+                            <Icon path={Icons.ShoppingCart}/>
+                            {shoppingList.length > 0 && (
+                                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center border-2 border-white dark:border-gray-800 font-bold">
+                                    {shoppingList.length}
+                                </span>
+                            )}
+                        </button>
+                        
+                        {/* Admin Knop */}
                         {isAdmin && <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors"><Icon path={Icons.Users}/></button>}
+                        
+                        {/* Meldingen Knop */}
                         <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 relative hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"><Icon path={Icons.Info}/>{alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>}</button>
                         
+                        {/* Profiel Knop */}
                         <div className="relative">
                             <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 transition-colors">
                                 {user.photoURL ? <img src={user.photoURL} alt="Profiel" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400"><Icon path={Icons.User} size={20}/></div>}
@@ -1171,170 +1185,119 @@ function App() {
                             {isAdmin && managedUserHiddenTabs.includes('voorraad') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
                     )}
-                    {/* NIEUW TABBLAD: LIJST */}
-                    <button onClick={() => setActiveTab('lijst')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='lijst' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
-                        <Icon path={Icons.ShoppingCart}/> Lijst.
-                    </button>
+                    {/* Boodschappenlijst tab is hier verwijderd */}
                 </div>
             </header>
 
             {/* Main Content */}
             <main className="max-w-7xl mx-auto p-4 space-y-6 flex-grow w-full pb-32">
                 
-                {/* TABBLAD: BOODSCHAPPENLIJST */}
-                {activeTab === 'lijst' ? (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-4">
-                            <form onSubmit={handleAddShoppingItem} className="flex gap-2">
-                                <input 
-                                    type="text" 
-                                    placeholder="Wat moet je kopen?" 
-                                    className="flex-grow p-3 min-w-0 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                                    value={shoppingFormData.naam} 
-                                    onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} 
-                                    required
-                                />
-                                <input 
-                                    type="number" 
-                                    className="w-16 p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900 outline-none dark:text-white text-center flex-shrink-0" 
-                                    value={shoppingFormData.aantal} 
-                                    onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
-                                />
-                                <button type="submit" className="bg-blue-600 text-white px-4 rounded-xl font-bold flex-shrink-0"><Icon path={Icons.Plus}/></button>
-                            </form>
+                {/* VOORRAAD TABS CONTENT (Default view) */}
+                <div className="flex flex-col gap-4 print:hidden">
+                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                        <div className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm font-bold">{activeItems.length} items</div>
+                        {filteredLocaties.map(l => <div key={l.id} className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm">{items.filter(i=>i.vriezerId===l.id).length} {l.naam}</div>)}
+                    </div>
+                    
+                    {/* Verbeterde Mobile Layout voor Zoekbalk + Knoppen */}
+                    <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                        <div className="relative group flex-grow w-full">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Icon path={Icons.Search} className="text-gray-400"/></div>
+                            <input type="text" className="block w-full pl-10 pr-3 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400" placeholder="Zoek..." value={search} onChange={e=>setSearch(e.target.value)}/>
                         </div>
-
-                        <div className="space-y-2">
-                            {shoppingList.length === 0 && <p className="text-center text-gray-400 py-8">Je boodschappenlijst is leeg.</p>}
-                            {shoppingList.sort((a,b) => a.checked - b.checked).map(item => (
-                                <div key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border ${item.checked ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800' : 'border-gray-200 dark:border-gray-700'}`}>
-                                    <div className="flex items-center gap-3 cursor-pointer overflow-hidden" onClick={() => toggleShoppingItem(item)}>
-                                        <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${item.checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-500'}`}>
-                                            {item.checked && <Icon path={Icons.Check} size={14} className="text-white"/>}
-                                        </div>
-                                        <span className={`font-medium truncate ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
-                                            {item.aantal > 1 && <span className="font-bold text-blue-600 mr-1">{item.aantal}x</span>}
-                                            {item.naam}
-                                        </span>
-                                    </div>
-                                    <div className="flex gap-2 flex-shrink-0">
-                                        <button onClick={() => moveShoppingToStock(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg" title="Naar voorraad"><Icon path={Icons.Box} size={18}/></button>
-                                        <button onClick={() => deleteShoppingItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Icon path={Icons.Trash2} size={18}/></button>
-                                    </div>
-                                </div>
-                            ))}
+                        
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            {/* Wat eten we knop: klein vierkant op mobiel */}
+                            <button onClick={() => setShowSuggestionModal(true)} className="flex-none sm:flex-none w-10 h-10 sm:w-auto sm:h-auto bg-yellow-100 text-yellow-600 sm:p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
+                                <Icon path={Icons.Utensils}/>
+                            </button>
+                            
+                            {/* Alles open/dicht knop: vult de rest */}
+                            <button onClick={toggleAll} className="flex-grow sm:flex-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap text-center">
+                                {collapsedLades.size > 0 ? "Alles open" : "Alles dicht"}
+                            </button>
                         </div>
                     </div>
-                ) : (
-                    <>
-                        {/* VOORRAAD TABS CONTENT */}
-                        <div className="flex flex-col gap-4 print:hidden">
-                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                                <div className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm font-bold">{activeItems.length} items</div>
-                                {filteredLocaties.map(l => <div key={l.id} className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm">{items.filter(i=>i.vriezerId===l.id).length} {l.naam}</div>)}
-                            </div>
-                            
-                            {/* Verbeterde Mobile Layout voor Zoekbalk + Knoppen */}
-                            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-                                <div className="relative group flex-grow w-full">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Icon path={Icons.Search} className="text-gray-400"/></div>
-                                    <input type="text" className="block w-full pl-10 pr-3 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400" placeholder="Zoek..." value={search} onChange={e=>setSearch(e.target.value)}/>
-                                </div>
-                                
-                                <div className="flex gap-2 w-full sm:w-auto">
-                                    {/* Wat eten we knop: klein vierkant op mobiel */}
-                                    <button onClick={() => setShowSuggestionModal(true)} className="flex-none sm:flex-none w-10 h-10 sm:w-auto sm:h-auto bg-yellow-100 text-yellow-600 sm:p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
-                                        <Icon path={Icons.Utensils}/>
-                                    </button>
-                                    
-                                    {/* Alles open/dicht knop: vult de rest */}
-                                    <button onClick={toggleAll} className="flex-grow sm:flex-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap text-center">
-                                        {collapsedLades.size > 0 ? "Alles open" : "Alles dicht"}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                </div>
 
-                        {/* Lijsten Grid Container */}
-                        <div className={`grid gap-6 items-start ${gridClass}`}>
-                            {filteredLocaties.map(vriezer => {
-                                const gradientKeys = Object.keys(GRADIENTS);
-                                let hash = 0;
-                                for (let i = 0; i < vriezer.id.length; i++) hash = (hash << 5) - hash + vriezer.id.charCodeAt(i);
-                                
-                                const colorKey = vriezer.color || gradientKeys[Math.abs(hash) % gradientKeys.length];
-                                const gradientClass = GRADIENTS[colorKey] || GRADIENTS.blue;
+                {/* Lijsten Grid Container */}
+                <div className={`grid gap-6 items-start ${gridClass}`}>
+                    {filteredLocaties.map(vriezer => {
+                        const gradientKeys = Object.keys(GRADIENTS);
+                        let hash = 0;
+                        for (let i = 0; i < vriezer.id.length; i++) hash = (hash << 5) - hash + vriezer.id.charCodeAt(i);
+                        
+                        const colorKey = vriezer.color || gradientKeys[Math.abs(hash) % gradientKeys.length];
+                        const gradientClass = GRADIENTS[colorKey] || GRADIENTS.blue;
 
-                                return (
-                                    <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
-                                        <h2 className={`text-lg font-bold mb-3 flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{vriezer.naam}</h2>
-                                        <div className="space-y-4">
-                                            {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(lade => {
-                                                const ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
-                                                if (ladeItems.length === 0 && search) return null;
-                                                const isCollapsed = collapsedLades.has(lade.id) && !search;
-                                                
-                                                return (
-                                                    <div key={lade.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden page-break-inside-avoid transition-colors">
-                                                        <div className="bg-gray-50/50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 print:bg-white" onClick={() => toggleLade(lade.id)}>
-                                                            <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-sm flex items-center gap-2">
-                                                                {isCollapsed ? <Icon path={Icons.ChevronRight} className="print:hidden"/> : <Icon path={Icons.ChevronDown} className="print:hidden"/>} 
-                                                                {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
-                                                            </h3>
-                                                        </div>
-                                                        {!isCollapsed && (
-                                                            <ul className="block"> 
-                                                                {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
-                                                                ladeItems.map(item => {
-                                                                    const dagenOud = getDagenOud(item.ingevrorenOp);
-                                                                    const dagenTotTHT = getDagenTotTHT(item.houdbaarheidsDatum);
-                                                                    const isStockItem = vriezer.type === 'voorraad' || vriezer.type === 'frig';
-                                                                    
-                                                                    const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT);
-                                                                    const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT);
-                                                                    
-                                                                    const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
-                                                                    const catColor = catObj ? (catObj.color || 'gray') : 'gray';
+                        return (
+                            <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
+                                <h2 className={`text-lg font-bold mb-3 flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{vriezer.naam}</h2>
+                                <div className="space-y-4">
+                                    {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(lade => {
+                                        const ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
+                                        if (ladeItems.length === 0 && search) return null;
+                                        const isCollapsed = collapsedLades.has(lade.id) && !search;
+                                        
+                                        return (
+                                            <div key={lade.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden page-break-inside-avoid transition-colors">
+                                                <div className="bg-gray-50/50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 print:bg-white" onClick={() => toggleLade(lade.id)}>
+                                                    <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-sm flex items-center gap-2">
+                                                        {isCollapsed ? <Icon path={Icons.ChevronRight} className="print:hidden"/> : <Icon path={Icons.ChevronDown} className="print:hidden"/>} 
+                                                        {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
+                                                    </h3>
+                                                </div>
+                                                {!isCollapsed && (
+                                                    <ul className="block"> 
+                                                        {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
+                                                        ladeItems.map(item => {
+                                                            const dagenOud = getDagenOud(item.ingevrorenOp);
+                                                            const dagenTotTHT = getDagenTotTHT(item.houdbaarheidsDatum);
+                                                            const isStockItem = vriezer.type === 'voorraad' || vriezer.type === 'frig';
+                                                            
+                                                            const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT);
+                                                            const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT);
+                                                            
+                                                            const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
+                                                            const catColor = catObj ? (catObj.color || 'gray') : 'gray';
 
-                                                                    return (
-                                                                        <li key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0`}>
-                                                                            <div className="flex items-center gap-3 overflow-hidden min-w-0">
-                                                                                <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
-                                                                                <div className="min-w-0 flex-grow">
-                                                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                                                        <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
-                                                                                        {item.categorie && item.categorie !== "Geen" && (
-                                                                                            <Badge type={catColor} text={item.categorie} />
-                                                                                        )}
-                                                                                    </div>
-                                                                                    {/* THT Datum Fix: Wrappen toestaan (flex-wrap) en geen truncate meer */}
-                                                                                    <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
-                                                                                        <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
-                                                                                        {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
-                                                                                        {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
-                                                                                    </div>
-                                                                                </div>
+                                                            return (
+                                                                <li key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0`}>
+                                                                    <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                                                                        <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
+                                                                        <div className="min-w-0 flex-grow">
+                                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                                <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
+                                                                                {item.categorie && item.categorie !== "Geen" && (
+                                                                                    <Badge type={catColor} text={item.categorie} />
+                                                                                )}
                                                                             </div>
-                                                                            <div className="flex items-center gap-1 flex-shrink-0 print:hidden ml-2">
-                                                                                <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50"><Icon path={Icons.Edit2} size={16}/></button>
-                                                                                {/* DELETE KNOP OPENT NU CONFIRM MODAL */}
-                                                                                <button onClick={()=>initDelete(item)} className="p-2 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50"><Icon path={Icons.Trash2} size={16}/></button>
+                                                                            {/* THT Datum Fix: Wrappen toestaan (flex-wrap) en geen truncate meer */}
+                                                                            <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
+                                                                                <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
+                                                                                {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
+                                                                                {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
                                                                             </div>
-                                                                        </li>
-                                                                    );
-                                                                })}
-                                                            </ul>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </>
-                )}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1 flex-shrink-0 print:hidden ml-2">
+                                                                        <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50"><Icon path={Icons.Edit2} size={16}/></button>
+                                                                        {/* DELETE KNOP OPENT NU CONFIRM MODAL */}
+                                                                        <button onClick={()=>initDelete(item)} className="p-2 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50"><Icon path={Icons.Trash2} size={16}/></button>
+                                                                    </div>
+                                                                </li>
+                                                            );
+                                                        })}
+                                                    </ul>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
             </main>
 
             {/* Footer */}
@@ -1356,9 +1319,7 @@ function App() {
             </footer>
 
             {/* FAB */}
-            {activeTab !== 'lijst' && (
-                <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 print:hidden hover:scale-105 transition-transform"><Icon path={Icons.Plus} size={28}/></button>
-            )}
+            <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 print:hidden hover:scale-105 transition-transform"><Icon path={Icons.Plus} size={28}/></button>
 
             {/* Add/Edit Modal */}
             <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken." : "Toevoegen."} color="blue">
@@ -1465,6 +1426,52 @@ function App() {
             {/* Emoji Modal */}
             <Modal isOpen={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} title="Emoji." color="orange">
                 <EmojiGrid onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
+            </Modal>
+
+            {/* Shopping List Modal (NIEUW) */}
+            <Modal isOpen={showShoppingModal} onClose={() => setShowShoppingModal(false)} title="Boodschappenlijst." color="blue">
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-white dark:bg-gray-700/50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600 p-4 mb-4">
+                        <form onSubmit={handleAddShoppingItem} className="flex gap-2">
+                            <input 
+                                type="text" 
+                                placeholder="Wat moet je kopen?" 
+                                className="flex-grow p-3 min-w-0 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                                value={shoppingFormData.naam} 
+                                onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} 
+                                required
+                            />
+                            <input 
+                                type="number" 
+                                className="w-16 p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white text-center flex-shrink-0" 
+                                value={shoppingFormData.aantal} 
+                                onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
+                            />
+                            <button type="submit" className="bg-blue-600 text-white px-4 rounded-xl font-bold flex-shrink-0"><Icon path={Icons.Plus}/></button>
+                        </form>
+                    </div>
+
+                    <div className="space-y-2">
+                        {shoppingList.length === 0 && <p className="text-center text-gray-400 py-8">Je boodschappenlijst is leeg.</p>}
+                        {shoppingList.sort((a,b) => a.checked - b.checked).map(item => (
+                            <div key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border ${item.checked ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800' : 'border-gray-200 dark:border-gray-600'}`}>
+                                <div className="flex items-center gap-3 cursor-pointer overflow-hidden" onClick={() => toggleShoppingItem(item)}>
+                                    <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${item.checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-500'}`}>
+                                        {item.checked && <Icon path={Icons.Check} size={14} className="text-white"/>}
+                                    </div>
+                                    <span className={`font-medium truncate ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
+                                        {item.aantal > 1 && <span className="font-bold text-blue-600 mr-1">{item.aantal}x</span>}
+                                        {item.naam}
+                                    </span>
+                                </div>
+                                <div className="flex gap-2 flex-shrink-0">
+                                    <button onClick={() => moveShoppingToStock(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg" title="Naar voorraad"><Icon path={Icons.Box} size={18}/></button>
+                                    <button onClick={() => deleteShoppingItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Icon path={Icons.Trash2} size={18}/></button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </Modal>
 
             {/* Delete Confirmation Modal (Verspillingsmonitor) */}
