@@ -19,10 +19,19 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.2.0'; 
+const APP_VERSION = '8.3.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.3.0', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: Je kan nu een winkel kiezen bij het toevoegen aan de boodschappenlijst.',
+            'Nieuw: Winkel wordt getoond bij het item op de lijst met een kleurcode.',
+            'Update: Layout van toevoegen boodschappen geoptimaliseerd voor mobiel.'
+        ] 
+    },
     { 
         version: '8.2.0', 
         type: 'feature', 
@@ -38,22 +47,6 @@ const VERSION_HISTORY = [
         changes: [
             'Fix: Layout hersteld - Datumvelden en Categorie staan nu netjes onder elkaar voor maximale leesbaarheid op mobiel.',
             'Fix: Codebestand volledig gegenereerd.'
-        ] 
-    },
-    { 
-        version: '8.1.6', 
-        type: 'patch', 
-        changes: [
-            'Update: Lay-out wijziging bij toevoegen: Datums en Categorieën staan nu naast elkaar om breedte te besparen op mobiel.',
-            'Fix: Datumvelden geforceerd binnen de schermranden gehouden.'
-        ] 
-    },
-    { 
-        version: '8.1.5', 
-        type: 'patch', 
-        changes: [
-            'Fix: Datumvelden styling gelijkgetrokken met Categorie.',
-            'Update: "Wat eten we?" knop compacter.'
         ] 
     }
 ];
@@ -84,6 +77,19 @@ const GRADIENTS = {
 };
 
 // --- DATA SETS PER TYPE ---
+const WINKELS = [
+    { name: "AH", color: "blue" },
+    { name: "Colruyt", color: "orange" },
+    { name: "Delhaize", color: "gray" },
+    { name: "Aldi", color: "blue" },
+    { name: "Lidl", color: "yellow" },
+    { name: "Jumbo", color: "yellow" },
+    { name: "Carrefour", color: "blue" },
+    { name: "Kruidvat", color: "red" },
+    { name: "Action", color: "blue" },
+    { name: "Overig", color: "gray" }
+];
+
 const CATEGORIEEN_VRIES = [
     { name: "Vlees", color: "red" }, { name: "Vis", color: "blue" }, { name: "Groenten", color: "green" },
     { name: "Fruit", color: "yellow" }, { name: "Brood", color: "yellow" }, { name: "IJs", color: "pink" },
@@ -391,7 +397,7 @@ function App() {
     const [itemToDelete, setItemToDelete] = useState(null);
     const [showStatsModal, setShowStatsModal] = useState(false);
     const [showSuggestionModal, setShowSuggestionModal] = useState(false);
-    const [showShoppingModal, setShowShoppingModal] = useState(false); // Nieuw
+    const [showShoppingModal, setShowShoppingModal] = useState(false); 
     const [beheerTab, setBeheerTab] = useState('locaties');
 
     // Forms
@@ -410,7 +416,8 @@ function App() {
     const [shoppingFormData, setShoppingFormData] = useState({ 
         naam: '', 
         aantal: 1, 
-        eenheid: 'stuks' 
+        eenheid: 'stuks',
+        winkel: 'AH' 
     });
     
     const [rememberLocation, setRememberLocation] = useState(false); 
@@ -797,7 +804,7 @@ function App() {
             checked: false,
             userId: beheerdeUserId
         });
-        setShoppingFormData({ naam: '', aantal: 1, eenheid: 'stuks' });
+        setShoppingFormData({ naam: '', aantal: 1, eenheid: 'stuks', winkel: 'AH' });
     };
 
     const toggleShoppingItem = async (item) => {
@@ -1432,44 +1439,65 @@ function App() {
             <Modal isOpen={showShoppingModal} onClose={() => setShowShoppingModal(false)} title="Boodschappenlijst." color="blue">
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="bg-white dark:bg-gray-700/50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600 p-4 mb-4">
-                        <form onSubmit={handleAddShoppingItem} className="flex gap-2">
+                        <form onSubmit={handleAddShoppingItem} className="flex flex-col gap-3">
                             <input 
                                 type="text" 
                                 placeholder="Wat moet je kopen?" 
-                                className="flex-grow p-3 min-w-0 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                                className="w-full p-3 min-w-0 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
                                 value={shoppingFormData.naam} 
                                 onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} 
                                 required
                             />
-                            <input 
-                                type="number" 
-                                className="w-16 p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white text-center flex-shrink-0" 
-                                value={shoppingFormData.aantal} 
-                                onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
-                            />
-                            <button type="submit" className="bg-blue-600 text-white px-4 rounded-xl font-bold flex-shrink-0"><Icon path={Icons.Plus}/></button>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="number" 
+                                    className="w-20 p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white text-center flex-shrink-0" 
+                                    value={shoppingFormData.aantal} 
+                                    onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
+                                />
+                                <select 
+                                    className="flex-grow p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white"
+                                    value={shoppingFormData.winkel}
+                                    onChange={e => setShoppingFormData({...shoppingFormData, winkel: e.target.value})}
+                                >
+                                    {WINKELS.map(w => <option key={w.name} value={w.name}>{w.name}</option>)}
+                                </select>
+                                <button type="submit" className="bg-blue-600 text-white px-4 rounded-xl font-bold flex-shrink-0"><Icon path={Icons.Plus}/></button>
+                            </div>
                         </form>
                     </div>
 
                     <div className="space-y-2">
                         {shoppingList.length === 0 && <p className="text-center text-gray-400 py-8">Je boodschappenlijst is leeg.</p>}
-                        {shoppingList.sort((a,b) => a.checked - b.checked).map(item => (
-                            <div key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border ${item.checked ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800' : 'border-gray-200 dark:border-gray-600'}`}>
-                                <div className="flex items-center gap-3 cursor-pointer overflow-hidden" onClick={() => toggleShoppingItem(item)}>
-                                    <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${item.checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-500'}`}>
-                                        {item.checked && <Icon path={Icons.Check} size={14} className="text-white"/>}
+                        {shoppingList.sort((a,b) => a.checked - b.checked).map(item => {
+                            const winkelObj = WINKELS.find(w => w.name === item.winkel);
+                            const winkelColor = winkelObj ? winkelObj.color : 'gray';
+                            
+                            return (
+                                <div key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border ${item.checked ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800' : 'border-gray-200 dark:border-gray-600'}`}>
+                                    <div className="flex items-center gap-3 cursor-pointer overflow-hidden flex-grow" onClick={() => toggleShoppingItem(item)}>
+                                        <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${item.checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-500'}`}>
+                                            {item.checked && <Icon path={Icons.Check} size={14} className="text-white"/>}
+                                        </div>
+                                        <div className="min-w-0 flex-col">
+                                            <div className={`font-medium truncate ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
+                                                {item.aantal > 1 && <span className="font-bold text-blue-600 mr-1">{item.aantal}x</span>}
+                                                {item.naam}
+                                            </div>
+                                            {item.winkel && (
+                                                <div className="mt-1">
+                                                     <Badge type={winkelColor} text={item.winkel} />
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <span className={`font-medium truncate ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
-                                        {item.aantal > 1 && <span className="font-bold text-blue-600 mr-1">{item.aantal}x</span>}
-                                        {item.naam}
-                                    </span>
+                                    <div className="flex gap-2 flex-shrink-0 ml-2">
+                                        <button onClick={() => moveShoppingToStock(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg" title="Naar voorraad"><Icon path={Icons.Box} size={18}/></button>
+                                        <button onClick={() => deleteShoppingItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Icon path={Icons.Trash2} size={18}/></button>
+                                    </div>
                                 </div>
-                                <div className="flex gap-2 flex-shrink-0">
-                                    <button onClick={() => moveShoppingToStock(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg" title="Naar voorraad"><Icon path={Icons.Box} size={18}/></button>
-                                    <button onClick={() => deleteShoppingItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Icon path={Icons.Trash2} size={18}/></button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </Modal>
