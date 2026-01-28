@@ -19,33 +19,33 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.2.2'; 
+const APP_VERSION = '8.3.2'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
     { 
+        version: '8.3.2', 
+        type: 'fix', 
+        changes: [
+            'Hersteld: Fout bij opstarten opgelost door terug te gaan naar stabiele code-structuur.',
+            'Hersteld: Winkelkeuze in boodschappenlijst werkt weer.',
+            'Hersteld: THT datum en Type-selector in toevoegscherm aanwezig.'
+        ] 
+    },
+    { 
+        version: '8.3.0', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: Winkelkeuze toegevoegd aan boodschappenlijst.',
+            'Nieuw: Winkel wordt getoond met kleurcode in de lijst.'
+        ] 
+    },
+    { 
         version: '8.2.2', 
         type: 'feature', 
         changes: [
-            'Nieuw: Winkelveld terug toegevoegd aan boodschappenlijst.',
-            'Update: THT-datum is nu zichtbaar in de vriezerlijst als deze is ingevuld.'
-        ] 
-    },
-    { 
-        version: '8.2.1', 
-        type: 'feature', 
-        changes: [
-            'Nieuw: Je kunt nu in het toevoegscherm direct kiezen tussen Vriezer, Frig of Stock.',
-            'Update: Bij het verplaatsen van items uit de boodschappenlijst kun je nu zelf de bestemming kiezen.'
-        ] 
-    },
-    { 
-        version: '8.2.0', 
-        type: 'feature', 
-        changes: [
-            'Nieuw: Boodschappenlijst is verplaatst naar de header.',
-            'Nieuw: Boodschappenlijst opent nu als een pop-up venster.',
-            'Nieuw: Teller toegevoegd aan het icoon voor aantal items op de lijst.'
+            'Update: THT-datum is nu zichtbaar in de vriezerlijst als deze is ingevuld.',
+            'Nieuw: Type (Vriezer/Frig/Stock) direct te kiezen in toevoegscherm.'
         ] 
     }
 ];
@@ -76,6 +76,19 @@ const GRADIENTS = {
 };
 
 // --- DATA SETS PER TYPE ---
+const WINKELS = [
+    { name: "AH", color: "blue" },
+    { name: "Colruyt", color: "orange" },
+    { name: "Delhaize", color: "gray" },
+    { name: "Aldi", color: "blue" },
+    { name: "Lidl", color: "yellow" },
+    { name: "Jumbo", color: "yellow" },
+    { name: "Carrefour", color: "blue" },
+    { name: "Kruidvat", color: "red" },
+    { name: "Action", color: "blue" },
+    { name: "Overig", color: "gray" }
+];
+
 const CATEGORIEEN_VRIES = [
     { name: "Vlees", color: "red" }, { name: "Vis", color: "blue" }, { name: "Groenten", color: "green" },
     { name: "Fruit", color: "yellow" }, { name: "Brood", color: "yellow" }, { name: "IJs", color: "pink" },
@@ -403,7 +416,7 @@ function App() {
         naam: '', 
         aantal: 1, 
         eenheid: 'stuks',
-        winkel: '' 
+        winkel: '' // Toegevoegd voor versie 8.3.0
     });
     
     const [rememberLocation, setRememberLocation] = useState(false); 
@@ -1484,59 +1497,70 @@ function App() {
             <Modal isOpen={showShoppingModal} onClose={() => setShowShoppingModal(false)} title="Boodschappenlijst." color="blue">
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="bg-white dark:bg-gray-700/50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600 p-4 mb-4">
-                        {/* AANGEPAST: FORM MET WINKEL */}
-                        <form onSubmit={handleAddShoppingItem} className="flex flex-col gap-2 sm:flex-row">
-                            <div className="flex-grow flex gap-2">
+                        <form onSubmit={handleAddShoppingItem} className="flex flex-col gap-2">
+                            <div className="flex gap-2">
                                 <input 
                                     type="text" 
-                                    placeholder="Wat kopen?" 
+                                    placeholder="Wat moet je kopen?" 
                                     className="flex-grow p-3 min-w-0 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
                                     value={shoppingFormData.naam} 
                                     onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} 
                                     required
                                 />
                                 <input 
-                                    type="text" 
-                                    placeholder="Winkel?" 
-                                    className="w-1/3 p-3 min-w-0 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                                    value={shoppingFormData.winkel} 
-                                    onChange={e => setShoppingFormData({...shoppingFormData, winkel: e.target.value})} 
-                                />
-                            </div>
-                            <div className="flex gap-2">
-                                <input 
                                     type="number" 
                                     className="w-16 p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white text-center flex-shrink-0" 
                                     value={shoppingFormData.aantal} 
                                     onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
                                 />
-                                <button type="submit" className="bg-blue-600 text-white px-4 rounded-xl font-bold flex-shrink-0"><Icon path={Icons.Plus}/></button>
+                            </div>
+                            
+                            {/* WINKEL SELECTOR */}
+                            <div className="flex gap-2">
+                                <select 
+                                    className="flex-grow p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                                    value={shoppingFormData.winkel}
+                                    onChange={e => setShoppingFormData({...shoppingFormData, winkel: e.target.value})}
+                                >
+                                    <option value="">Kies winkel (optioneel)...</option>
+                                    {WINKELS.map(w => <option key={w.name} value={w.name}>{w.name}</option>)}
+                                </select>
+                                <button type="submit" className="bg-blue-600 text-white px-6 rounded-xl font-bold flex-shrink-0 flex items-center justify-center"><Icon path={Icons.Plus}/></button>
                             </div>
                         </form>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                         {shoppingList.length === 0 && <p className="text-center text-gray-400 py-8">Je boodschappenlijst is leeg.</p>}
-                        {shoppingList.sort((a,b) => a.checked - b.checked).map(item => (
-                            <div key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border ${item.checked ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800' : 'border-gray-200 dark:border-gray-600'}`}>
-                                <div className="flex items-center gap-3 cursor-pointer overflow-hidden" onClick={() => toggleShoppingItem(item)}>
-                                    <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${item.checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-500'}`}>
-                                        {item.checked && <Icon path={Icons.Check} size={14} className="text-white"/>}
+                        {shoppingList.sort((a,b) => a.checked - b.checked).map(item => {
+                            const winkelObj = WINKELS.find(w => w.name === item.winkel);
+                            const winkelColor = winkelObj ? winkelObj.color : 'gray';
+
+                            return (
+                                <div key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border ${item.checked ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800' : 'border-gray-200 dark:border-gray-600'}`}>
+                                    <div className="flex items-center gap-3 cursor-pointer overflow-hidden flex-grow" onClick={() => toggleShoppingItem(item)}>
+                                        <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${item.checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-500'}`}>
+                                            {item.checked && <Icon path={Icons.Check} size={14} className="text-white"/>}
+                                        </div>
+                                        <div className="flex flex-col min-w-0">
+                                            <span className={`font-medium truncate ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
+                                                {item.aantal > 1 && <span className="font-bold text-blue-600 mr-1">{item.aantal}x</span>}
+                                                {item.naam}
+                                            </span>
+                                            {item.winkel && (
+                                                <div className="flex mt-0.5">
+                                                    <Badge type={winkelColor} text={item.winkel} />
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <span className={`font-medium truncate flex flex-col ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
-                                        <span>
-                                            {item.aantal > 1 && <span className="font-bold text-blue-600 mr-1">{item.aantal}x</span>}
-                                            {item.naam}
-                                        </span>
-                                        {item.winkel && <span className="text-[10px] text-gray-400 font-normal no-underline uppercase tracking-wide">{item.winkel}</span>}
-                                    </span>
+                                    <div className="flex gap-2 flex-shrink-0 ml-2">
+                                        <button onClick={() => moveShoppingToStock(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg" title="Naar voorraad"><Icon path={Icons.Box} size={18}/></button>
+                                        <button onClick={() => deleteShoppingItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Icon path={Icons.Trash2} size={18}/></button>
+                                    </div>
                                 </div>
-                                <div className="flex gap-2 flex-shrink-0">
-                                    <button onClick={() => moveShoppingToStock(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg" title="Naar voorraad"><Icon path={Icons.Box} size={18}/></button>
-                                    <button onClick={() => deleteShoppingItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Icon path={Icons.Trash2} size={18}/></button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </Modal>
@@ -1877,7 +1901,7 @@ function App() {
                                     if (type.includes('Feature') || type.includes('Nieuw')) {
                                         IconComp = Icons.Star;
                                         iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
-                                    } else if (type.includes('Fix') || type.includes('Opgelost')) {
+                                    } else if (type.includes('Fix') || type.includes('Opgelost') || type.includes('Hersteld')) {
                                         IconComp = Icons.Wrench;
                                         iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
                                     }
@@ -1936,7 +1960,7 @@ function App() {
                                     if (type.includes('Feature') || type.includes('Nieuw')) {
                                         IconComp = Icons.Star;
                                         iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
-                                    } else if (type.includes('Fix') || type.includes('Opgelost')) {
+                                    } else if (type.includes('Fix') || type.includes('Opgelost') || type.includes('Hersteld')) {
                                         IconComp = Icons.Wrench;
                                         iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
                                     } else if (type.includes('Update')) {
