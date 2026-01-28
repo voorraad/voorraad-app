@@ -19,17 +19,16 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.3.0'; 
+const APP_VERSION = '8.2.1'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
     { 
-        version: '8.3.0', 
+        version: '8.2.1', 
         type: 'feature', 
         changes: [
-            'Nieuw: Je kan nu een winkel kiezen bij het toevoegen aan de boodschappenlijst.',
-            'Nieuw: Winkel wordt getoond bij het item op de lijst met een kleurcode.',
-            'Update: Layout van toevoegen boodschappen geoptimaliseerd voor mobiel.'
+            'Nieuw: Je kunt nu in het toevoegscherm direct kiezen tussen Vriezer, Frig of Stock.',
+            'Update: Bij het verplaatsen van items uit de boodschappenlijst kun je nu zelf de bestemming kiezen.'
         ] 
     },
     { 
@@ -77,19 +76,6 @@ const GRADIENTS = {
 };
 
 // --- DATA SETS PER TYPE ---
-const WINKELS = [
-    { name: "AH", color: "blue" },
-    { name: "Colruyt", color: "orange" },
-    { name: "Delhaize", color: "gray" },
-    { name: "Aldi", color: "blue" },
-    { name: "Lidl", color: "yellow" },
-    { name: "Jumbo", color: "yellow" },
-    { name: "Carrefour", color: "blue" },
-    { name: "Kruidvat", color: "red" },
-    { name: "Action", color: "blue" },
-    { name: "Overig", color: "gray" }
-];
-
 const CATEGORIEEN_VRIES = [
     { name: "Vlees", color: "red" }, { name: "Vis", color: "blue" }, { name: "Groenten", color: "green" },
     { name: "Fruit", color: "yellow" }, { name: "Brood", color: "yellow" }, { name: "IJs", color: "pink" },
@@ -416,8 +402,7 @@ function App() {
     const [shoppingFormData, setShoppingFormData] = useState({ 
         naam: '', 
         aantal: 1, 
-        eenheid: 'stuks',
-        winkel: 'AH' 
+        eenheid: 'stuks' 
     });
     
     const [rememberLocation, setRememberLocation] = useState(false); 
@@ -429,6 +414,9 @@ function App() {
     const [shareEmail, setShareEmail] = useState('');
     
     const [eenheidFilter, setEenheidFilter] = useState('vries'); 
+
+    // NIEUW: State voor het type in de "Toevoegen" modal
+    const [modalType, setModalType] = useState('vriezer');
 
     // Edit States
     const [editingLadeId, setEditingLadeId] = useState(null);
@@ -617,11 +605,15 @@ function App() {
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
     const activeItems = items.filter(i => filteredLocaties.some(l => l.id === i.vriezerId));
 
+    // Voor de modal gebruiken we nu 'modalType' ipv 'activeTab' om locaties te filteren
+    const modalLocaties = vriezers.filter(l => l.type === modalType);
+
     const formLades = formData.vriezerId 
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
         : [];
     
-    const formLocationType = vriezers.find(v => v.id === formData.vriezerId)?.type || activeTab;
+    // Voor de modal gebruiken we nu 'modalType' om de context (eenheden, categorieën, datums) te bepalen
+    const formLocationType = modalType;
 
     let contextEenheden = EENHEDEN_VRIES;
     let contextCategorieen = CATEGORIEEN_VRIES;
@@ -695,7 +687,11 @@ function App() {
     // Item CRUD
     const handleOpenAdd = () => {
         setEditingItem(null);
-        const defaultLoc = filteredLocaties.length > 0 ? filteredLocaties[0].id : '';
+        setModalType(activeTab); // Sync modal type met huidige tab
+        
+        // Bepaal default locatie voor huidige tab
+        const typeLocaties = vriezers.filter(l => l.type === activeTab);
+        const defaultLoc = typeLocaties.length > 0 ? typeLocaties[0].id : '';
         const defaultCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
         
         if (!rememberLocation) {
@@ -706,11 +702,29 @@ function App() {
         } else {
              setFormData(prev => ({
                 ...prev,
+                vriezerId: defaultLoc, // Forceer update van locatie als tab anders is dan 'remembered'
                 naam: '', aantal: 1, categorie: defaultCat, 
                 ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
             }));
         }
         setShowAddModal(true);
+    };
+    
+    // Handler voor wisselknop in modal
+    const handleModalTypeChange = (newType) => {
+        setModalType(newType);
+        
+        // Reset locatie naar eerste van nieuw type
+        const newLocs = vriezers.filter(l => l.type === newType);
+        const defaultLoc = newLocs.length > 0 ? newLocs[0].id : '';
+        const defaultCat = newType === 'voorraad' ? 'Pasta' : 'Vlees';
+        
+        setFormData(prev => ({
+            ...prev,
+            vriezerId: defaultLoc,
+            ladeId: '',
+            categorie: defaultCat // Reset categorie want die zijn anders per type
+        }));
     };
 
     const handleSaveItem = async (e) => {
@@ -804,7 +818,7 @@ function App() {
             checked: false,
             userId: beheerdeUserId
         });
-        setShoppingFormData({ naam: '', aantal: 1, eenheid: 'stuks', winkel: 'AH' });
+        setShoppingFormData({ naam: '', aantal: 1, eenheid: 'stuks' });
     };
 
     const toggleShoppingItem = async (item) => {
@@ -818,12 +832,18 @@ function App() {
     const moveShoppingToStock = async (item) => {
         // Opent de "Toevoegen" modal met data van boodschappenlijst
         setEditingItem(null);
+        setModalType('voorraad'); // Default suggestie: Stock
+
+        // Zoek default locatie in stock
+        const stockLocs = vriezers.filter(l => l.type === 'voorraad');
+        const defaultLoc = stockLocs.length > 0 ? stockLocs[0].id : '';
+
         setFormData({
             naam: item.naam, aantal: item.aantal, eenheid: item.eenheid, 
-            vriezerId: '', ladeId: '', categorie: 'Overig', 
+            vriezerId: defaultLoc, ladeId: '', categorie: 'Overig', 
             ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
         });
-        setActiveTab('voorraad'); // Ga naar stock tab als suggestie
+        
         setShowAddModal(true);
         setShowShoppingModal(false); // Sluit boodschappen modal
         
@@ -859,6 +879,11 @@ function App() {
 
     const openEdit = (item) => {
         setEditingItem(item);
+        // Zoek het type van het item om de modal correct te openen
+        const loc = vriezers.find(v => v.id === item.vriezerId);
+        const itemType = loc ? loc.type : 'vriezer';
+        setModalType(itemType);
+
         setFormData({
             naam: item.naam, aantal: item.aantal, eenheid: item.eenheid, vriezerId: item.vriezerId, ladeId: item.ladeId, categorie: item.categorie,
             ingevrorenOp: toInputDate(item.ingevrorenOp), houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), emoji: item.emoji
@@ -1192,7 +1217,6 @@ function App() {
                             {isAdmin && managedUserHiddenTabs.includes('voorraad') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
                     )}
-                    {/* Boodschappenlijst tab is hier verwijderd */}
                 </div>
             </header>
 
@@ -1331,6 +1355,24 @@ function App() {
             {/* Add/Edit Modal */}
             <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken." : "Toevoegen."} color="blue">
                 <form onSubmit={handleSaveItem} className="space-y-4">
+                    
+                    {/* NIEUW: TYPE SELECTOR IN MODAL */}
+                    <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4">
+                        <button type="button" onClick={() => handleModalTypeChange('vriezer')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${modalType === 'vriezer' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                            Vriezer.
+                        </button>
+                        {(!myHiddenTabs.includes('frig') || isAdmin) && (
+                            <button type="button" onClick={() => handleModalTypeChange('frig')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${modalType === 'frig' ? 'bg-white dark:bg-gray-600 shadow text-green-600 dark:text-green-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                                Frig.
+                            </button>
+                        )}
+                        {(!myHiddenTabs.includes('voorraad') || isAdmin) && (
+                            <button type="button" onClick={() => handleModalTypeChange('voorraad')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${modalType === 'voorraad' ? 'bg-white dark:bg-gray-600 shadow text-orange-600 dark:text-orange-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                                Stock.
+                            </button>
+                        )}
+                    </div>
+
                     <div className="flex gap-2">
                         <button type="button" onClick={() => setShowEmojiPicker(true)} className="w-12 h-12 flex-shrink-0 border dark:border-gray-600 rounded-lg flex items-center justify-center text-2xl bg-gray-50 dark:bg-gray-700">{formData.emoji || '🏷️'}</button>
                         <div className="relative flex-grow">
@@ -1341,7 +1383,7 @@ function App() {
                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Locatie.</label>
                         <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.vriezerId} onChange={e => setFormData({...formData, vriezerId: e.target.value})} required>
                             <option value="" disabled>Kies...</option>
-                            {filteredLocaties.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
+                            {modalLocaties.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
                         </select></div>
                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Lade.</label>
                         <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ladeId} onChange={e => setFormData({...formData, ladeId: e.target.value})} required>
@@ -1400,8 +1442,8 @@ function App() {
     ))}
   </select>
 </div>
-                    {/* Conditonele Datum Velden */}
-                    {formLocationType === 'vriezer' && (
+                    {/* Conditonele Datum Velden gebaseerd op modalType */}
+                    {modalType === 'vriezer' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Invriesdatum.</label>
                             <input type="date" className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
@@ -1409,7 +1451,7 @@ function App() {
                             <input type="date" className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                         </div>
                     )}
-                    {(formLocationType === 'voorraad' || formLocationType === 'frig') && (
+                    {(modalType === 'voorraad' || modalType === 'frig') && (
                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Houdbaarheidsdatum (THT).</label>
                         <input type="date" className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                     )}
@@ -1439,65 +1481,44 @@ function App() {
             <Modal isOpen={showShoppingModal} onClose={() => setShowShoppingModal(false)} title="Boodschappenlijst." color="blue">
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="bg-white dark:bg-gray-700/50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600 p-4 mb-4">
-                        <form onSubmit={handleAddShoppingItem} className="flex flex-col gap-3">
+                        <form onSubmit={handleAddShoppingItem} className="flex gap-2">
                             <input 
                                 type="text" 
                                 placeholder="Wat moet je kopen?" 
-                                className="w-full p-3 min-w-0 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                                className="flex-grow p-3 min-w-0 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
                                 value={shoppingFormData.naam} 
                                 onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} 
                                 required
                             />
-                            <div className="flex gap-2">
-                                <input 
-                                    type="number" 
-                                    className="w-20 p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white text-center flex-shrink-0" 
-                                    value={shoppingFormData.aantal} 
-                                    onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
-                                />
-                                <select 
-                                    className="flex-grow p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white"
-                                    value={shoppingFormData.winkel}
-                                    onChange={e => setShoppingFormData({...shoppingFormData, winkel: e.target.value})}
-                                >
-                                    {WINKELS.map(w => <option key={w.name} value={w.name}>{w.name}</option>)}
-                                </select>
-                                <button type="submit" className="bg-blue-600 text-white px-4 rounded-xl font-bold flex-shrink-0"><Icon path={Icons.Plus}/></button>
-                            </div>
+                            <input 
+                                type="number" 
+                                className="w-16 p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white text-center flex-shrink-0" 
+                                value={shoppingFormData.aantal} 
+                                onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
+                            />
+                            <button type="submit" className="bg-blue-600 text-white px-4 rounded-xl font-bold flex-shrink-0"><Icon path={Icons.Plus}/></button>
                         </form>
                     </div>
 
                     <div className="space-y-2">
                         {shoppingList.length === 0 && <p className="text-center text-gray-400 py-8">Je boodschappenlijst is leeg.</p>}
-                        {shoppingList.sort((a,b) => a.checked - b.checked).map(item => {
-                            const winkelObj = WINKELS.find(w => w.name === item.winkel);
-                            const winkelColor = winkelObj ? winkelObj.color : 'gray';
-                            
-                            return (
-                                <div key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border ${item.checked ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800' : 'border-gray-200 dark:border-gray-600'}`}>
-                                    <div className="flex items-center gap-3 cursor-pointer overflow-hidden flex-grow" onClick={() => toggleShoppingItem(item)}>
-                                        <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${item.checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-500'}`}>
-                                            {item.checked && <Icon path={Icons.Check} size={14} className="text-white"/>}
-                                        </div>
-                                        <div className="min-w-0 flex-col">
-                                            <div className={`font-medium truncate ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
-                                                {item.aantal > 1 && <span className="font-bold text-blue-600 mr-1">{item.aantal}x</span>}
-                                                {item.naam}
-                                            </div>
-                                            {item.winkel && (
-                                                <div className="mt-1">
-                                                     <Badge type={winkelColor} text={item.winkel} />
-                                                </div>
-                                            )}
-                                        </div>
+                        {shoppingList.sort((a,b) => a.checked - b.checked).map(item => (
+                            <div key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border ${item.checked ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800' : 'border-gray-200 dark:border-gray-600'}`}>
+                                <div className="flex items-center gap-3 cursor-pointer overflow-hidden" onClick={() => toggleShoppingItem(item)}>
+                                    <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${item.checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-500'}`}>
+                                        {item.checked && <Icon path={Icons.Check} size={14} className="text-white"/>}
                                     </div>
-                                    <div className="flex gap-2 flex-shrink-0 ml-2">
-                                        <button onClick={() => moveShoppingToStock(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg" title="Naar voorraad"><Icon path={Icons.Box} size={18}/></button>
-                                        <button onClick={() => deleteShoppingItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Icon path={Icons.Trash2} size={18}/></button>
-                                    </div>
+                                    <span className={`font-medium truncate ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
+                                        {item.aantal > 1 && <span className="font-bold text-blue-600 mr-1">{item.aantal}x</span>}
+                                        {item.naam}
+                                    </span>
                                 </div>
-                            );
-                        })}
+                                <div className="flex gap-2 flex-shrink-0">
+                                    <button onClick={() => moveShoppingToStock(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg" title="Naar voorraad"><Icon path={Icons.Box} size={18}/></button>
+                                    <button onClick={() => deleteShoppingItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Icon path={Icons.Trash2} size={18}/></button>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </Modal>
