@@ -19,17 +19,17 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.3.2'; 
+const APP_VERSION = '8.3.4'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
     { 
-        version: '8.3.2', 
+        version: '8.3.4', 
         type: 'fix', 
         changes: [
-            'Hersteld: Fout bij opstarten opgelost door terug te gaan naar stabiele code-structuur.',
-            'Hersteld: Winkelkeuze in boodschappenlijst werkt weer.',
-            'Hersteld: THT datum en Type-selector in toevoegscherm aanwezig.'
+            'Fix: Syntaxfout opgelost die de app liet crashen.',
+            'Update: THT-datum in vriezer is nu zwart/grijs (neutraal).',
+            'Nieuw: Je kunt nu een winkel kiezen als je een product verwijdert en op de lijst zet.'
         ] 
     },
     { 
@@ -38,14 +38,6 @@ const VERSION_HISTORY = [
         changes: [
             'Nieuw: Winkelkeuze toegevoegd aan boodschappenlijst.',
             'Nieuw: Winkel wordt getoond met kleurcode in de lijst.'
-        ] 
-    },
-    { 
-        version: '8.2.2', 
-        type: 'feature', 
-        changes: [
-            'Update: THT-datum is nu zichtbaar in de vriezerlijst als deze is ingevuld.',
-            'Nieuw: Type (Vriezer/Frig/Stock) direct te kiezen in toevoegscherm.'
         ] 
     }
 ];
@@ -248,10 +240,9 @@ const formatAantal = (aantal) => {
   if (num === 0.25) return '1/4';
   if (num === 0.5) return '1/2';
   if (num === 0.75) return '3/4';
-  return aantal; // Anders decimaal of integer tonen
+  return aantal;
 };
 
-// --- LOG FUNCTIE ---
 const logAction = async (action, itemNaam, details, actorUser, targetUserId) => {
     if (!actorUser) return;
     try {
@@ -268,7 +259,6 @@ const logAction = async (action, itemNaam, details, actorUser, targetUserId) => 
         console.error("Kon log niet opslaan", e);
     }
 };
-
 
 // --- 5. COMPONENTEN ---
 
@@ -399,6 +389,11 @@ function App() {
     const [showShoppingModal, setShowShoppingModal] = useState(false); 
     const [beheerTab, setBeheerTab] = useState('locaties');
 
+    // NIEUWE STATES VOOR WINKEL MODAL BIJ VERWIJDEREN
+    const [showShopifyModal, setShowShopifyModal] = useState(false);
+    const [itemToShopify, setItemToShopify] = useState(null);
+    const [shopForDeletedItem, setShopForDeletedItem] = useState('');
+
     // Forms
     const [formData, setFormData] = useState({
         naam: '', 
@@ -416,7 +411,7 @@ function App() {
         naam: '', 
         aantal: 1, 
         eenheid: 'stuks',
-        winkel: '' // Toegevoegd voor versie 8.3.0
+        winkel: '' 
     });
     
     const [rememberLocation, setRememberLocation] = useState(false); 
@@ -575,7 +570,7 @@ function App() {
             }
         });
         const unsubI = db.collection('items').where('userId', '==', beheerdeUserId).onSnapshot(s => setItems(s.docs.map(d => ({id: d.id, ...d.data()}))));
-        const unsubS = db.collection('shoppingList').where('userId', '==', beheerdeUserId).onSnapshot(s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()})))); // Boodschappenlijst listener
+        const unsubS = db.collection('shoppingList').where('userId', '==', beheerdeUserId).onSnapshot(s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()})))); 
 
         return () => { unsubV(); unsubL(); unsubI(); unsubS(); };
     }, [beheerdeUserId, isDataLoaded, savedOpenLades]); 
@@ -595,16 +590,9 @@ function App() {
     let query;
     
     if (isAdmin) {
-        // Admin ziet ALL logs van IEDEREEN
-        query = db.collection('logs')
-            .orderBy('timestamp', 'desc')
-            .limit(50);
+        query = db.collection('logs').orderBy('timestamp', 'desc').limit(50);
     } else {
-        // Gewone gebruiker ziet ALLEEN zijn eigen logs
-        query = db.collection('logs')
-            .where('targetUserId', '==', beheerdeUserId)
-            .orderBy('timestamp', 'desc')
-            .limit(50);
+        query = db.collection('logs').where('targetUserId', '==', beheerdeUserId).orderBy('timestamp', 'desc').limit(50);
     }
 
     const unsubLogs = query.onSnapshot(snap => {
@@ -619,14 +607,12 @@ function App() {
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
     const activeItems = items.filter(i => filteredLocaties.some(l => l.id === i.vriezerId));
 
-    // Voor de modal gebruiken we nu 'modalType' ipv 'activeTab' om locaties te filteren
     const modalLocaties = vriezers.filter(l => l.type === modalType);
 
     const formLades = formData.vriezerId 
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
         : [];
     
-    // Voor de modal gebruiken we nu 'modalType' om de context (eenheden, categorieën, datums) te bepalen
     const formLocationType = modalType;
 
     let contextEenheden = EENHEDEN_VRIES;
@@ -701,9 +687,8 @@ function App() {
     // Item CRUD
     const handleOpenAdd = () => {
         setEditingItem(null);
-        setModalType(activeTab); // Sync modal type met huidige tab
+        setModalType(activeTab); 
         
-        // Bepaal default locatie voor huidige tab
         const typeLocaties = vriezers.filter(l => l.type === activeTab);
         const defaultLoc = typeLocaties.length > 0 ? typeLocaties[0].id : '';
         const defaultCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
@@ -716,7 +701,7 @@ function App() {
         } else {
              setFormData(prev => ({
                 ...prev,
-                vriezerId: defaultLoc, // Forceer update van locatie als tab anders is dan 'remembered'
+                vriezerId: defaultLoc,
                 naam: '', aantal: 1, categorie: defaultCat, 
                 ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
             }));
@@ -724,11 +709,8 @@ function App() {
         setShowAddModal(true);
     };
     
-    // Handler voor wisselknop in modal
     const handleModalTypeChange = (newType) => {
         setModalType(newType);
-        
-        // Reset locatie naar eerste van nieuw type
         const newLocs = vriezers.filter(l => l.type === newType);
         const defaultLoc = newLocs.length > 0 ? newLocs[0].id : '';
         const defaultCat = newType === 'voorraad' ? 'Pasta' : 'Vlees';
@@ -737,7 +719,7 @@ function App() {
             ...prev,
             vriezerId: defaultLoc,
             ladeId: '',
-            categorie: defaultCat // Reset categorie want die zijn anders per type
+            categorie: defaultCat
         }));
     };
 
@@ -781,7 +763,6 @@ function App() {
         } catch(err) { showNotification("Er ging iets mis: " + err.message, 'error'); }
     };
 
-    // Nieuw: Delete met reden voor Verspillingsmonitor
     const initDelete = (item) => {
         setItemToDelete(item);
         setShowDeleteModal(true);
@@ -805,23 +786,38 @@ function App() {
             await logAction('Verwijderd', itemToDelete.naam, logDetail, user, beheerdeUserId);
             showNotification(`${itemToDelete.naam} is verwijderd.`, 'success');
             
-            // Optie: Toevoegen aan boodschappenlijst?
-            if (confirm("Dit item toevoegen aan de boodschappenlijst?")) {
-                await db.collection('shoppingList').add({
-                    naam: itemToDelete.naam,
-                    aantal: 1,
-                    eenheid: itemToDelete.eenheid || 'stuks',
-                    checked: false,
-                    userId: beheerdeUserId
-                });
-                showNotification("Aan boodschappenlijst toegevoegd.", "success");
-            }
+            // VERVANGEN DOOR NIEUWE MODAL LOGICA
+            // We zetten het verwijderde item tijdelijk in een state om het eventueel toe te voegen aan boodschappen
+            setItemToShopify(itemToDelete);
+            setShowDeleteModal(false);
+            setShowShopifyModal(true); // Open nieuwe modal voor winkelkeuze
+            setItemToDelete(null);
 
         } catch(err) {
             showNotification("Kon niet verwijderen", 'error');
+            setShowDeleteModal(false);
+            setItemToDelete(null);
         }
-        setShowDeleteModal(false);
-        setItemToDelete(null);
+    };
+
+    // --- NIEUWE FUNCTIE: Handelt het toevoegen vanuit de delete-flow af ---
+    const handleAddToShoppingFromDelete = async () => {
+        if (!itemToShopify) return;
+
+        await db.collection('shoppingList').add({
+            naam: itemToShopify.naam,
+            aantal: 1,
+            eenheid: itemToShopify.eenheid || 'stuks',
+            winkel: shopForDeletedItem, // Gebruik de gekozen winkel
+            checked: false,
+            userId: beheerdeUserId
+        });
+        showNotification("Aan boodschappenlijst toegevoegd.", "success");
+        
+        // Reset en sluit
+        setShopForDeletedItem('');
+        setItemToShopify(null);
+        setShowShopifyModal(false);
     };
 
     // --- BOODSCHAPPENLIJST HANDLERS ---
@@ -844,11 +840,9 @@ function App() {
     };
     
     const moveShoppingToStock = async (item) => {
-        // Opent de "Toevoegen" modal met data van boodschappenlijst
         setEditingItem(null);
-        setModalType('voorraad'); // Default suggestie: Stock
+        setModalType('voorraad'); 
 
-        // Zoek default locatie in stock
         const stockLocs = vriezers.filter(l => l.type === 'voorraad');
         const defaultLoc = stockLocs.length > 0 ? stockLocs[0].id : '';
 
@@ -859,9 +853,8 @@ function App() {
         });
         
         setShowAddModal(true);
-        setShowShoppingModal(false); // Sluit boodschappen modal
+        setShowShoppingModal(false); 
         
-        // We verwijderen hem nog niet, pas als gebruiker opslaat kan hij hem daar wissen of handmatig doen
         if(confirm("Verwijder van boodschappenlijst?")) {
             deleteShoppingItem(item.id);
         }
@@ -876,13 +869,12 @@ function App() {
             const loc = vriezers.find(v => v.id === item.vriezerId);
             const type = loc?.type || 'vriezer';
 
-            // Score logica: Hoe hoger, hoe urgenter
             if (type === 'vriezer') {
-                if (daysOld > 180) score += 50; // Te oud
+                if (daysOld > 180) score += 50; 
                 else if (daysOld > 90) score += 20;
-            } else { // Frig of Voorraad
-                if (daysTHT < 0) score += 100; // Over datum
-                else if (daysTHT <= 3) score += 80; // Bijna over datum
+            } else { 
+                if (daysTHT < 0) score += 100; 
+                else if (daysTHT <= 3) score += 80; 
                 else if (daysTHT <= 7) score += 40;
             }
             return { ...item, score, daysTHT, daysOld, type };
@@ -893,7 +885,6 @@ function App() {
 
     const openEdit = (item) => {
         setEditingItem(item);
-        // Zoek het type van het item om de modal correct te openen
         const loc = vriezers.find(v => v.id === item.vriezerId);
         const itemType = loc ? loc.type : 'vriezer';
         setModalType(itemType);
@@ -1321,8 +1312,8 @@ function App() {
                                                                             <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
                                                                                 <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
                                                                                 {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
-                                                                                {/* FIX: Toon THT ook bij vriezeritems als deze bestaat */}
-                                                                                {!isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
+                                                                                {/* FIX: THT bij vriezer neutraal gekleurd, bij stock gekleurd */}
+                                                                                {!isStockItem && item.houdbaarheidsDatum && <span className="text-xs text-gray-500 dark:text-gray-400"> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
                                                                                 {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
                                                                             </div>
                                                                         </div>
@@ -1578,6 +1569,34 @@ function App() {
                     <button onClick={() => confirmDelete('other')} className="flex items-center justify-center gap-2 p-3 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 transition">
                         Andere reden / Foutje
                     </button>
+                </div>
+            </Modal>
+
+            {/* NIEUW: MODAL OM WINKEL TE KIEZEN NA VERWIJDEREN */}
+            <Modal isOpen={showShopifyModal} onClose={() => setShowShopifyModal(false)} title="Boodschappenlijst?" color="blue">
+                <p className="text-gray-800 dark:text-gray-200 mb-4">Wil je <strong>{itemToShopify?.naam}</strong> op de boodschappenlijst zetten?</p>
+                
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 block">Kies winkel (optioneel)</label>
+                        <select 
+                            className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                            value={shopForDeletedItem}
+                            onChange={(e) => setShopForDeletedItem(e.target.value)}
+                        >
+                            <option value="">Geen specifieke winkel</option>
+                            {WINKELS.map(w => <option key={w.name} value={w.name}>{w.name}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <button onClick={() => setShowShopifyModal(false)} className="p-3 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 transition">
+                            Nee, bedankt
+                        </button>
+                        <button onClick={handleAddToShoppingFromDelete} className="p-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-md">
+                            Ja, toevoegen
+                        </button>
+                    </div>
                 </div>
             </Modal>
 
@@ -1904,6 +1923,9 @@ function App() {
                                     } else if (type.includes('Fix') || type.includes('Opgelost') || type.includes('Hersteld')) {
                                         IconComp = Icons.Wrench;
                                         iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
+                                    } else if (type.includes('Update')) {
+                                         IconComp = Icons.Zap;
+                                         iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
                                     }
 
                                     return (
