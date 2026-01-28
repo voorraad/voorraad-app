@@ -19,10 +19,18 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.2.1'; 
+const APP_VERSION = '8.2.2'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.2.2', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: Winkelveld terug toegevoegd aan boodschappenlijst.',
+            'Update: THT-datum is nu zichtbaar in de vriezerlijst als deze is ingevuld.'
+        ] 
+    },
     { 
         version: '8.2.1', 
         type: 'feature', 
@@ -35,17 +43,9 @@ const VERSION_HISTORY = [
         version: '8.2.0', 
         type: 'feature', 
         changes: [
-            'Nieuw: Boodschappenlijst is verplaatst naar de header (naast instellingen).',
+            'Nieuw: Boodschappenlijst is verplaatst naar de header.',
             'Nieuw: Boodschappenlijst opent nu als een pop-up venster.',
             'Nieuw: Teller toegevoegd aan het icoon voor aantal items op de lijst.'
-        ] 
-    },
-    { 
-        version: '8.1.7', 
-        type: 'patch', 
-        changes: [
-            'Fix: Layout hersteld - Datumvelden en Categorie staan nu netjes onder elkaar voor maximale leesbaarheid op mobiel.',
-            'Fix: Codebestand volledig gegenereerd.'
         ] 
     }
 ];
@@ -402,7 +402,8 @@ function App() {
     const [shoppingFormData, setShoppingFormData] = useState({ 
         naam: '', 
         aantal: 1, 
-        eenheid: 'stuks' 
+        eenheid: 'stuks',
+        winkel: '' 
     });
     
     const [rememberLocation, setRememberLocation] = useState(false); 
@@ -818,7 +819,7 @@ function App() {
             checked: false,
             userId: beheerdeUserId
         });
-        setShoppingFormData({ naam: '', aantal: 1, eenheid: 'stuks' });
+        setShoppingFormData({ naam: '', aantal: 1, eenheid: 'stuks', winkel: '' });
     };
 
     const toggleShoppingItem = async (item) => {
@@ -1307,6 +1308,8 @@ function App() {
                                                                             <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
                                                                                 <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
                                                                                 {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
+                                                                                {/* FIX: Toon THT ook bij vriezeritems als deze bestaat */}
+                                                                                {!isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
                                                                                 {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
                                                                             </div>
                                                                         </div>
@@ -1481,22 +1484,34 @@ function App() {
             <Modal isOpen={showShoppingModal} onClose={() => setShowShoppingModal(false)} title="Boodschappenlijst." color="blue">
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="bg-white dark:bg-gray-700/50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600 p-4 mb-4">
-                        <form onSubmit={handleAddShoppingItem} className="flex gap-2">
-                            <input 
-                                type="text" 
-                                placeholder="Wat moet je kopen?" 
-                                className="flex-grow p-3 min-w-0 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                                value={shoppingFormData.naam} 
-                                onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} 
-                                required
-                            />
-                            <input 
-                                type="number" 
-                                className="w-16 p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white text-center flex-shrink-0" 
-                                value={shoppingFormData.aantal} 
-                                onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
-                            />
-                            <button type="submit" className="bg-blue-600 text-white px-4 rounded-xl font-bold flex-shrink-0"><Icon path={Icons.Plus}/></button>
+                        {/* AANGEPAST: FORM MET WINKEL */}
+                        <form onSubmit={handleAddShoppingItem} className="flex flex-col gap-2 sm:flex-row">
+                            <div className="flex-grow flex gap-2">
+                                <input 
+                                    type="text" 
+                                    placeholder="Wat kopen?" 
+                                    className="flex-grow p-3 min-w-0 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                                    value={shoppingFormData.naam} 
+                                    onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} 
+                                    required
+                                />
+                                <input 
+                                    type="text" 
+                                    placeholder="Winkel?" 
+                                    className="w-1/3 p-3 min-w-0 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                                    value={shoppingFormData.winkel} 
+                                    onChange={e => setShoppingFormData({...shoppingFormData, winkel: e.target.value})} 
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="number" 
+                                    className="w-16 p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white text-center flex-shrink-0" 
+                                    value={shoppingFormData.aantal} 
+                                    onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
+                                />
+                                <button type="submit" className="bg-blue-600 text-white px-4 rounded-xl font-bold flex-shrink-0"><Icon path={Icons.Plus}/></button>
+                            </div>
                         </form>
                     </div>
 
@@ -1508,9 +1523,12 @@ function App() {
                                     <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${item.checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-500'}`}>
                                         {item.checked && <Icon path={Icons.Check} size={14} className="text-white"/>}
                                     </div>
-                                    <span className={`font-medium truncate ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
-                                        {item.aantal > 1 && <span className="font-bold text-blue-600 mr-1">{item.aantal}x</span>}
-                                        {item.naam}
+                                    <span className={`font-medium truncate flex flex-col ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
+                                        <span>
+                                            {item.aantal > 1 && <span className="font-bold text-blue-600 mr-1">{item.aantal}x</span>}
+                                            {item.naam}
+                                        </span>
+                                        {item.winkel && <span className="text-[10px] text-gray-400 font-normal no-underline uppercase tracking-wide">{item.winkel}</span>}
                                     </span>
                                 </div>
                                 <div className="flex gap-2 flex-shrink-0">
