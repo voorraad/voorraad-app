@@ -1,32 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { createRoot } from 'react-dom/client';
-import { initializeApp } from 'firebase/app';
-import { 
-    getAuth, 
-    signInWithPopup, 
-    GoogleAuthProvider, 
-    signOut, 
-    onAuthStateChanged 
-} from 'firebase/auth';
-import { 
-    getFirestore, 
-    collection, 
-    doc, 
-    getDoc, 
-    getDocs,
-    setDoc, 
-    updateDoc, 
-    deleteDoc, 
-    addDoc, 
-    query, 
-    where, 
-    orderBy, 
-    limit, 
-    onSnapshot, 
-    serverTimestamp, 
-    increment, 
-    writeBatch 
-} from 'firebase/firestore';
+const { useState, useEffect, useRef } = React;
 
 // --- 1. FIREBASE CONFIGURATIE ---
 const firebaseConfig = typeof __firebase_config !== 'undefined' 
@@ -40,9 +12,11 @@ const firebaseConfig = typeof __firebase_config !== 'undefined'
         appId: "1:902712789943:web:ef270b84968319052cf632"
     };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.firestore();
+const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
 const APP_VERSION = '8.2.2'; 
@@ -268,14 +242,14 @@ const formatAantal = (aantal) => {
 const logAction = async (action, itemNaam, details, actorUser, targetUserId) => {
     if (!actorUser) return;
     try {
-        await addDoc(collection(db, 'logs'), {
+        await db.collection('logs').add({
             action: action, 
             item: itemNaam,
             details: details,
             actorId: actorUser.uid,
             actorName: actorUser.displayName || actorUser.email,
             targetUserId: targetUserId, 
-            timestamp: serverTimestamp()
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
     } catch (e) {
         console.error("Kon log niet opslaan", e);
@@ -472,7 +446,7 @@ function App() {
         setDarkMode(newStatus);
         
         try {
-            await setDoc(doc(db, 'users', user.uid), {
+            await db.collection('users').doc(user.uid).set({
                 darkMode: newStatus
             }, { merge: true });
         } catch (e) {
@@ -482,21 +456,21 @@ function App() {
 
     // --- AUTH & SETUP ---
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (u) => {
+        const unsubscribe = auth.onAuthStateChanged(async (u) => {
             if (u) {
                 setUser(u);
                 setBeheerdeUserId(u.uid);
                 
                 try {
-                    await setDoc(doc(db, 'users', u.uid), {
-                        laatstGezien: serverTimestamp(),
+                    await db.collection('users').doc(u.uid).set({
+                        laatstGezien: firebase.firestore.FieldValue.serverTimestamp(),
                         email: u.email
                     }, { merge: true });
                 } catch(e) { console.error("Kon laatstGezien niet updaten", e); }
 
-                onSnapshot(doc(db, 'users', u.uid), docSnap => {
-                    if(docSnap.exists()) {
-                        const data = docSnap.data();
+                db.collection('users').doc(u.uid).onSnapshot(doc => {
+                    if(doc.exists) {
+                        const data = doc.data();
                         if (data.darkMode !== undefined) {
                             setDarkMode(data.darkMode);
                         }
@@ -511,7 +485,7 @@ function App() {
                             setStats(data.stats);
                         }
                     } else {
-                        setDoc(doc(db, 'users', u.uid), {
+                        db.collection('users').doc(u.uid).set({
                             customCategories: CATEGORIEEN_VRIES,
                             customUnitsVries: [],
                             customUnitsFrig: [],
@@ -526,12 +500,12 @@ function App() {
                     }
                 });
 
-                const adminDoc = await getDoc(doc(db, 'admins', u.uid));
-                setIsAdmin(adminDoc.exists());
+                const adminDoc = await db.collection('admins').doc(u.uid).get();
+                setIsAdmin(adminDoc.exists);
 
-                const vCheck = await getDocs(query(collection(db, 'vriezers'), where('userId', '==', u.uid), limit(1)));
-                if (vCheck.empty && !adminDoc.exists()) {
-                    const shares = await getDocs(query(collection(db, 'shares'), where("sharedWithEmail", "==", u.email), where("status", "==", "accepted"), limit(1)));
+                const vCheck = await db.collection('vriezers').where('userId', '==', u.uid).limit(1).get();
+                if (vCheck.empty && !adminDoc.exists) {
+                    const shares = await db.collection('shares').where("sharedWithEmail", "==", u.email).where("status", "==", "accepted").limit(1).get();
                     if (!shares.empty) setBeheerdeUserId(shares.docs[0].data().ownerId);
                 }
             } else {
@@ -544,9 +518,9 @@ function App() {
     // Sync Data
     useEffect(() => {
         if(!beheerdeUserId) return;
-        const unsub = onSnapshot(doc(db, 'users', beheerdeUserId), docSnap => {
-            if(docSnap.exists()) {
-                const data = docSnap.data();
+        const unsub = db.collection('users').doc(beheerdeUserId).onSnapshot(doc => {
+            if(doc.exists) {
+                const data = doc.data();
                 
                 let vriesUnits = data.customUnitsVries;
                 if (!vriesUnits && data.customUnits) {
@@ -569,8 +543,8 @@ function App() {
     // Data Listeners
     useEffect(() => {
         if (!beheerdeUserId) return;
-        const unsubV = onSnapshot(query(collection(db, 'vriezers'), where('userId', '==', beheerdeUserId)), s => setVriezers(s.docs.map(d => ({id: d.id, ...d.data(), type: d.data().type||'vriezer'}))));
-        const unsubL = onSnapshot(query(collection(db, 'lades'), where('userId', '==', beheerdeUserId)), s => {
+        const unsubV = db.collection('vriezers').where('userId', '==', beheerdeUserId).onSnapshot(s => setVriezers(s.docs.map(d => ({id: d.id, ...d.data(), type: d.data().type||'vriezer'}))));
+        const unsubL = db.collection('lades').where('userId', '==', beheerdeUserId).onSnapshot(s => {
             const loadedLades = s.docs.map(d => ({id: d.id, ...d.data()}));
             setLades(loadedLades);
             
@@ -587,15 +561,15 @@ function App() {
                 setIsDataLoaded(true);
             }
         });
-        const unsubI = onSnapshot(query(collection(db, 'items'), where('userId', '==', beheerdeUserId)), s => setItems(s.docs.map(d => ({id: d.id, ...d.data()}))));
-        const unsubS = onSnapshot(query(collection(db, 'shoppingList'), where('userId', '==', beheerdeUserId)), s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()})))); 
+        const unsubI = db.collection('items').where('userId', '==', beheerdeUserId).onSnapshot(s => setItems(s.docs.map(d => ({id: d.id, ...d.data()}))));
+        const unsubS = db.collection('shoppingList').where('userId', '==', beheerdeUserId).onSnapshot(s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()})))); // Boodschappenlijst listener
 
         return () => { unsubV(); unsubL(); unsubI(); unsubS(); };
     }, [beheerdeUserId, isDataLoaded, savedOpenLades]); 
 
     useEffect(() => {
         if (isAdmin) {
-            const unsubUsers = onSnapshot(query(collection(db, 'users'), orderBy('email')), snap => {
+            const unsubUsers = db.collection('users').orderBy('email').onSnapshot(snap => {
                 setUsersList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
             });
             return () => unsubUsers();
@@ -605,17 +579,22 @@ function App() {
     useEffect(() => {
     if (!user || !showLogModal) return;
 
-    let q;
+    let query;
     
     if (isAdmin) {
         // Admin ziet ALL logs van IEDEREEN
-        q = query(collection(db, 'logs'), orderBy('timestamp', 'desc'), limit(50));
+        query = db.collection('logs')
+            .orderBy('timestamp', 'desc')
+            .limit(50);
     } else {
         // Gewone gebruiker ziet ALLEEN zijn eigen logs
-        q = query(collection(db, 'logs'), where('targetUserId', '==', beheerdeUserId), orderBy('timestamp', 'desc'), limit(50));
+        query = db.collection('logs')
+            .where('targetUserId', '==', beheerdeUserId)
+            .orderBy('timestamp', 'desc')
+            .limit(50);
     }
 
-    const unsubLogs = onSnapshot(q, snap => {
+    const unsubLogs = query.onSnapshot(snap => {
         setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
@@ -698,12 +677,12 @@ function App() {
     // --- HANDLERS ---
     const handleGoogleLogin = async () => { 
         try { 
-            const provider = new GoogleAuthProvider();
-            await signInWithPopup(auth, provider); 
+            const provider = new firebase.auth.GoogleAuthProvider();
+            await auth.signInWithPopup(provider); 
         } catch(e) { alert("Login Fout: " + e.message); } 
     };
 
-    const handleLogout = () => { signOut(auth); setShowProfileMenu(false); };
+    const handleLogout = () => { auth.signOut(); setShowProfileMenu(false); };
     const handlePrint = () => { setShowProfileMenu(false); window.print(); };
     
     // Item CRUD
@@ -764,13 +743,13 @@ function App() {
         };
         try {
             if(editingItem) {
-                await updateDoc(doc(db, 'items', editingItem.id), data);
+                await db.collection('items').doc(editingItem.id).update(data);
                 await logAction('Bewerkt', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
                 showNotification(`${data.naam} is bijgewerkt!`, 'success');
                 setEditingItem(null);
                 setShowAddModal(false);
             } else {
-                await addDoc(collection(db, 'items'), data);
+                await db.collection('items').add(data);
                 await logAction('Toevoegen', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
                 showNotification(`${data.naam} is toegevoegd!`, 'success');
                 if (rememberLocation) {
@@ -799,15 +778,15 @@ function App() {
         if (!itemToDelete) return;
         
         try {
-            await deleteDoc(doc(db, 'items', itemToDelete.id));
+            await db.collection('items').doc(itemToDelete.id).delete();
             
             let logDetail = 'Item verwijderd';
             if (reason === 'consumed') {
                 logDetail = 'Opgegeten';
-                await updateDoc(doc(db, 'users', beheerdeUserId), { 'stats.consumed': increment(1) });
+                await db.collection('users').doc(beheerdeUserId).update({ 'stats.consumed': firebase.firestore.FieldValue.increment(1) });
             } else if (reason === 'wasted') {
                 logDetail = 'Weggegooid (Verspild)';
-                await updateDoc(doc(db, 'users', beheerdeUserId), { 'stats.wasted': increment(1) });
+                await db.collection('users').doc(beheerdeUserId).update({ 'stats.wasted': firebase.firestore.FieldValue.increment(1) });
             }
 
             await logAction('Verwijderd', itemToDelete.naam, logDetail, user, beheerdeUserId);
@@ -815,7 +794,7 @@ function App() {
             
             // Optie: Toevoegen aan boodschappenlijst?
             if (confirm("Dit item toevoegen aan de boodschappenlijst?")) {
-                await addDoc(collection(db, 'shoppingList'), {
+                await db.collection('shoppingList').add({
                     naam: itemToDelete.naam,
                     aantal: 1,
                     eenheid: itemToDelete.eenheid || 'stuks',
@@ -835,7 +814,7 @@ function App() {
     // --- BOODSCHAPPENLIJST HANDLERS ---
     const handleAddShoppingItem = async (e) => {
         e.preventDefault();
-        await addDoc(collection(db, 'shoppingList'), {
+        await db.collection('shoppingList').add({
             ...shoppingFormData,
             checked: false,
             userId: beheerdeUserId
@@ -844,11 +823,11 @@ function App() {
     };
 
     const toggleShoppingItem = async (item) => {
-        await updateDoc(doc(db, 'shoppingList', item.id), { checked: !item.checked });
+        await db.collection('shoppingList').doc(item.id).update({ checked: !item.checked });
     };
 
     const deleteShoppingItem = async (id) => {
-        await deleteDoc(doc(db, 'shoppingList', id));
+        await db.collection('shoppingList').doc(id).delete();
     };
     
     const moveShoppingToStock = async (item) => {
@@ -916,7 +895,7 @@ function App() {
     // --- BEHEER HANDLERS ---
     const handleAddLocatie = async (e) => {
         e.preventDefault();
-        await addDoc(collection(db, 'vriezers'), { 
+        await db.collection('vriezers').add({ 
             naam: newLocatieNaam, 
             type: activeTab, 
             userId: beheerdeUserId,
@@ -933,31 +912,31 @@ function App() {
         const nextIndex = (currentIndex + 1) % keys.length;
         const nextColor = keys[nextIndex];
         
-        await updateDoc(doc(db, 'vriezers', locatie.id), { color: nextColor });
+        await db.collection('vriezers').doc(locatie.id).update({ color: nextColor });
     };
 
     const handleDeleteLocatie = async (id) => {
         if(lades.some(l => l.vriezerId === id)) return alert("Maak locatie eerst leeg.");
-        if(confirm("Verwijderen?")) await deleteDoc(doc(db, 'vriezers', id));
+        if(confirm("Verwijderen?")) await db.collection('vriezers').doc(id).delete();
     };
 
     const handleAddLade = async (e) => {
         e.preventDefault();
-        await addDoc(collection(db, 'lades'), { naam: newLadeNaam, vriezerId: selectedLocatieForBeheer, userId: beheerdeUserId });
+        await db.collection('lades').add({ naam: newLadeNaam, vriezerId: selectedLocatieForBeheer, userId: beheerdeUserId });
         setNewLadeNaam('');
     };
     const handleDeleteLade = async (id) => {
         if(items.some(i => i.ladeId === id)) return alert("Maak lade eerst leeg.");
-        if(confirm("Verwijderen?")) await deleteDoc(doc(db, 'lades', id));
+        if(confirm("Verwijderen?")) await db.collection('lades').doc(id).delete();
     };
     
     const startEditLade = (l) => { setEditingLadeId(l.id); setEditingLadeName(l.naam); };
     const saveLadeName = async (id) => {
-        await updateDoc(doc(db, 'lades', id), { naam: editingLadeName });
-        const batch = writeBatch(db);
+        await db.collection('lades').doc(id).update({ naam: editingLadeName });
+        const batch = db.batch();
         const itemsInLade = items.filter(i => i.ladeId === id);
         itemsInLade.forEach(item => {
-            batch.update(doc(db, 'items', item.id), { ladeNaam: editingLadeName });
+            batch.update(db.collection('items').doc(item.id), { ladeNaam: editingLadeName });
         });
         await batch.commit();
         setEditingLadeId(null);
@@ -983,7 +962,7 @@ function App() {
 
         if(naam && !standardList.includes(naam) && !currentCustom.includes(naam)) {
             const updated = [...currentCustom, naam];
-            await setDoc(doc(db, 'users', beheerdeUserId), {[dbField]: updated}, {merge:true});
+            await db.collection('users').doc(beheerdeUserId).set({[dbField]: updated}, {merge:true});
             setNewUnitNaam('');
         }
     };
@@ -1002,7 +981,7 @@ function App() {
             }
             
             const updated = currentCustom.filter(u => u !== unit);
-            await setDoc(doc(db, 'users', beheerdeUserId), {[dbField]: updated}, {merge:true});
+            await db.collection('users').doc(beheerdeUserId).set({[dbField]: updated}, {merge:true});
         }
     };
     
@@ -1022,12 +1001,12 @@ function App() {
         }
 
         const updated = currentCustom.map(u => u === editingUnitName ? editUnitInput : u);
-        await setDoc(doc(db, 'users', beheerdeUserId), {[dbField]: updated}, {merge:true});
+        await db.collection('users').doc(beheerdeUserId).set({[dbField]: updated}, {merge:true});
         
-        const batch = writeBatch(db);
+        const batch = db.batch();
         const itemsWithUnit = items.filter(i => i.eenheid === editingUnitName);
         itemsWithUnit.forEach(item => {
-            batch.update(doc(db, 'items', item.id), { eenheid: editUnitInput });
+            batch.update(db.collection('items').doc(item.id), { eenheid: editUnitInput });
         });
         await batch.commit();
         setEditingUnitName(null);
@@ -1037,14 +1016,14 @@ function App() {
         e.preventDefault();
         if(newCatName.trim()) {
             const updated = [...customCategories, {name: newCatName, color: newCatColor}];
-            await setDoc(doc(db, 'users', beheerdeUserId), {customCategories: updated}, {merge:true});
+            await db.collection('users').doc(beheerdeUserId).set({customCategories: updated}, {merge:true});
             setNewCatName('');
         }
     };
     const handleDeleteCat = async (catName) => {
         if(confirm(`Verwijder categorie '${catName}'?`)) {
             const updated = customCategories.filter(c => c.name !== catName);
-            await setDoc(doc(db, 'users', beheerdeUserId), {customCategories: updated}, {merge:true});
+            await db.collection('users').doc(beheerdeUserId).set({customCategories: updated}, {merge:true});
         }
     };
     const startEditCat = (cat) => { 
@@ -1055,13 +1034,13 @@ function App() {
     const saveCat = async () => {
         if(!editCatInputName.trim()) return;
         const updated = customCategories.map(c => c.name === editingCatName ? {name: editCatInputName, color: editCatInputColor} : c);
-        await setDoc(doc(db, 'users', beheerdeUserId), {customCategories: updated}, {merge:true});
+        await db.collection('users').doc(beheerdeUserId).set({customCategories: updated}, {merge:true});
 
         if(editingCatName !== editCatInputName) {
-            const batch = writeBatch(db);
+            const batch = db.batch();
             const itemsWithCat = items.filter(i => i.categorie === editingCatName);
             itemsWithCat.forEach(item => {
-                batch.update(doc(db, 'items', item.id), { categorie: editCatInputName });
+                batch.update(db.collection('items').doc(item.id), { categorie: editCatInputName });
             });
             await batch.commit();
         }
@@ -1071,7 +1050,7 @@ function App() {
 
     const handleShare = async (e) => {
         e.preventDefault();
-        await addDoc(collection(db, 'shares'), { 
+        await db.collection('shares').add({ 
             ownerId: user.uid, ownerEmail: user.email, sharedWithEmail: shareEmail, role: 'editor', status: 'pending' 
         });
         alert("Uitnodiging verstuurd!");
@@ -1080,7 +1059,7 @@ function App() {
     };
 
     const toggleUserStatus = async (userId, currentStatus) => {
-        await updateDoc(doc(db, 'users', userId), { disabled: !currentStatus }); 
+        await db.collection('users').doc(userId).update({ disabled: !currentStatus }); 
     };
 
     const toggleUserTabVisibility = async (userId, userHiddenTabs, tabName) => {
@@ -1091,7 +1070,7 @@ function App() {
         } else {
             newTabs = [...tabs, tabName];
         }
-        await setDoc(doc(db, 'users', userId), { hiddenTabs: newTabs }, { merge: true });
+        await db.collection('users').doc(userId).set({ hiddenTabs: newTabs }, { merge: true });
     };
 
     const toggleLade = async (id) => {
@@ -1106,7 +1085,7 @@ function App() {
                 .filter(l => !newSet.has(l.id))
                 .map(l => l.id);
             try {
-                await setDoc(doc(db, 'users', user.uid), { openLades: openLadesArray }, { merge: true });
+                await db.collection('users').doc(user.uid).set({ openLades: openLadesArray }, { merge: true });
             } catch(e) { console.error("Kon lade status niet opslaan", e); }
         }
     };
@@ -1119,7 +1098,7 @@ function App() {
         if (user) {
             const openLadesArray = expanding ? lades.map(l => l.id) : [];
             try {
-                await setDoc(doc(db, 'users', user.uid), { openLades: openLadesArray }, { merge: true });
+                await db.collection('users').doc(user.uid).set({ openLades: openLadesArray }, { merge: true });
             } catch(e) { console.error("Kon lade status niet opslaan", e); }
         }
     };
@@ -1998,5 +1977,5 @@ function App() {
     );
 }
 
-const root = createRoot(document.getElementById('root'));
+const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
