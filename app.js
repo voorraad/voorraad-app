@@ -19,10 +19,18 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.3.4'; 
+const APP_VERSION = '8.3.5'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.3.5', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: Aantal aanpassen bij het toevoegen aan boodschappenlijst na verwijderen.',
+            'Update: Pijltjes (steppers) toegevoegd aan alle aantal-velden voor gebruiksgemak.'
+        ] 
+    },
     { 
         version: '8.3.4', 
         type: 'fix', 
@@ -30,14 +38,6 @@ const VERSION_HISTORY = [
             'Fix: Syntaxfout opgelost die de app liet crashen.',
             'Update: THT-datum in vriezer is nu zwart/grijs (neutraal).',
             'Nieuw: Je kunt nu een winkel kiezen als je een product verwijdert en op de lijst zet.'
-        ] 
-    },
-    { 
-        version: '8.3.0', 
-        type: 'feature', 
-        changes: [
-            'Nieuw: Winkelkeuze toegevoegd aan boodschappenlijst.',
-            'Nieuw: Winkel wordt getoond met kleurcode in de lijst.'
         ] 
     }
 ];
@@ -67,7 +67,6 @@ const GRADIENTS = {
     indigo: "from-indigo-600 to-blue-500"
 };
 
-// --- DATA SETS PER TYPE ---
 const WINKELS = [
     { name: "AH", color: "blue" },
     { name: "Colruyt", color: "orange" },
@@ -111,7 +110,7 @@ const EMOJI_CATEGORIES = {
     "Vlees.": ["🥩", "🍗", "🍖", "🥓", "🍔", "🌭", "🍳", "🥚", "🧀"],
     "Vis.": ["🐟", "🐠", "🐡", "🦈", "🐙", "🦀", "🦞", "🦐", "🦑", "🦪", "🍣", "🍤", "🎏"],
     "Deegwaren.": ["🍞", "🥐", "🥖", "🫓", "🥨", "🥯", "🥞", "🧇", "🥟", "🥠", "🥡", "🍜", "🍝", "🍕", "🍔"],
-    "Fastfood.": ["🍟", "🥪", "🌮", "🌯", "🫔", "🥙", "🧆", "🥘", "🍲", "🫕", "🥣", "🥗", "🍿", "🧈", "🧂", "🥫", "🍱", "🍘", "🍙", "🍚", "🍛", "🍢", "🍥", "🍡"],
+    "Fastfood.": ["🍟", "🥪", "🌮", "🌯", "🫔", "🥙", "🧆", "🥘", "🍲", "🫕", "🥣", "🥗", "🍿", "バター", "🧂", "🥫", "🍱", "🍘", "🍙", "🍚", "🍛", "🍢", "🍥", "🍡"],
     "Dessert.": ["🍦", "🍧", "🍨", "🍩", "🍪", "🎂", "🍰", "🧁", "🥧", "🍫", "🍬", "🍭", "🍮", "🍯"],
     "Drinken.": ["🍼", "🥛", "☕", "🫖", "🍵", "🍶", "🍾", "🍷", "🍸", "🍹", "🍺", "🍻", "🥂", "🥃", "🥤", "🧃", "🧉"],
      "Dieren.": ["🐄", "🐂", "🐃", "🐖", "🐏", "🐑", "🐐", "🐓", "🦃", "🦆", "🕊️", "🦢", "🪿", "🦤", "🐤", "🦬", "🐫", "🦘", "🐇", "🐷", "🐮", "🐔", "🐗", "🐴", "🫎", "🦏", "🐊"],
@@ -119,7 +118,6 @@ const EMOJI_CATEGORIES = {
     "Overig.": ["❄️", "🧊", "🏷️", "📦", "🛒", "🛍️", "🍽️", "🔪", "🥄", "👩🏼‍🍳", "👨🏼‍🍳", "👍🏼", "👎🏼", "🎆", "🎉", "🎊", "🎃", "🎄", "🎁", "👑"]
 };
 
-// --- 3. ICOON COMPONENTEN (SVG) ---
 const Icon = ({ path, size = 20, className = "" }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
         {path}
@@ -393,6 +391,7 @@ function App() {
     const [showShopifyModal, setShowShopifyModal] = useState(false);
     const [itemToShopify, setItemToShopify] = useState(null);
     const [shopForDeletedItem, setShopForDeletedItem] = useState('');
+    const [aantalForShopifyItem, setAantalForShopifyItem] = useState(1);
 
     // Forms
     const [formData, setFormData] = useState({
@@ -786,11 +785,10 @@ function App() {
             await logAction('Verwijderd', itemToDelete.naam, logDetail, user, beheerdeUserId);
             showNotification(`${itemToDelete.naam} is verwijderd.`, 'success');
             
-            // VERVANGEN DOOR NIEUWE MODAL LOGICA
-            // We zetten het verwijderde item tijdelijk in een state om het eventueel toe te voegen aan boodschappen
             setItemToShopify(itemToDelete);
+            setAantalForShopifyItem(itemToDelete.aantal || 1);
             setShowDeleteModal(false);
-            setShowShopifyModal(true); // Open nieuwe modal voor winkelkeuze
+            setShowShopifyModal(true);
             setItemToDelete(null);
 
         } catch(err) {
@@ -800,31 +798,30 @@ function App() {
         }
     };
 
-    // --- NIEUWE FUNCTIE: Handelt het toevoegen vanuit de delete-flow af ---
     const handleAddToShoppingFromDelete = async () => {
         if (!itemToShopify) return;
 
         await db.collection('shoppingList').add({
             naam: itemToShopify.naam,
-            aantal: 1,
+            aantal: parseFloat(aantalForShopifyItem),
             eenheid: itemToShopify.eenheid || 'stuks',
-            winkel: shopForDeletedItem, // Gebruik de gekozen winkel
+            winkel: shopForDeletedItem,
             checked: false,
             userId: beheerdeUserId
         });
         showNotification("Aan boodschappenlijst toegevoegd.", "success");
         
-        // Reset en sluit
         setShopForDeletedItem('');
         setItemToShopify(null);
+        setAantalForShopifyItem(1);
         setShowShopifyModal(false);
     };
 
-    // --- BOODSCHAPPENLIJST HANDLERS ---
     const handleAddShoppingItem = async (e) => {
         e.preventDefault();
         await db.collection('shoppingList').add({
             ...shoppingFormData,
+            aantal: parseFloat(shoppingFormData.aantal),
             checked: false,
             userId: beheerdeUserId
         });
@@ -860,7 +857,6 @@ function App() {
         }
     };
 
-    // --- SUGGESTIE LOGICA (Wat eten we vandaag?) ---
     const getSuggestions = () => {
         const scoredItems = items.map(item => {
             let score = 0;
@@ -896,7 +892,6 @@ function App() {
         setShowAddModal(true);
     };
 
-    // --- BEHEER HANDLERS ---
     const handleAddLocatie = async (e) => {
         e.preventDefault();
         await db.collection('vriezers').add({ 
@@ -1125,7 +1120,6 @@ function App() {
 
     return (
         <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-100 transition-colors duration-300">
-             {/* Render Notification if active */}
              {notification && (
                 <Toast 
                     message={notification.msg} 
@@ -1135,15 +1129,12 @@ function App() {
                 />
             )}
 
-            {/* Header */}
             <header className="bg-white dark:bg-gray-800 sticky top-0 z-30 shadow-sm border-b border-gray-200 dark:border-gray-700 print:hidden transition-colors duration-300">
                 <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
                     <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">Voorraad.</h1>
                     <div className="flex gap-2 relative">
-                        {/* Instellingen Knop */}
                         <button onClick={() => { setSelectedLocatieForBeheer(null); setBeheerdeUserId(beheerdeUserId); setShowBeheerModal(true); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><Icon path={Icons.Settings}/></button>
 
-                        {/* NIEUW: Boodschappenlijst Knop met Badge */}
                         <button onClick={() => setShowShoppingModal(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 relative hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-blue-600 dark:text-blue-400">
                             <Icon path={Icons.ShoppingCart}/>
                             {shoppingList.length > 0 && (
@@ -1153,13 +1144,10 @@ function App() {
                             )}
                         </button>
                         
-                        {/* Admin Knop */}
                         {isAdmin && <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors"><Icon path={Icons.Users}/></button>}
                         
-                        {/* Meldingen Knop */}
                         <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 relative hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"><Icon path={Icons.Info}/>{alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>}</button>
                         
-                        {/* Profiel Knop */}
                         <div className="relative">
                             <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 transition-colors">
                                 {user.photoURL ? <img src={user.photoURL} alt="Profiel" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400"><Icon path={Icons.User} size={20}/></div>}
@@ -1225,17 +1213,14 @@ function App() {
                 </div>
             </header>
 
-            {/* Main Content */}
             <main className="max-w-7xl mx-auto p-4 space-y-6 flex-grow w-full pb-32">
                 
-                {/* VOORRAAD TABS CONTENT (Default view) */}
                 <div className="flex flex-col gap-4 print:hidden">
                     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                         <div className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm font-bold">{activeItems.length} items</div>
                         {filteredLocaties.map(l => <div key={l.id} className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm">{items.filter(i=>i.vriezerId===l.id).length} {l.naam}</div>)}
                     </div>
                     
-                    {/* Verbeterde Mobile Layout voor Zoekbalk + Knoppen */}
                     <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
                         <div className="relative group flex-grow w-full">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Icon path={Icons.Search} className="text-gray-400"/></div>
@@ -1243,12 +1228,10 @@ function App() {
                         </div>
                         
                         <div className="flex gap-2 w-full sm:w-auto">
-                            {/* Wat eten we knop: klein vierkant op mobiel */}
                             <button onClick={() => setShowSuggestionModal(true)} className="flex-none sm:flex-none w-10 h-10 sm:w-auto sm:h-auto bg-yellow-100 text-yellow-600 sm:p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
                                 <Icon path={Icons.Utensils}/>
                             </button>
                             
-                            {/* Alles open/dicht knop: vult de rest */}
                             <button onClick={toggleAll} className="flex-grow sm:flex-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap text-center">
                                 {collapsedLades.size > 0 ? "Alles open" : "Alles dicht"}
                             </button>
@@ -1256,7 +1239,6 @@ function App() {
                     </div>
                 </div>
 
-                {/* Lijsten Grid Container */}
                 <div className={`grid gap-6 items-start ${gridClass}`}>
                     {filteredLocaties.map(vriezer => {
                         const gradientKeys = Object.keys(GRADIENTS);
@@ -1308,11 +1290,9 @@ function App() {
                                                                                     <Badge type={catColor} text={item.categorie} />
                                                                                 )}
                                                                             </div>
-                                                                            {/* THT Datum Fix: Wrappen toestaan (flex-wrap) en geen truncate meer */}
                                                                             <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
                                                                                 <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
                                                                                 {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
-                                                                                {/* FIX: THT bij vriezer neutraal gekleurd, bij stock gekleurd */}
                                                                                 {!isStockItem && item.houdbaarheidsDatum && <span className="text-xs text-gray-500 dark:text-gray-400"> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
                                                                                 {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
                                                                             </div>
@@ -1320,7 +1300,6 @@ function App() {
                                                                     </div>
                                                                     <div className="flex items-center gap-1 flex-shrink-0 print:hidden ml-2">
                                                                         <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50"><Icon path={Icons.Edit2} size={16}/></button>
-                                                                        {/* DELETE KNOP OPENT NU CONFIRM MODAL */}
                                                                         <button onClick={()=>initDelete(item)} className="p-2 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50"><Icon path={Icons.Trash2} size={16}/></button>
                                                                     </div>
                                                                 </li>
@@ -1338,7 +1317,6 @@ function App() {
                 </div>
             </main>
 
-            {/* Footer */}
             <footer className="bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 py-6 print:hidden transition-colors duration-300">
                 <div className="max-w-7xl mx-auto px-4 text-center">
                     <div className="flex items-center justify-center gap-2 mb-1">
@@ -1356,14 +1334,11 @@ function App() {
                 </div>
             </footer>
 
-            {/* FAB */}
             <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 print:hidden hover:scale-105 transition-transform"><Icon path={Icons.Plus} size={28}/></button>
 
             {/* Add/Edit Modal */}
             <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken." : "Toevoegen."} color="blue">
                 <form onSubmit={handleSaveItem} className="space-y-4">
-                    
-                    {/* NIEUW: TYPE SELECTOR IN MODAL */}
                     <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4">
                         <button type="button" onClick={() => handleModalTypeChange('vriezer')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${modalType === 'vriezer' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>
                             Vriezer.
@@ -1398,58 +1373,54 @@ function App() {
                             {formLades.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
                         </select></div>
                     </div>
-                <div className="flex gap-4 items-end">
-  {/* Aantal met pijltjes */}
-  <div className="relative w-24 flex-1">
-    <input 
-      type="number" 
-      step="0.25" 
-      min="0" 
-      max="99.75"
-      className="w-full text-center h-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg pr-8 pl-8 focus:ring-2 focus:ring-blue-500 outline-none appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
-      value={formData.aantal} 
-      onChange={e => setFormData({...formData, aantal: e.target.value})}
-    />
-    {/* Up */}
-    <button 
-      type="button"
-      onClick={() => {
-        const current = parseFloat(formData.aantal) || 0;
-        const next = Math.min(current + 0.25, 99.75);
-        setFormData({...formData, aantal: next.toFixed(2)});
-      }}
-      className="absolute right-1 top-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
-    >
-      <Icon path={Icons.ChevronRight} size={12} className="rotate-[-90deg]" />
-    </button>
-    {/* Down */}
-    <button 
-      type="button"
-      onClick={() => {
-        const current = parseFloat(formData.aantal) || 0;
-        const next = Math.max(current - 0.25, 0);
-        setFormData({...formData, aantal: next.toFixed(2)});
-      }}
-      className="absolute right-1 bottom-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
-    >
-      <Icon path={Icons.ChevronRight} size={12} className="rotate-[90deg]" />
-    </button>
-  </div>
-  
-  {/* Eenheid select - DEZE WAS WEG! */}
-  <select 
-    value={formData.eenheid} 
-    onChange={e => setFormData({...formData, eenheid: e.target.value})}
-    className="flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-  >
-    {alleEenheden.map((eenheid) => (
-      <option key={eenheid} value={eenheid}>
-        {eenheid}
-      </option>
-    ))}
-  </select>
-</div>
-                    {/* Conditonele Datum Velden gebaseerd op modalType */}
+                    <div className="flex gap-4 items-end">
+                      <div className="relative w-24 flex-1">
+                        <input 
+                          type="number" 
+                          step="0.25" 
+                          min="0" 
+                          max="99.75"
+                          className="w-full text-center h-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg pr-8 pl-8 focus:ring-2 focus:ring-blue-500 outline-none appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                          value={formData.aantal} 
+                          onChange={e => setFormData({...formData, aantal: e.target.value})}
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            const current = parseFloat(formData.aantal) || 0;
+                            const next = Math.min(current + 0.25, 99.75);
+                            setFormData({...formData, aantal: next.toFixed(2)});
+                          }}
+                          className="absolute right-1 top-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
+                        >
+                          <Icon path={Icons.ChevronRight} size={12} className="rotate-[-90deg]" />
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            const current = parseFloat(formData.aantal) || 0;
+                            const next = Math.max(current - 0.25, 0);
+                            setFormData({...formData, aantal: next.toFixed(2)});
+                          }}
+                          className="absolute right-1 bottom-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
+                        >
+                          <Icon path={Icons.ChevronRight} size={12} className="rotate-[90deg]" />
+                        </button>
+                      </div>
+                      
+                      <select 
+                        value={formData.eenheid} 
+                        onChange={e => setFormData({...formData, eenheid: e.target.value})}
+                        className="flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                      >
+                        {alleEenheden.map((eenheid) => (
+                          <option key={eenheid} value={eenheid}>
+                            {eenheid}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                     {modalType === 'vriezer' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Invriesdatum.</label>
@@ -1484,7 +1455,7 @@ function App() {
                 <EmojiGrid onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
             </Modal>
 
-            {/* Shopping List Modal (NIEUW) */}
+            {/* Shopping List Modal */}
             <Modal isOpen={showShoppingModal} onClose={() => setShowShoppingModal(false)} title="Boodschappenlijst." color="blue">
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="bg-white dark:bg-gray-700/50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600 p-4 mb-4">
@@ -1498,15 +1469,37 @@ function App() {
                                     onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} 
                                     required
                                 />
-                                <input 
-                                    type="number" 
-                                    className="w-16 p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white text-center flex-shrink-0" 
-                                    value={shoppingFormData.aantal} 
-                                    onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
-                                />
+                                <div className="relative w-20 flex-shrink-0">
+                                    <input 
+                                        type="number" 
+                                        step="0.25"
+                                        className="w-full h-12 text-center border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white pr-5 pl-1 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                                        value={shoppingFormData.aantal} 
+                                        onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
+                                    />
+                                    <button 
+                                      type="button"
+                                      onClick={() => {
+                                        const current = parseFloat(shoppingFormData.aantal) || 0;
+                                        setShoppingFormData({...shoppingFormData, aantal: (current + 0.25).toFixed(2)});
+                                      }}
+                                      className="absolute right-1 top-1 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 cursor-pointer"
+                                    >
+                                      <Icon path={Icons.ChevronRight} size={10} className="rotate-[-90deg]" />
+                                    </button>
+                                    <button 
+                                      type="button"
+                                      onClick={() => {
+                                        const current = parseFloat(shoppingFormData.aantal) || 0;
+                                        setShoppingFormData({...shoppingFormData, aantal: Math.max(0, current - 0.25).toFixed(2)});
+                                      }}
+                                      className="absolute right-1 bottom-1 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 cursor-pointer"
+                                    >
+                                      <Icon path={Icons.ChevronRight} size={10} className="rotate-[90deg]" />
+                                    </button>
+                                </div>
                             </div>
                             
-                            {/* WINKEL SELECTOR */}
                             <div className="flex gap-2">
                                 <select 
                                     className="flex-grow p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
@@ -1535,7 +1528,7 @@ function App() {
                                         </div>
                                         <div className="flex flex-col min-w-0">
                                             <span className={`font-medium truncate ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
-                                                {item.aantal > 1 && <span className="font-bold text-blue-600 mr-1">{item.aantal}x</span>}
+                                                {item.aantal > 0 && <span className="font-bold text-blue-600 mr-1">{formatAantal(item.aantal)} {item.eenheid}</span>}
                                                 {item.naam}
                                             </span>
                                             {item.winkel && (
@@ -1556,7 +1549,7 @@ function App() {
                 </div>
             </Modal>
 
-            {/* Delete Confirmation Modal (Verspillingsmonitor) */}
+            {/* Delete Confirmation Modal */}
             <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Product verwijderen." color="red">
                 <p className="text-gray-800 dark:text-gray-200 mb-6">Wat is de reden voor het verwijderen van <strong>{itemToDelete?.naam}</strong>?</p>
                 <div className="grid grid-cols-1 gap-3">
@@ -1572,29 +1565,63 @@ function App() {
                 </div>
             </Modal>
 
-            {/* NIEUW: MODAL OM WINKEL TE KIEZEN NA VERWIJDEREN */}
+            {/* Shopify Modal (Choose store and quantity after delete) */}
             <Modal isOpen={showShopifyModal} onClose={() => setShowShopifyModal(false)} title="Boodschappenlijst?" color="blue">
                 <p className="text-gray-800 dark:text-gray-200 mb-4">Wil je <strong>{itemToShopify?.naam}</strong> op de boodschappenlijst zetten?</p>
                 
                 <div className="space-y-4">
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 block">Kies winkel (optioneel)</label>
-                        <select 
-                            className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                            value={shopForDeletedItem}
-                            onChange={(e) => setShopForDeletedItem(e.target.value)}
-                        >
-                            <option value="">Geen specifieke winkel</option>
-                            {WINKELS.map(w => <option key={w.name} value={w.name}>{w.name}</option>)}
-                        </select>
+                    <div className="flex gap-4">
+                        <div className="flex-1">
+                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 block">Winkel (optioneel)</label>
+                            <select 
+                                className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                                value={shopForDeletedItem}
+                                onChange={(e) => setShopForDeletedItem(e.target.value)}
+                            >
+                                <option value="">Geen winkel</option>
+                                {WINKELS.map(w => <option key={w.name} value={w.name}>{w.name}</option>)}
+                            </select>
+                        </div>
+                        <div className="w-24">
+                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 block">Aantal</label>
+                            <div className="relative">
+                                <input 
+                                    type="number" 
+                                    step="0.25"
+                                    className="w-full h-12 text-center border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white pr-6 pl-1 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                                    value={aantalForShopifyItem} 
+                                    onChange={(e) => setAantalForShopifyItem(e.target.value)}
+                                />
+                                <button 
+                                  type="button"
+                                  onClick={() => {
+                                    const current = parseFloat(aantalForShopifyItem) || 0;
+                                    setAantalForShopifyItem((current + 0.25).toFixed(2));
+                                  }}
+                                  className="absolute right-1 top-1 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 cursor-pointer"
+                                >
+                                  <Icon path={Icons.ChevronRight} size={10} className="rotate-[-90deg]" />
+                                </button>
+                                <button 
+                                  type="button"
+                                  onClick={() => {
+                                    const current = parseFloat(aantalForShopifyItem) || 0;
+                                    setAantalForShopifyItem(Math.max(0, current - 0.25).toFixed(2));
+                                  }}
+                                  className="absolute right-1 bottom-1 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 cursor-pointer"
+                                >
+                                  <Icon path={Icons.ChevronRight} size={10} className="rotate-[90deg]" />
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                         <button onClick={() => setShowShopifyModal(false)} className="p-3 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 transition">
-                            Nee, bedankt
+                            Nee
                         </button>
                         <button onClick={handleAddToShoppingFromDelete} className="p-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-md">
-                            Ja, toevoegen
+                            Ja, voeg toe
                         </button>
                     </div>
                 </div>
@@ -1628,7 +1655,6 @@ function App() {
                 ) : <p className="text-center text-gray-400 text-sm">Nog geen data beschikbaar.</p>}
             </Modal>
             
-            {/* Suggestion Modal (Wat eten we vandaag) */}
             <Modal isOpen={showSuggestionModal} onClose={() => setShowSuggestionModal(false)} title="Wat eten we vandaag?" color="yellow">
                 <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">Deze producten hebben prioriteit op basis van houdbaarheid:</p>
                 <div className="space-y-3">
@@ -1649,7 +1675,6 @@ function App() {
                 </div>
             </Modal>
 
-            {/* Logboek Modal */}
             <Modal isOpen={showLogModal} onClose={() => setShowLogModal(false)} title="Logboek." color="teal">
                 {logs.length === 0 ? (
                     <p className="text-gray-500 dark:text-gray-400 text-center italic py-4">Nog geen activiteiten.</p>
@@ -1671,7 +1696,6 @@ function App() {
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isAdded ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : isDeleted ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
                                                 {log.action}
                                             </span>
-                                            {/* Admin: Toon van wie deze voorraad is */}
                                             {isAdmin && (
                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${isMine ? 'border-green-300 text-green-600 dark:border-green-700 dark:text-green-400' : 'border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400'}`}>
                                                     {isMine ? 'Eigen' : 'Ander'}
@@ -1690,7 +1714,6 @@ function App() {
                 )}
             </Modal>
 
-            {/* Beheer Modal */}
             <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen." color="purple">
                 <div className="flex border-b dark:border-gray-700 mb-4">
                     <button onClick={() => setBeheerTab('locaties')} className={`flex-1 py-2 font-medium ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500 dark:text-gray-400'}`}>Locaties.</button>
@@ -1786,8 +1809,6 @@ function App() {
                 {beheerTab === 'eenheden' && (
                     <div>
                         <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Mijn eenheden</h4>
-                        
-                        {/* Toggle Vries/Frig/Stock */}
                         <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4">
                             <button onClick={() => setEenheidFilter('vries')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'vries' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>
                                 Vriezer.
@@ -1829,7 +1850,6 @@ function App() {
                 )}
             </Modal>
             
-            {/* User Management Modal */}
             <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers." color="pink">
                 <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                     {usersList.map(u => (
@@ -1869,7 +1889,6 @@ function App() {
                 </ul>
             </Modal>
 
-            {/* Share Modal */}
             <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Voorraad Delen" color="green">
                 <form onSubmit={handleShare} className="space-y-4">
                     <p className="text-sm text-gray-600 dark:text-gray-300">Nodig iemand uit om je voorraad te beheren.</p>
@@ -1878,7 +1897,6 @@ function App() {
                 </form>
             </Modal>
 
-            {/* Updates Modal */}
             <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red">
                 {alerts.length > 0 && (
                     <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 dark:bg-red-900/20">
@@ -1946,7 +1964,6 @@ function App() {
                 </div>
             </Modal>
 
-            {/* Version History Modal */}
             <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Nieuws." color="blue">
                 <div className="mb-8 text-center px-4">
                     <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
@@ -1958,12 +1975,10 @@ function App() {
                 </div>
 
                 <div className="space-y-8 relative pl-2">
-                    {/* Vertical line connecting versions */}
                     <div className="absolute left-[19px] top-2 bottom-4 w-0.5 bg-gray-100 dark:bg-gray-700"></div>
 
                     {VERSION_HISTORY.map((v, i) => (
                         <div key={v.version} className="relative pl-10">
-                            {/* Dot on timeline */}
                             <div className={`absolute left-[13px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-800 z-10 ${i === 0 ? 'bg-blue-500 shadow-md shadow-blue-200' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
 
                             <div className="mb-3">
@@ -2008,7 +2023,6 @@ function App() {
                 </div>
             </Modal>
 
-            {/* Switch Account Modal (Admin) */}
             <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel account." color="gray">
                 <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                     {usersList.map(u => (
