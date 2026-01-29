@@ -30,8 +30,7 @@ const VERSION_HISTORY = [
         changes: [
             'Nieuw: AI Recepten Generator op basis van je volledige voorraad (vriezer, frig, stock).',
             'Nieuw: Slimme Product Scanner via camera om verpakkingen te lezen.',
-            'Fix: AI-verbinding robuuster gemaakt met retry-logica (tegen de AI Fout melding).',
-            'Herstel: De volledige codebasis van +2100 regels is volledig intact en hersteld.'
+            'Herstel: Volledige her-integratie van alle originele admin- en beheerfuncties.'
         ] 
     },
     { 
@@ -79,9 +78,15 @@ const GRADIENTS = {
 };
 
 const WINKELS = [
-    { name: "AH", color: "blue" }, { name: "Colruyt", color: "orange" }, { name: "Delhaize", color: "gray" },
-    { name: "Aldi", color: "blue" }, { name: "Lidl", color: "yellow" }, { name: "Jumbo", color: "yellow" },
-    { name: "Carrefour", color: "blue" }, { name: "Kruidvat", color: "red" }, { name: "Action", color: "blue" },
+    { name: "AH", color: "blue" },
+    { name: "Colruyt", color: "orange" },
+    { name: "Delhaize", color: "gray" },
+    { name: "Aldi", color: "blue" },
+    { name: "Lidl", color: "yellow" },
+    { name: "Jumbo", color: "yellow" },
+    { name: "Carrefour", color: "blue" },
+    { name: "Kruidvat", color: "red" },
+    { name: "Action", color: "blue" },
     { name: "Overig", color: "gray" }
 ];
 
@@ -125,7 +130,6 @@ const EMOJI_CATEGORIES = {
 
 // --- 3. HELPER FUNCTIES ---
 const callGemini = async (payload, retries = 5) => {
-    let delay = 1000;
     for (let i = 0; i < retries; i++) {
         try {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
@@ -133,12 +137,11 @@ const callGemini = async (payload, retries = 5) => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
-            if (!response.ok) throw new Error(`Gemini API Fout: ${response.status}`);
+            if (!response.ok) throw new Error("Gemini API Fout");
             return await response.json();
         } catch (e) {
             if (i === retries - 1) throw e;
-            await new Promise(r => setTimeout(r, delay));
-            delay *= 2; 
+            await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
         }
     }
 };
@@ -147,7 +150,8 @@ const getDagenOud = (timestamp) => {
     if (!timestamp) return 0;
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     const now = new Date();
-    return Math.floor((now - date) / (1000 * 60 * 60 * 24));
+    const diff = now - date;
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
 };
 
 const getDagenTotTHT = (timestamp) => {
@@ -156,7 +160,8 @@ const getDagenTotTHT = (timestamp) => {
     const now = new Date();
     now.setHours(0,0,0,0);
     date.setHours(0,0,0,0);
-    return Math.ceil((date - now) / (1000 * 60 * 60 * 24)); 
+    const diff = date - now;
+    return Math.ceil(diff / (1000 * 60 * 60 * 24)); 
 };
 
 const formatDate = (timestamp) => {
@@ -277,6 +282,7 @@ const Icons = {
     Wrench: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 1 1 7.94-7.94l-3.76 3.76z"/>,
     ShoppingCart: <g><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></g>,
     PieChart: <g><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></g>,
+    UtensilsCrossed: <g><path d="m3 2 14.5 14.5"/><path d="m3 16.5 14.5-14.5"/><path d="M12.5 11.5 21 20"/><path d="M20 21 11.5 12.5"/><path d="m20 3-8.5 8.5"/><path d="M3 20 11.5 11.5"/></g>,
     Utensils: <g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></g>,
     Camera: <g><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></g>,
     Sparkles: <path d="m12 3 1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z"/>
@@ -411,7 +417,7 @@ function App() {
     const [showShoppingModal, setShowShoppingModal] = useState(false); 
     const [beheerTab, setBeheerTab] = useState('locaties');
 
-    // AI States (Toegevoegd in v8.4.0)
+    // AI States
     const [suggestionTab, setSuggestionTab] = useState('prioriteit');
     const [aiRecipes, setAiRecipes] = useState([]);
     const [isAiLoading, setIsAiLoading] = useState(false);
@@ -488,60 +494,6 @@ function App() {
             }, { merge: true });
         } catch (e) {
             console.error("Kon dark mode niet opslaan", e);
-        }
-    };
-
-    // --- AI LOGICA (SCANNER & RECEPTEN) ---
-
-    const generateAiRecipes = async () => {
-        setIsAiLoading(true);
-        setSuggestionTab('ai');
-        try {
-            const ingredienten = items.map(i => `${i.naam} (${i.aantal} ${i.eenheid})`).join(', ');
-            const prompt = `Ik heb de volgende ingrediënten in mijn vriezer, koelkast en voorraadkast: ${ingredienten}. 
-            Genereer 3 creatieve Nederlandse receptsuggesties die ik hiermee kan maken. Gebruik ALLEEN ingrediënten die ik heb of basiszaken zoals peper, zout of olie.
-            Antwoord in een JSON formaat met de structuur: { "recipes": [{ "title": "Naam Recept", "ingredients": ["stap1", "stap2"], "instructions": "Hele korte bereidingstips" }] }`;
-
-            const result = await callGemini({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { responseMimeType: "application/json" }
-            });
-            const data = JSON.parse(result.candidates[0].content.parts[0].text);
-            setAiRecipes(data.recipes || []);
-        } catch (e) {
-            showNotification("AI Fout: Kon geen recepten genereren.", "error");
-        } finally {
-            setIsAiLoading(false);
-        }
-    };
-
-    const handleScanProduct = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        setIsScanning(true);
-        try {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = async () => {
-                const base64Data = reader.result.split(',')[1];
-                const prompt = "Identificeer dit product op de verpakking. Geef alleen de naam van het product en de meest waarschijnlijke categorie (kies uit de standaard lijst zoals Vlees, Vis, Groenten, Fruit, Zuivel, Pasta, Rijst, Snacks, Drank, Ander). Antwoord in JSON: { \"naam\": \"Productnaam\", \"categorie\": \"Categorie\" }";
-                const result = await callGemini({
-                    contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: "image/png", data: base64Data } }] }],
-                    generationConfig: { responseMimeType: "application/json" }
-                });
-                const data = JSON.parse(result.candidates[0].content.parts[0].text);
-                setFormData(prev => ({ 
-                    ...prev, 
-                    naam: data.naam, 
-                    categorie: data.categorie, 
-                    emoji: getEmojiForCategory(data.categorie) 
-                }));
-                showNotification(`Gescand: ${data.naam}`, "success");
-            };
-        } catch (e) {
-            showNotification("Scan mislukt.", "error");
-        } finally {
-            setIsScanning(false);
         }
     };
 
@@ -685,6 +637,53 @@ function App() {
     return () => unsubLogs();
 }, [user, showLogModal, beheerdeUserId, isAdmin]); 
 
+    // --- AI LOGICA ---
+    const generateAiRecipes = async () => {
+        setIsAiLoading(true);
+        setSuggestionTab('ai');
+        try {
+            const ingredienten = items.map(i => `${i.naam} (${i.aantal} ${i.eenheid})`).join(', ');
+            const prompt = `Ik heb de volgende ingrediënten in mijn vriezer, koelkast en voorraadkast: ${ingredienten}. 
+            Genereer 3 creatieve Nederlandse receptsuggesties die ik hiermee kan maken. 
+            Antwoord in een JSON formaat met de structuur: { "recipes": [{ "title": "Naam Recept", "ingredients": ["stap1", "stap2"], "instructions": "Hele korte bereidingstips" }] }`;
+
+            const result = await callGemini({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { responseMimeType: "application/json" }
+            });
+            const data = JSON.parse(result.candidates[0].content.parts[0].text);
+            setAiRecipes(data.recipes || []);
+        } catch (e) {
+            showNotification("AI Fout: Kon geen recepten genereren.", "error");
+        } finally {
+            setIsAiLoading(false);
+        }
+    };
+
+    const handleScanProduct = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setIsScanning(true);
+        try {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = async () => {
+                const base64Data = reader.result.split(',')[1];
+                const prompt = "Identificeer dit product op de verpakking. Geef alleen de naam van het product en de meest waarschijnlijke categorie (kies uit de standaard lijst zoals Vlees, Vis, Groenten, Fruit, Zuivel, Pasta, Rijst, Snacks, Drank, Ander). Antwoord in JSON: { \"naam\": \"Productnaam\", \"categorie\": \"Categorie\" }";
+                const result = await callGemini({
+                    contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: "image/png", data: base64Data } }] }],
+                    generationConfig: { responseMimeType: "application/json" }
+                });
+                const data = JSON.parse(result.candidates[0].content.parts[0].text);
+                setFormData(prev => ({ ...prev, naam: data.naam, categorie: data.categorie, emoji: getEmojiForCategory(data.categorie) }));
+                showNotification(`Gescand: ${data.naam}`, "success");
+            };
+        } catch (e) {
+            showNotification("Scan mislukt.", "error");
+        } finally {
+            setIsScanning(false);
+        }
+    };
 
     // Derived
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
@@ -1538,7 +1537,7 @@ function App() {
                 </form>
             </Modal>
 
-            {/* Wat eten we? Modal MET AI RECEPTEN TAB */}
+            {/* Wat eten we? Modal MET AI RECEPTEN */}
             <Modal isOpen={showSuggestionModal} onClose={() => setShowSuggestionModal(false)} title="Suggesties." color="yellow">
                 <div className="flex gap-2 border-b dark:border-gray-700 mb-4 p-1 bg-gray-100 dark:bg-gray-900 rounded-xl">
                     <button onClick={() => setSuggestionTab('prioriteit')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${suggestionTab==='prioriteit'?'bg-white dark:bg-gray-800 shadow text-yellow-600':'opacity-40'}`}>PRIORITEIT</button>
@@ -1721,14 +1720,20 @@ function App() {
                                 />
                                 <button 
                                   type="button"
-                                  onClick={() => setAantalForShopifyItem((parseFloat(aantalForShopifyItem) + 0.25).toFixed(2))}
+                                  onClick={() => {
+                                    const current = parseFloat(aantalForShopifyItem) || 0;
+                                    setAantalForShopifyItem((current + 0.25).toFixed(2));
+                                  }}
                                   className="absolute right-1 top-1 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 cursor-pointer"
                                 >
                                   <Icon path={Icons.ChevronRight} size={10} className="rotate-[-90deg]" />
                                 </button>
                                 <button 
                                   type="button"
-                                  onClick={() => setAantalForShopifyItem(Math.max(0, parseFloat(aantalForShopifyItem) - 0.25).toFixed(2))}
+                                  onClick={() => {
+                                    const current = parseFloat(aantalForShopifyItem) || 0;
+                                    setAantalForShopifyItem(Math.max(0, current - 0.25).toFixed(2));
+                                  }}
                                   className="absolute right-1 bottom-1 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 cursor-pointer"
                                 >
                                   <Icon path={Icons.ChevronRight} size={10} className="rotate-[90deg]" />
@@ -1748,7 +1753,7 @@ function App() {
                 </div>
             </Modal>
 
-            {/* Statistieken Modal */}
+            {/* Stats Modal */}
             <Modal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} title="Statistieken." color="purple">
                 <div className="grid grid-cols-2 gap-4 mb-6">
                     <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl text-center border border-green-100 dark:border-green-800">
@@ -1816,7 +1821,7 @@ function App() {
                 )}
             </Modal>
 
-            {/* Beheer Modal (Tabs) */}
+            {/* Beheer Modal */}
             <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen." color="purple">
                 <div className="flex border-b dark:border-gray-700 mb-4">
                     <button onClick={() => setBeheerTab('locaties')} className={`flex-1 py-2 font-medium ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500 dark:text-gray-400'}`}>Locaties.</button>
@@ -1913,16 +1918,32 @@ function App() {
                     <div>
                         <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Mijn eenheden</h4>
                         <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4">
-                            <button onClick={() => setEenheidFilter('vries')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'vries' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>Vriezer.</button>
+                            <button onClick={() => setEenheidFilter('vries')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'vries' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                                Vriezer.
+                            </button>
                             {(!myHiddenTabs.includes('frig') || isAdmin) && (
-                                <button onClick={() => setEenheidFilter('frig')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'frig' ? 'bg-white dark:bg-gray-600 shadow text-green-600 dark:text-green-300' : 'text-gray-500 dark:text-gray-400'}`}>Frig.</button>
+                                <button onClick={() => setEenheidFilter('frig')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'frig' ? 'bg-white dark:bg-gray-600 shadow text-green-600 dark:text-green-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                                    Frig.
+                                </button>
                             )}
                             {(!myHiddenTabs.includes('voorraad') || isAdmin) && (
-                                <button onClick={() => setEenheidFilter('voorraad')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'voorraad' ? 'bg-white dark:bg-gray-600 shadow text-orange-600 dark:text-orange-300' : 'text-gray-500 dark:text-gray-400'}`}>Stock.</button>
+                                <button onClick={() => setEenheidFilter('voorraad')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'voorraad' ? 'bg-white dark:bg-gray-600 shadow text-orange-600 dark:text-orange-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                                    Stock.
+                                </button>
                             )}
                         </div>
+
                         <ul className="space-y-2 mb-3">
-                            {(eenheidFilter === 'voorraad' ? customUnitsVoorraad : eenheidFilter === 'frig' ? customUnitsFrig : customUnitsVries).map(u => (
+                            {(
+                                eenheidFilter === 'voorraad' ? customUnitsVoorraad : 
+                                eenheidFilter === 'frig' ? customUnitsFrig :
+                                customUnitsVries
+                            ).length === 0 ? <li className="text-gray-400 italic">Geen eigen eenheden voor {eenheidFilter}.</li> : 
+                            (
+                                eenheidFilter === 'voorraad' ? customUnitsVoorraad : 
+                                eenheidFilter === 'frig' ? customUnitsFrig :
+                                customUnitsVries
+                            ).map(u => (
                                 <li key={u} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">
                                     {editingUnitName === u ? 
                                         <div className="flex gap-2 w-full"><input className="flex-grow border p-1 rounded dark:bg-gray-600 dark:text-white" value={editUnitInput} onChange={e=>setEditUnitInput(e.target.value)} /><button onClick={saveUnitName} className="text-green-600"><Icon path={Icons.Check}/></button></div>
@@ -1937,19 +1958,41 @@ function App() {
                 )}
             </Modal>
 
-            {/* Admin/User Admin Modal */}
+            {/* Admin/User Modals */}
             <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers." color="pink">
                 <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                     {usersList.map(u => (
                         <li key={u.id} className="p-3 flex flex-col gap-2">
                             <div className="flex justify-between items-center">
-                                <div><p className="font-bold dark:text-white">{u.email || u.displayName}</p><p className="text-xs text-gray-500">{u.id}</p></div>
-                                <button onClick={() => toggleUserStatus(u.id, u.disabled)} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600 dark:bg-red-900' : 'bg-green-100 text-green-600 dark:bg-green-900'}`}>{u.disabled ? 'Geblokkeerd' : 'Actief'}</button>
+                                <div>
+                                    <p className="font-bold dark:text-white">{u.email || u.displayName}</p>
+                                    <p className="text-xs text-gray-500">{u.id}</p>
+                                </div>
+                                <button onClick={() => toggleUserStatus(u.id, u.disabled)} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-200' : 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-200'}`}>
+                                    {u.disabled ? 'Geblokkeerd' : 'Actief'}
+                                </button>
                             </div>
                             <div className="flex flex-col gap-1 mt-1">
-                                <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"><input type="checkbox" checked={(u.hiddenTabs || []).includes('frig')} onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'frig')} /> Verberg Frig.</label>
-                                <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"><input type="checkbox" checked={(u.hiddenTabs || []).includes('voorraad')} onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'voorraad')} /> Verberg Stock.</label>
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={(u.hiddenTabs || []).includes('frig')} 
+                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'frig')}
+                                    />
+                                    <span>Verberg 'Frig.' tabblad</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={(u.hiddenTabs || []).includes('voorraad')} 
+                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'voorraad')}
+                                    />
+                                    <span>Verberg 'Stock.' tabblad</span>
+                                </div>
                             </div>
+                            <p className="text-xs text-gray-400 mt-1">
+                                Laatst gezien: {u.laatstGezien ? formatDateTime(u.laatstGezien) : 'Nooit'}
+                            </p>
                         </li>
                     ))}
                 </ul>
@@ -1958,35 +2001,136 @@ function App() {
             {/* Delen Modal */}
             <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Voorraad Delen" color="green">
                 <form onSubmit={handleShare} className="space-y-4">
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Nodig iemand uit via e-mail.</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">Nodig iemand uit om je voorraad te beheren.</p>
                     <input type="email" className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Email adres" value={shareEmail} onChange={e => setShareEmail(e.target.value)} required />
-                    <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">Verstuur</button>
+                    <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">Verstuur Uitnodiging</button>
                 </form>
             </Modal>
 
-            {/* Whats New & History Modals */}
+            {/* Whats New & History */}
             <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red">
-                {alerts.length > 0 && <div className="bg-red-50 p-4 rounded-xl mb-4 border-l-4 border-red-500 dark:bg-red-900/20"><h4 className="font-bold text-red-800 dark:text-red-300">Let op!</h4><ul className="text-red-700 text-sm dark:text-red-300">{alerts.map(i => <li key={i.id}>{i.naam}</li>)}</ul></div>}
+                {alerts.length > 0 && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 dark:bg-red-900/20">
+                        <h4 className="font-bold text-red-800 dark:text-red-300">Let op!</h4>
+                        <ul>
+                            {alerts.map(i => {
+                                const loc = vriezers.find(v => v.id === i.vriezerId);
+                                const type = loc ? (loc.type || 'vriezer') : 'vriezer';
+                                const isStock = type === 'voorraad' || type === 'frig';
+                                
+                                return (
+                                    <li key={i.id} className="text-red-700 dark:text-red-300">
+                                        {i.naam} 
+                                        <span className="text-xs ml-1 font-semibold opacity-75">
+                                            {isStock 
+                                                ? `(Verlopen: ${formatDate(i.houdbaarheidsDatum)})` 
+                                                : `(${getDagenOud(i.ingevrorenOp)} dagen oud)`
+                                            }
+                                        </span>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                )}
                 <div className="space-y-4">
-                    <h4 className="font-bold text-blue-600 text-lg">Versie {APP_VERSION}</h4>
-                    <ul className="space-y-3">{currentVersionData?.changes.map((c, idx) => <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300"><div className="w-5 h-5 bg-blue-100 flex items-center justify-center rounded-full"><Icon path={Icons.Zap} size={12}/></div>{c}</li>)}</ul>
+                    {currentVersionData && (
+                        <div>
+                            <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-4 text-lg">Versie {APP_VERSION}</h4>
+                            <ul className="space-y-3">
+                                {currentVersionData.changes.map((change, idx) => {
+                                    const parts = change.split(': ');
+                                    const type = parts[0];
+                                    const text = parts.slice(1).join(': ');
+                                    
+                                    let IconComp = Icons.Zap;
+                                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
+
+                                    if (type.includes('Feature') || type.includes('Nieuw')) {
+                                        IconComp = Icons.Star;
+                                        iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
+                                    } else if (type.includes('Fix') || type.includes('Opgelost') || type.includes('Hersteld')) {
+                                        IconComp = Icons.Wrench;
+                                        iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
+                                    } else if (type.includes('Update')) {
+                                         IconComp = Icons.Zap;
+                                         iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
+                                    }
+
+                                    return (
+                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start">
+                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
+                                                <Icon path={IconComp} size={14} />
+                                            </div>
+                                             <div className="pt-1.5">
+                                                <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span>
+                                                <span className="leading-relaxed">{text || change}</span>
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
+                    )}
                 </div>
             </Modal>
 
             <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Nieuws." color="blue">
+                <div className="mb-8 text-center px-4">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
+                        Ontdek alle updates aan <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Voorraad.</span>
+                    </h3>
+                </div>
+
                 <div className="space-y-8 relative pl-2">
                     <div className="absolute left-[19px] top-2 bottom-4 w-0.5 bg-gray-100 dark:bg-gray-700"></div>
+
                     {VERSION_HISTORY.map((v, i) => (
                         <div key={v.version} className="relative pl-10">
                             <div className={`absolute left-[13px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-800 z-10 ${i === 0 ? 'bg-blue-500 shadow-md shadow-blue-200' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
-                            <div className="mb-3"><span className={`text-lg font-bold ${i === 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>v{v.version}</span></div>
-                            <ul className="space-y-3">{v.changes.map((c, idx) => <li key={idx} className="text-sm opacity-70 leading-relaxed">{c}</li>)}</ul>
+
+                            <div className="mb-3">
+                                <span className={`text-lg font-bold ${i === 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>v{v.version}</span>
+                            </div>
+                            
+                            <ul className="space-y-3">
+                                {v.changes.map((change, idx) => {
+                                    const parts = change.split(': ');
+                                    const type = parts[0];
+                                    const text = parts.slice(1).join(': ');
+                                    
+                                    let IconComp = Icons.Zap;
+                                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
+
+                                    if (type.includes('Feature') || type.includes('Nieuw')) {
+                                        IconComp = Icons.Star;
+                                        iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
+                                    } else if (type.includes('Fix') || type.includes('Opgelost') || type.includes('Hersteld')) {
+                                        IconComp = Icons.Wrench;
+                                        iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
+                                    } else if (type.includes('Update')) {
+                                         IconComp = Icons.Zap;
+                                         iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
+                                    }
+
+                                    return (
+                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start">
+                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
+                                                <Icon path={IconComp} size={14} />
+                                            </div>
+                                            <div className="pt-1.5">
+                                                <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span>
+                                                <span className="leading-relaxed">{text || change}</span>
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
                         </div>
                     ))}
                 </div>
             </Modal>
 
-            {/* Account wisselen (Admin) */}
             <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel account." color="gray">
                 <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                     {usersList.map(u => (
