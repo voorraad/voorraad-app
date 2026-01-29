@@ -17,22 +17,12 @@ if (!firebase.apps.length) {
 }
 const db = firebase.firestore();
 const auth = firebase.auth();
-const apiKey = ""; // Runtime provides the key
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.4.0'; 
+const APP_VERSION = '8.3.5'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
-    { 
-        version: '8.4.0', 
-        type: 'feature', 
-        changes: [
-            'Nieuw: AI Recepten Generator op basis van je volledige voorraad (vriezer, frig, stock).',
-            'Nieuw: Slimme Product Scanner via camera om verpakkingen te lezen.',
-            'Herstel: Volledige her-integratie van alle originele admin- en beheerfuncties.'
-        ] 
-    },
     { 
         version: '8.3.5', 
         type: 'feature', 
@@ -128,24 +118,46 @@ const EMOJI_CATEGORIES = {
     "Overig.": ["❄️", "🧊", "🏷️", "📦", "🛒", "🛍️", "🍽️", "🔪", "🥄", "👩🏼‍🍳", "👨🏼‍🍳", "👍🏼", "👎🏼", "🎆", "🎉", "🎊", "🎃", "🎄", "🎁", "👑"]
 };
 
-// --- 3. HELPER FUNCTIES ---
-const callGemini = async (payload, retries = 5) => {
-    for (let i = 0; i < retries; i++) {
-        try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            if (!response.ok) throw new Error("Gemini API Fout");
-            return await response.json();
-        } catch (e) {
-            if (i === retries - 1) throw e;
-            await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
-        }
-    }
+const Icon = ({ path, size = 20, className = "" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        {path}
+    </svg>
+);
+
+const Icons = {
+    Plus: <path d="M5 12h14M12 5v14"/>,
+    Search: <path d="m21 21-4.3-4.3M11 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12z"/>,
+    Snowflake: <path d="M2 12h20M12 2v20m-8.5-6L12 12 8.5 8.5m7 7L12 12l3.5-3.5"/>,
+    Box: <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.3 7 12 12l8.7-5M12 12v10"/>,
+    Trash2: <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/>,
+    Edit2: <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>,
+    X: <path d="M18 6 6 18M6 6l12 12"/>,
+    Info: <path d="M12 16v-4M12 8h.01M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10z"/>,
+    LogOut: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>,
+    Users: <g><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></g>,
+    Check: <path d="M20 6 9 17l-5-5"/>,
+    Alert: <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3zM12 9v4M12 17h.01"/>,
+    Settings: <g><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g>,
+    ChevronDown: <path d="m6 9 6 6 6-6"/>,
+    ChevronRight: <path d="m9 18 6-6-6-6"/>,
+    User: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>,
+    Printer: <g><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></g>,
+    Share: <g><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></g>,
+    Sun: <g><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></g>,
+    Moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>,
+    LogBook: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></g>,
+    Lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></g>,
+    Fridge: <path d="M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 6h14m-7-6v20"/>,
+    Star: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>,
+    Zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>, 
+    Wrench: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>,
+    ShoppingCart: <g><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></g>,
+    PieChart: <g><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></g>,
+    UtensilsCrossed: <g><path d="m3 2 14.5 14.5"/><path d="m3 16.5 14.5-14.5"/><path d="M12.5 11.5 21 20"/><path d="M20 21 11.5 12.5"/><path d="m20 3-8.5 8.5"/><path d="M3 20 11.5 11.5"/></g>,
+    Utensils: <g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></g>
 };
 
+// --- 4. HULPFUNCTIES ---
 const getDagenOud = (timestamp) => {
     if (!timestamp) return 0;
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -244,48 +256,6 @@ const logAction = async (action, itemNaam, details, actorUser, targetUserId) => 
     } catch (e) {
         console.error("Kon log niet opslaan", e);
     }
-};
-
-// --- 4. ICONEN ---
-const Icon = ({ path, size = 20, className = "" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        {path}
-    </svg>
-);
-
-const Icons = {
-    Plus: <path d="M5 12h14M12 5v14"/>,
-    Search: <path d="m21 21-4.3-4.3M11 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12z"/>,
-    Snowflake: <path d="M2 12h20M12 2v20m-8.5-6L12 12 8.5 8.5m7 7L12 12l3.5-3.5"/>,
-    Box: <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.3 7 12 12l8.7-5M12 12v10"/>,
-    Trash2: <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/>,
-    Edit2: <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>,
-    X: <path d="M18 6 6 18M6 6l12 12"/>,
-    Info: <path d="M12 16v-4M12 8h.01M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10z"/>,
-    LogOut: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>,
-    Users: <g><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></g>,
-    Check: <path d="M20 6 9 17l-5-5"/>,
-    Alert: <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3zM12 9v4M12 17h.01"/>,
-    Settings: <g><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g>,
-    ChevronDown: <path d="m6 9 6 6 6-6"/>,
-    ChevronRight: <path d="m9 18 6-6-6-6"/>,
-    User: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>,
-    Printer: <g><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></g>,
-    Share: <g><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></g>,
-    Sun: <g><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></g>,
-    Moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>,
-    LogBook: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></g>,
-    Lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></g>,
-    Fridge: <path d="M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 6h14m-7-6v20"/>,
-    Star: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>,
-    Zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>, 
-    Wrench: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 1 1 7.94-7.94l-3.76 3.76z"/>,
-    ShoppingCart: <g><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></g>,
-    PieChart: <g><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></g>,
-    UtensilsCrossed: <g><path d="m3 2 14.5 14.5"/><path d="m3 16.5 14.5-14.5"/><path d="M12.5 11.5 21 20"/><path d="M20 21 11.5 12.5"/><path d="m20 3-8.5 8.5"/><path d="M3 20 11.5 11.5"/></g>,
-    Utensils: <g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></g>,
-    Camera: <g><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></g>,
-    Sparkles: <path d="m12 3 1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z"/>
 };
 
 // --- 5. COMPONENTEN ---
@@ -416,12 +386,6 @@ function App() {
     const [showSuggestionModal, setShowSuggestionModal] = useState(false);
     const [showShoppingModal, setShowShoppingModal] = useState(false); 
     const [beheerTab, setBeheerTab] = useState('locaties');
-
-    // AI States
-    const [suggestionTab, setSuggestionTab] = useState('prioriteit');
-    const [aiRecipes, setAiRecipes] = useState([]);
-    const [isAiLoading, setIsAiLoading] = useState(false);
-    const [isScanning, setIsScanning] = useState(false);
 
     // NIEUWE STATES VOOR WINKEL MODAL BIJ VERWIJDEREN
     const [showShopifyModal, setShowShopifyModal] = useState(false);
@@ -637,53 +601,6 @@ function App() {
     return () => unsubLogs();
 }, [user, showLogModal, beheerdeUserId, isAdmin]); 
 
-    // --- AI LOGICA ---
-    const generateAiRecipes = async () => {
-        setIsAiLoading(true);
-        setSuggestionTab('ai');
-        try {
-            const ingredienten = items.map(i => `${i.naam} (${i.aantal} ${i.eenheid})`).join(', ');
-            const prompt = `Ik heb de volgende ingrediënten in mijn vriezer, koelkast en voorraadkast: ${ingredienten}. 
-            Genereer 3 creatieve Nederlandse receptsuggesties die ik hiermee kan maken. 
-            Antwoord in een JSON formaat met de structuur: { "recipes": [{ "title": "Naam Recept", "ingredients": ["stap1", "stap2"], "instructions": "Hele korte bereidingstips" }] }`;
-
-            const result = await callGemini({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { responseMimeType: "application/json" }
-            });
-            const data = JSON.parse(result.candidates[0].content.parts[0].text);
-            setAiRecipes(data.recipes || []);
-        } catch (e) {
-            showNotification("AI Fout: Kon geen recepten genereren.", "error");
-        } finally {
-            setIsAiLoading(false);
-        }
-    };
-
-    const handleScanProduct = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        setIsScanning(true);
-        try {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = async () => {
-                const base64Data = reader.result.split(',')[1];
-                const prompt = "Identificeer dit product op de verpakking. Geef alleen de naam van het product en de meest waarschijnlijke categorie (kies uit de standaard lijst zoals Vlees, Vis, Groenten, Fruit, Zuivel, Pasta, Rijst, Snacks, Drank, Ander). Antwoord in JSON: { \"naam\": \"Productnaam\", \"categorie\": \"Categorie\" }";
-                const result = await callGemini({
-                    contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: "image/png", data: base64Data } }] }],
-                    generationConfig: { responseMimeType: "application/json" }
-                });
-                const data = JSON.parse(result.candidates[0].content.parts[0].text);
-                setFormData(prev => ({ ...prev, naam: data.naam, categorie: data.categorie, emoji: getEmojiForCategory(data.categorie) }));
-                showNotification(`Gescand: ${data.naam}`, "success");
-            };
-        } catch (e) {
-            showNotification("Scan mislukt.", "error");
-        } finally {
-            setIsScanning(false);
-        }
-    };
 
     // Derived
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
@@ -1419,7 +1336,7 @@ function App() {
 
             <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 print:hidden hover:scale-105 transition-transform"><Icon path={Icons.Plus} size={28}/></button>
 
-            {/* Add/Edit Modal MET AI SCANNER */}
+            {/* Add/Edit Modal */}
             <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken." : "Toevoegen."} color="blue">
                 <form onSubmit={handleSaveItem} className="space-y-4">
                     <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4">
@@ -1441,11 +1358,7 @@ function App() {
                     <div className="flex gap-2">
                         <button type="button" onClick={() => setShowEmojiPicker(true)} className="w-12 h-12 flex-shrink-0 border dark:border-gray-600 rounded-lg flex items-center justify-center text-2xl bg-gray-50 dark:bg-gray-700">{formData.emoji || '🏷️'}</button>
                         <div className="relative flex-grow">
-                            <input type="text" placeholder="Productnaam" className="w-full h-12 px-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 pr-12" value={formData.naam} onChange={e => setFormData({...formData, naam: e.target.value})} required />
-                            <label className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer p-1 text-gray-400 hover:text-blue-500 transition-colors">
-                                {isScanning ? <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div> : <Icon path={Icons.Camera} size={22} />}
-                                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleScanProduct} />
-                            </label>
+                            <input type="text" placeholder="Productnaam" className="w-full h-12 px-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400" value={formData.naam} onChange={e => setFormData({...formData, naam: e.target.value})} required />
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -1537,51 +1450,12 @@ function App() {
                 </form>
             </Modal>
 
-            {/* Wat eten we? Modal MET AI RECEPTEN */}
-            <Modal isOpen={showSuggestionModal} onClose={() => setShowSuggestionModal(false)} title="Suggesties." color="yellow">
-                <div className="flex gap-2 border-b dark:border-gray-700 mb-4 p-1 bg-gray-100 dark:bg-gray-900 rounded-xl">
-                    <button onClick={() => setSuggestionTab('prioriteit')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${suggestionTab==='prioriteit'?'bg-white dark:bg-gray-800 shadow text-yellow-600':'opacity-40'}`}>PRIORITEIT</button>
-                    <button onClick={generateAiRecipes} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 ${suggestionTab==='ai'?'bg-white dark:bg-gray-800 shadow text-purple-600':'opacity-40'}`}><Icon path={Icons.Sparkles} size={14}/> AI RECEPTEN</button>
-                </div>
-
-                {suggestionTab === 'prioriteit' ? (
-                    <div className="space-y-3">
-                        {getSuggestions().length === 0 ? <p className="italic text-gray-400 text-center">Alles lijkt vers!</p> : getSuggestions().map(item => (
-                            <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-xl border border-yellow-200 dark:border-gray-600 shadow-sm">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-2xl">{item.emoji}</span>
-                                    <div>
-                                        <p className="font-bold text-gray-800 dark:text-gray-100">{item.naam}</p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            {item.type === 'vriezer' ? `${item.daysOld} dgn in vriezer` : `THT: ${formatDate(item.houdbaarheidsDatum)}`}
-                                        </p>
-                                    </div>
-                                </div>
-                                <Badge type="yellow" text="Eet mij!" />
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {isAiLoading ? (
-                            <div className="py-12 text-center space-y-4 animate-pulse">
-                                <Icon path={Icons.Sparkles} size={48} className="mx-auto text-purple-500 animate-spin" />
-                                <p className="text-sm font-medium">AI analyseert je voorraad...</p>
-                            </div>
-                        ) : (
-                            aiRecipes.map((r, i) => (
-                                <div key={i} className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-2xl space-y-2">
-                                    <h4 className="font-bold text-purple-700 dark:text-purple-300">{r.title}</h4>
-                                    <p className="text-xs text-purple-600 dark:text-purple-400 opacity-80 uppercase font-bold">Ingrediënten: {r.ingredients?.join(', ')}</p>
-                                    <p className="text-sm leading-relaxed">{r.instructions}</p>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                )}
+            {/* Emoji Modal */}
+            <Modal isOpen={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} title="Emoji." color="orange">
+                <EmojiGrid onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
             </Modal>
 
-            {/* Boodschappenlijst Modal */}
+            {/* Shopping List Modal */}
             <Modal isOpen={showShoppingModal} onClose={() => setShowShoppingModal(false)} title="Boodschappenlijst." color="blue">
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="bg-white dark:bg-gray-700/50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600 p-4 mb-4">
@@ -1691,7 +1565,7 @@ function App() {
                 </div>
             </Modal>
 
-            {/* Shopify Modal (na verwijderen) */}
+            {/* Shopify Modal (Choose store and quantity after delete) */}
             <Modal isOpen={showShopifyModal} onClose={() => setShowShopifyModal(false)} title="Boodschappenlijst?" color="blue">
                 <p className="text-gray-800 dark:text-gray-200 mb-4">Wil je <strong>{itemToShopify?.naam}</strong> op de boodschappenlijst zetten?</p>
                 
@@ -1780,8 +1654,27 @@ function App() {
                     </div>
                 ) : <p className="text-center text-gray-400 text-sm">Nog geen data beschikbaar.</p>}
             </Modal>
+            
+            <Modal isOpen={showSuggestionModal} onClose={() => setShowSuggestionModal(false)} title="Wat eten we vandaag?" color="yellow">
+                <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">Deze producten hebben prioriteit op basis van houdbaarheid:</p>
+                <div className="space-y-3">
+                    {getSuggestions().length === 0 ? <p className="italic text-gray-400 text-center">Alles lijkt vers!</p> : getSuggestions().map(item => (
+                        <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-xl border border-yellow-200 dark:border-gray-600 shadow-sm">
+                            <div className="flex items-center gap-3">
+                                <span className="text-2xl">{item.emoji}</span>
+                                <div>
+                                    <p className="font-bold text-gray-800 dark:text-gray-100">{item.naam}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {item.type === 'vriezer' ? `${item.daysOld} dgn in vriezer` : `THT: ${formatDate(item.houdbaarheidsDatum)}`}
+                                    </p>
+                                </div>
+                            </div>
+                            <Badge type="yellow" text="Eet mij!" />
+                        </div>
+                    ))}
+                </div>
+            </Modal>
 
-            {/* Logboek Modal */}
             <Modal isOpen={showLogModal} onClose={() => setShowLogModal(false)} title="Logboek." color="teal">
                 {logs.length === 0 ? (
                     <p className="text-gray-500 dark:text-gray-400 text-center italic py-4">Nog geen activiteiten.</p>
@@ -1821,7 +1714,6 @@ function App() {
                 )}
             </Modal>
 
-            {/* Beheer Modal */}
             <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen." color="purple">
                 <div className="flex border-b dark:border-gray-700 mb-4">
                     <button onClick={() => setBeheerTab('locaties')} className={`flex-1 py-2 font-medium ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500 dark:text-gray-400'}`}>Locaties.</button>
@@ -1953,12 +1845,11 @@ function App() {
                                 </li>
                             ))}
                         </ul>
-                        <form onSubmit={handleAddUnit} className="flex gap-2"><input className="flex-grow border border-gray-300 dark:border-gray-600 p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" placeholder="Nieuwe eenheid" value={newUnitNaam} onChange={e=>setNewUnitNaam(e.target.value)} required /><button className={`text-white px-3 rounded ${eenheidFilter === 'voorraad' ? 'bg-orange-500' : eenheidFilter === 'frig' ? 'bg-green-600' : 'bg-blue-600'}`}>+</button></form>
+                        <form onSubmit={handleAddUnit} className="flex gap-2"><input className="flex-grow border p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" placeholder="Nieuwe eenheid" value={newUnitNaam} onChange={e=>setNewUnitNaam(e.target.value)} required /><button className={`text-white px-3 rounded ${eenheidFilter === 'voorraad' ? 'bg-orange-500' : eenheidFilter === 'frig' ? 'bg-green-600' : 'bg-blue-600'}`}>+</button></form>
                     </div>
                 )}
             </Modal>
-
-            {/* Admin/User Modals */}
+            
             <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers." color="pink">
                 <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                     {usersList.map(u => (
@@ -1998,7 +1889,6 @@ function App() {
                 </ul>
             </Modal>
 
-            {/* Delen Modal */}
             <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Voorraad Delen" color="green">
                 <form onSubmit={handleShare} className="space-y-4">
                     <p className="text-sm text-gray-600 dark:text-gray-300">Nodig iemand uit om je voorraad te beheren.</p>
@@ -2007,7 +1897,6 @@ function App() {
                 </form>
             </Modal>
 
-            {/* Whats New & History */}
             <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red">
                 {alerts.length > 0 && (
                     <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 dark:bg-red-900/20">
@@ -2078,8 +1967,11 @@ function App() {
             <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Nieuws." color="blue">
                 <div className="mb-8 text-center px-4">
                     <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
-                        Ontdek alle updates aan <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Voorraad.</span>
+                        Ontdek alle updates en verbeteringen aan <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Voorraad.</span>
                     </h3>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-full border border-blue-100 dark:border-blue-800">
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-300">Huidige versie {APP_VERSION}</span>
+                    </div>
                 </div>
 
                 <div className="space-y-8 relative pl-2">
@@ -2140,11 +2032,6 @@ function App() {
                         </li>
                     ))}
                 </ul>
-            </Modal>
-
-            {/* Emoji Picker */}
-            <Modal isOpen={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} title="Emoji." color="orange">
-                <EmojiGrid onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
             </Modal>
         </div>
     );
