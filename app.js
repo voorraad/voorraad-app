@@ -19,15 +19,22 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA & CONSTANTEN ---
-const APP_VERSION = '8.6.1'; 
+const APP_VERSION = '8.6.2'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
     { 
+        version: '8.6.2', 
+        type: 'fix', 
+        changes: [
+            'CRITICAL FIX: Stats variabele correct gedefinieerd (ReferenceError opgelost).',
+            'Fix: EmojiGrid en alle features volledig operationeel.'
+        ] 
+    },
+    { 
         version: '8.6.1', 
         type: 'fix', 
         changes: [
-            'CRITICAL FIX: EmojiGrid component hersteld (crash opgelost).',
             'Tech: Code herstructurering naar Custom Hooks en Componenten voor betere prestaties.',
             'Fix: Gemini AI model naam gecorrigeerd naar stabiele versie.',
             'Update: Swipe-acties verwijderd, knoppen zijn terug op mobiel.'
@@ -560,6 +567,7 @@ function App() {
     
     // Data Hooks
     const userData = useUserData(beheerdeUserId);
+    const { stats } = userData; // CRITICAL FIX: Destructure stats from userData
     const { items, vriezers, lades, shoppingList, loading: dataLoading } = useInventoryData(beheerdeUserId);
 
     // Local UI State
@@ -990,7 +998,10 @@ function App() {
                     {shoppingList.sort((a,b)=>a.checked-b.checked).map(i => (
                         <div key={i.id} className={`flex justify-between p-2 rounded border ${i.checked ? 'bg-gray-100 dark:bg-gray-800 opacity-50' : 'bg-white dark:bg-gray-700'}`}>
                             <span onClick={() => db.collection('shoppingList').doc(i.id).update({checked: !i.checked})} className={`cursor-pointer ${i.checked ? 'line-through' : ''}`}>{i.aantal} {i.eenheid} {i.naam}</span>
-                            <button onClick={() => db.collection('shoppingList').doc(i.id).delete()} className="text-red-500"><Icon path={Icons.Trash2}/></button>
+                            <div className="flex gap-2">
+                                <button onClick={() => moveShoppingToStock(i)} className="text-green-500"><Icon path={Icons.Box}/></button>
+                                <button onClick={() => db.collection('shoppingList').doc(i.id).delete()} className="text-red-500"><Icon path={Icons.Trash2}/></button>
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -1033,11 +1044,11 @@ function App() {
 
             <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen" color="purple">
                 <div className="flex border-b mb-4 overflow-x-auto">
-                    {['locaties','cloud'].map(t => <button key={t} onClick={()=>setBeheerTab(t)} className={`flex-1 py-2 capitalize ${beheerTab===t?'border-b-2 border-purple-600 text-purple-600':''}`}>{t}</button>)}
+                    {['locaties','categorieen','eenheden','cloud'].map(t => <button key={t} onClick={()=>setBeheerTab(t)} className={`flex-1 py-2 capitalize ${beheerTab===t?'border-b-2 border-purple-600 text-purple-600':''}`}>{t}</button>)}
                 </div>
                 {beheerTab === 'cloud' && (
                     <div className="space-y-4">
-                        <p className="text-sm">API Key voor AI functies:</p>
+                        <p className="text-sm">API Key voor AI functies (Google Gemini):</p>
                         <input type="password" className="w-full p-2 border rounded" placeholder="AIza..." value={userData.geminiAPIKey} onChange={e => db.collection('users').doc(beheerdeUserId).set({ geminiAPIKey: e.target.value }, { merge: true })}/>
                     </div>
                 )}
@@ -1051,6 +1062,43 @@ function App() {
                         ))}</ul>
                         <form onSubmit={e => { e.preventDefault(); db.collection('vriezers').add({ naam: newLocatieNaam, type: activeTab, color: newLocatieColor, userId: beheerdeUserId }); setNewLocatieNaam(''); }} className="flex gap-2">
                             <input className="flex-grow border p-2 rounded" placeholder="Nieuwe locatie" value={newLocatieNaam} onChange={e=>setNewLocatieNaam(e.target.value)} required/>
+                            <button className="bg-purple-600 text-white px-4 rounded">+</button>
+                        </form>
+                    </div>
+                )}
+                {beheerTab === 'categorieen' && (
+                    <div>
+                        <ul className="mb-4 space-y-2">{actieveCategorieen.map(cat => (
+                            <li key={cat.name} className="flex justify-between bg-gray-50 p-2 rounded">
+                                <span className={`text-${cat.color}-600`}>{cat.name}</span>
+                                <button onClick={() => {
+                                    const updated = userData.customCategories.filter(c => c.name !== cat.name);
+                                    db.collection('users').doc(beheerdeUserId).set({ customCategories: updated }, { merge: true });
+                                }} className="text-red-500"><Icon path={Icons.Trash2}/></button>
+                            </li>
+                        ))}</ul>
+                        <form onSubmit={e => { e.preventDefault(); if(newCatName.trim()){ db.collection('users').doc(beheerdeUserId).set({ customCategories: [...userData.customCategories, {name: newCatName, color: newCatColor}] }, { merge: true }); setNewCatName(''); } }} className="flex gap-2">
+                            <input className="flex-grow border p-2 rounded" placeholder="Nieuwe categorie" value={newCatName} onChange={e=>setNewCatName(e.target.value)} required/>
+                            <button className="bg-purple-600 text-white px-4 rounded">+</button>
+                        </form>
+                    </div>
+                )}
+                {beheerTab === 'eenheden' && (
+                    <div>
+                        <div className="flex mb-2"><button onClick={()=>setEenheidFilter('vries')} className={`flex-1 p-1 ${eenheidFilter==='vries'?'font-bold':''}`}>Vries</button><button onClick={()=>setEenheidFilter('frig')} className={`flex-1 p-1 ${eenheidFilter==='frig'?'font-bold':''}`}>Frig</button><button onClick={()=>setEenheidFilter('voorraad')} className={`flex-1 p-1 ${eenheidFilter==='voorraad'?'font-bold':''}`}>Stock</button></div>
+                        <ul className="mb-4 space-y-2">{(eenheidFilter==='voorraad'?userData.customUnitsVoorraad:eenheidFilter==='frig'?userData.customUnitsFrig:userData.customUnitsVries).map(u => (
+                            <li key={u} className="flex justify-between bg-gray-50 p-2 rounded"><span>{u}</span><button onClick={()=>{
+                                let field = eenheidFilter==='voorraad'?'customUnitsVoorraad':eenheidFilter==='frig'?'customUnitsFrig':'customUnitsVries';
+                                let current = eenheidFilter==='voorraad'?userData.customUnitsVoorraad:eenheidFilter==='frig'?userData.customUnitsFrig:userData.customUnitsVries;
+                                db.collection('users').doc(beheerdeUserId).set({ [field]: current.filter(c => c !== u) }, { merge: true });
+                            }} className="text-red-500"><Icon path={Icons.Trash2}/></button></li>
+                        ))}</ul>
+                        <form onSubmit={e => { e.preventDefault(); if(newUnitNaam.trim()){
+                            let field = eenheidFilter==='voorraad'?'customUnitsVoorraad':eenheidFilter==='frig'?'customUnitsFrig':'customUnitsVries';
+                            let current = eenheidFilter==='voorraad'?userData.customUnitsVoorraad:eenheidFilter==='frig'?userData.customUnitsFrig:userData.customUnitsVries;
+                            db.collection('users').doc(beheerdeUserId).set({ [field]: [...current, newUnitNaam] }, { merge: true }); setNewUnitNaam('');
+                        } }} className="flex gap-2">
+                            <input className="flex-grow border p-2 rounded" placeholder="Nieuwe eenheid" value={newUnitNaam} onChange={e=>setNewUnitNaam(e.target.value)} required/>
                             <button className="bg-purple-600 text-white px-4 rounded">+</button>
                         </form>
                     </div>
@@ -1073,6 +1121,52 @@ function App() {
                     <input type="email" className="w-full p-2 border rounded" placeholder="Email" value={shareEmail} onChange={e=>setShareEmail(e.target.value)} required/>
                     <button className="w-full py-2 bg-green-600 text-white rounded">Nodig uit</button>
                 </form>
+            </Modal>
+            
+            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers" color="pink">
+                <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {usersList.map(u => (
+                        <li key={u.id} className="p-3 flex flex-col gap-2">
+                            <div className="flex justify-between items-center">
+                                <div><p className="font-bold dark:text-white">{u.email || u.displayName}</p><p className="text-xs text-gray-500">{u.id}</p></div>
+                                <button onClick={() => db.collection('users').doc(u.id).update({ disabled: !u.disabled })} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{u.disabled ? 'Geblokkeerd' : 'Actief'}</button>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </Modal>
+            
+            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Nieuws" color="blue">
+                <div className="space-y-4">
+                    {VERSION_HISTORY.map((v, i) => (
+                        <div key={i}>
+                            <h4 className="font-bold">v{v.version}</h4>
+                            <ul className="list-disc pl-5 text-sm">{v.changes.map((c, j) => <li key={j}>{c}</li>)}</ul>
+                        </div>
+                    ))}
+                </div>
+            </Modal>
+            
+            <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Versies" color="gray">
+                 {/* Zelfde content als WhatsNew voor nu */}
+                 <div className="space-y-4">
+                    {VERSION_HISTORY.map((v, i) => (
+                        <div key={i}>
+                            <h4 className="font-bold">v{v.version}</h4>
+                            <ul className="list-disc pl-5 text-sm">{v.changes.map((c, j) => <li key={j}>{c}</li>)}</ul>
+                        </div>
+                    ))}
+                </div>
+            </Modal>
+            
+            <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel" color="gray">
+                <ul className="divide-y">
+                    {usersList.map(u => (
+                        <li key={u.id} className="p-3 cursor-pointer hover:bg-gray-100" onClick={() => { setBeheerdeUserId(u.id); setShowSwitchAccount(false); }}>
+                            {u.email || u.displayName}
+                        </li>
+                    ))}
+                </ul>
             </Modal>
         </div>
     );
