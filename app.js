@@ -1,4 +1,4 @@
-const { useState, useEffect, useRef, useMemo } = React;
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
 // --- 1. FIREBASE CONFIGURATIE ---
 const firebaseConfig = typeof __firebase_config !== 'undefined' 
@@ -18,39 +18,48 @@ if (!firebase.apps.length) {
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-// --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.5.1'; 
+// --- 2. CONFIGURATIE DATA & CONSTANTEN ---
+const APP_VERSION = '8.6.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
     { 
-        version: '8.5.1', 
-        type: 'fix', 
+        version: '8.6.0', 
+        type: 'feature', 
         changes: [
-            'Fix: API Model naam aangepast (gemini-1.5-flash-latest) om "model not found" error op te lossen.',
+            'Tech: Code herstructurering naar Custom Hooks en Componenten voor betere prestaties.',
+            'Fix: Gemini AI model naam gecorrigeerd naar stabiele versie.',
+            'Update: Swipe-acties verwijderd, knoppen zijn terug op mobiel.',
+            'Nieuw: AI functies (Camera & Recepten) nu via Google Gemini (gratis API).'
         ] 
     },
     { 
         version: '8.5.0', 
         type: 'feature', 
         changes: [
-            'Update: Overgeschakeld naar Google Gemini AI (vervangt OpenAI).',
-            'Update: Swipe-acties verwijderd op verzoek.',
-            'Fix: Bewerk- en Verwijderknoppen zijn nu altijd zichtbaar op mobiel.',
+            'Update: Overgeschakeld naar Google Gemini AI.',
+            'Fix: Layout verbeteringen.'
         ] 
     },
     { 
         version: '8.4.0', 
         type: 'feature', 
         changes: [
-            'Nieuw: AI Camera Scanner! Maak een foto van een verpakking en de app vult de details in.',
-            'Nieuw: AI Chef in "Wat eten we vandaag?". Verzin recepten met je huidige voorraad.',
-            'Update: Grote technische update voor snelheid (useMemo optimalisaties).'
+            'Nieuw: AI Camera Scanner.',
+            'Nieuw: AI Chef in "Wat eten we vandaag?".'
+        ] 
+    },
+    { 
+        version: '8.3.5', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: Aantal aanpassen bij toevoegen aan boodschappenlijst.',
+            'Update: Steppers voor aantallen.'
         ] 
     }
 ];
 
-// Standaard kleuren voor badges
+// Kleuren definities
 const BADGE_COLORS = {
     gray: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600",
     red: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-200 dark:border-red-800",
@@ -75,16 +84,11 @@ const GRADIENTS = {
     indigo: "from-indigo-600 to-blue-500"
 };
 
+// Data lijsten
 const WINKELS = [
-    { name: "AH", color: "blue" },
-    { name: "Colruyt", color: "orange" },
-    { name: "Delhaize", color: "gray" },
-    { name: "Aldi", color: "blue" },
-    { name: "Lidl", color: "yellow" },
-    { name: "Jumbo", color: "yellow" },
-    { name: "Carrefour", color: "blue" },
-    { name: "Kruidvat", color: "red" },
-    { name: "Action", color: "blue" },
+    { name: "AH", color: "blue" }, { name: "Colruyt", color: "orange" }, { name: "Delhaize", color: "gray" },
+    { name: "Aldi", color: "blue" }, { name: "Lidl", color: "yellow" }, { name: "Jumbo", color: "yellow" },
+    { name: "Carrefour", color: "blue" }, { name: "Kruidvat", color: "red" }, { name: "Action", color: "blue" },
     { name: "Overig", color: "gray" }
 ];
 
@@ -126,6 +130,7 @@ const EMOJI_CATEGORIES = {
     "Overig.": ["❄️", "🧊", "🏷️", "📦", "🛒", "🛍️", "🍽️", "🔪", "🥄", "👩🏼‍🍳", "👨🏼‍🍳", "👍🏼", "👎🏼", "🎆", "🎉", "🎊", "🎃", "🎄", "🎁", "👑"]
 };
 
+// --- 3. ICON COMPONENT & DEFINITIES ---
 const Icon = ({ path, size = 20, className = "" }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
         {path}
@@ -252,39 +257,20 @@ const formatAantal = (aantal) => {
   return aantal;
 };
 
-const logAction = async (action, itemNaam, details, actorUser, targetUserId) => {
-    if (!actorUser) return;
-    try {
-        await db.collection('logs').add({
-            action: action, 
-            item: itemNaam,
-            details: details,
-            actorId: actorUser.uid,
-            actorName: actorUser.displayName || actorUser.email,
-            targetUserId: targetUserId, 
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-    } catch (e) {
-        console.error("Kon log niet opslaan", e);
-    }
-};
-
-// --- NIEUWE HULPFUNCTIE: Google Gemini API Call (Vervangt OpenAI) ---
+// --- API Functie ---
 const callGemini = async (apiKey, prompt, imageBase64 = null) => {
     if (!apiKey) throw new Error("Geen Google Gemini API Key ingesteld");
     
-    // Gebruik Gemini 1.5 Flash (snel & goed)
-    // Updated to -latest to fix potential versioning issues
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+    // GEBRUIK VAN GEMINI-1.5-FLASH
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     const parts = [{ text: prompt }];
     
     if (imageBase64) {
-        // Strip de data:image/jpeg;base64, header als die er is
         const cleanBase64 = imageBase64.split(',')[1];
         parts.push({
             inlineData: {
-                mimeType: "image/jpeg", // We nemen aan dat het jpeg/png is
+                mimeType: "image/jpeg",
                 data: cleanBase64
             }
         });
@@ -292,42 +278,126 @@ const callGemini = async (apiKey, prompt, imageBase64 = null) => {
 
     const response = await fetch(url, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            contents: [{ parts: parts }]
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: parts }] })
     });
 
     const data = await response.json();
-    
-    if (data.error) {
-        throw new Error(data.error.message);
-    }
-    
+    if (data.error) throw new Error(data.error.message);
     return data.candidates[0].content.parts[0].text;
 };
 
-// --- 5. COMPONENTEN ---
+// --- 5. CUSTOM HOOKS ---
 
-const Toast = ({ message, type = "success", onClose }) => {
+// Auth Hook
+const useAuth = () => {
+    const [user, setUser] = useState(null);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [loading, setLoading] = useState(true);
+
     useEffect(() => {
-        const timer = setTimeout(() => {
-            onClose();
-        }, 3000);
-        return () => clearTimeout(timer);
+        const unsubscribe = auth.onAuthStateChanged(async (u) => {
+            if (u) {
+                setUser(u);
+                try {
+                    await db.collection('users').doc(u.uid).set({
+                        laatstGezien: firebase.firestore.FieldValue.serverTimestamp(),
+                        email: u.email
+                    }, { merge: true });
+                    const adminDoc = await db.collection('admins').doc(u.uid).get();
+                    setIsAdmin(adminDoc.exists);
+                } catch(e) { console.error(e); }
+            } else {
+                setUser(null);
+                setIsAdmin(false);
+            }
+            setLoading(false);
+        });
+        return () => unsubscribe();
     }, []);
 
-    const isSuccess = type === 'success';
-    const bgColor = isSuccess ? 'bg-green-600' : 'bg-red-600';
-    const icon = isSuccess ? Icons.Check : Icons.Alert;
+    const login = async () => {
+        try {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            await auth.signInWithPopup(provider);
+        } catch(e) { alert("Login Fout: " + e.message); }
+    };
 
+    const logout = () => auth.signOut();
+
+    return { user, isAdmin, loading, login, logout };
+};
+
+// User Data Hook
+const useUserData = (userId) => {
+    const [data, setData] = useState({
+        customUnitsVries: [], customUnitsFrig: [], customUnitsVoorraad: [],
+        customCategories: CATEGORIEEN_VRIES, hiddenTabs: [],
+        darkMode: false, openLades: [], stats: { wasted: 0, consumed: 0 },
+        geminiAPIKey: ''
+    });
+
+    useEffect(() => {
+        if (!userId) return;
+        const unsub = db.collection('users').doc(userId).onSnapshot(doc => {
+            if(doc.exists) {
+                const d = doc.data();
+                setData({
+                    customUnitsVries: d.customUnitsVries || d.customUnits || [],
+                    customUnitsFrig: d.customUnitsFrig || [],
+                    customUnitsVoorraad: d.customUnitsVoorraad || [],
+                    customCategories: (d.customCategories && d.customCategories.length > 0) ? d.customCategories : CATEGORIEEN_VRIES,
+                    hiddenTabs: d.hiddenTabs || [],
+                    darkMode: d.darkMode || false,
+                    openLades: Array.isArray(d.openLades) ? d.openLades : [],
+                    stats: d.stats || { wasted: 0, consumed: 0 },
+                    geminiAPIKey: d.geminiAPIKey || d.openAIKey || ''
+                });
+            } else {
+                db.collection('users').doc(userId).set({
+                    customCategories: CATEGORIEEN_VRIES,
+                    hiddenTabs: [], darkMode: false, openLades: [], stats: { wasted: 0, consumed: 0 }
+                });
+            }
+        });
+        return () => unsub();
+    }, [userId]);
+
+    return data;
+};
+
+// Inventory Hook
+const useInventoryData = (userId) => {
+    const [items, setItems] = useState([]);
+    const [vriezers, setVriezers] = useState([]);
+    const [lades, setLades] = useState([]);
+    const [shoppingList, setShoppingList] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!userId) return;
+        const unsubV = db.collection('vriezers').where('userId', '==', userId).onSnapshot(s => setVriezers(s.docs.map(d => ({id: d.id, ...d.data(), type: d.data().type||'vriezer'}))));
+        const unsubL = db.collection('lades').where('userId', '==', userId).onSnapshot(s => setLades(s.docs.map(d => ({id: d.id, ...d.data()}))));
+        const unsubI = db.collection('items').where('userId', '==', userId).onSnapshot(s => setItems(s.docs.map(d => ({id: d.id, ...d.data()}))));
+        const unsubS = db.collection('shoppingList').where('userId', '==', userId).onSnapshot(s => {
+            setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()})));
+            setLoading(false);
+        });
+
+        return () => { unsubV(); unsubL(); unsubI(); unsubS(); };
+    }, [userId]);
+
+    return { items, vriezers, lades, shoppingList, loading };
+};
+
+// --- 6. UI COMPONENTEN ---
+
+const Toast = ({ message, type = "success", onClose }) => {
+    useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, []);
+    const isSuccess = type === 'success';
     return (
-        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl text-white ${bgColor} animate-in fade-in slide-in-from-top-4 duration-300 pointer-events-auto`}>
-            <div className="p-1 bg-white/20 rounded-full">
-                <Icon path={icon} size={20} className="text-white" />
-            </div>
+        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl text-white ${isSuccess ? 'bg-green-600' : 'bg-red-600'} animate-in fade-in slide-in-from-top-4 duration-300 pointer-events-auto`}>
+            <div className="p-1 bg-white/20 rounded-full"><Icon path={isSuccess ? Icons.Check : Icons.Alert} size={20} className="text-white" /></div>
             <span className="font-bold text-sm tracking-wide">{message}</span>
         </div>
     );
@@ -335,14 +405,11 @@ const Toast = ({ message, type = "success", onClose }) => {
 
 const Modal = ({ isOpen, onClose, title, children, color = "blue" }) => {
     if (!isOpen) return null;
-    
-    const gradientClass = GRADIENTS[color] || GRADIENTS.blue;
-
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden" onClick={onClose}>
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto modal-animate flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
-                    <h3 className={`text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{title}</h3>
+                    <h3 className={`text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r ${GRADIENTS[color] || GRADIENTS.blue}`}>{title}</h3>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"><Icon path={Icons.X} className="text-gray-500 dark:text-gray-400" /></button>
                 </div>
                 <div className="p-4 space-y-4 flex-grow overflow-y-auto text-gray-800 dark:text-gray-200">{children}</div>
@@ -351,382 +418,252 @@ const Modal = ({ isOpen, onClose, title, children, color = "blue" }) => {
     );
 };
 
-const Badge = ({ type, text }) => {
-    let colorClass = BADGE_COLORS[type];
-    if (!colorClass) colorClass = "bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600";
+// Item Component (Geoptimaliseerd met memo)
+const ItemRow = React.memo(({ item, vriezerType, actieveCategorieen, onEdit, onDelete }) => {
+    const daysOld = getDagenOud(item.ingevrorenOp);
+    const daysTHT = getDagenTotTHT(item.houdbaarheidsDatum);
+    const isStockItem = vriezerType === 'voorraad' || vriezerType === 'frig';
     
-    return (
-        <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${colorClass}`}>
-            {text}
-        </span>
-    );
-};
+    const colorClass = getStatusColor(daysOld, vriezerType, daysTHT);
+    const dateColorClass = getDateTextColor(daysOld, vriezerType, daysTHT);
+    const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
+    const catColor = catObj ? (catObj.color || 'gray') : 'gray';
 
-const EmojiGrid = ({ onSelect }) => {
     return (
-        <div className="p-2 max-h-96 overflow-y-auto">
-            {Object.entries(EMOJI_CATEGORIES).map(([category, emojis]) => (
-                <div key={category} className="mb-4">
-                    <h4 className="font-bold text-sm text-gray-600 dark:text-gray-400 mb-2 border-b border-gray-100 dark:border-gray-700 pb-1">{category}</h4>
-                    <div className="grid grid-cols-8 gap-2">
-                        {emojis.map(emoji => (
-                            <button 
-                                key={emoji} 
-                                onClick={() => onSelect(emoji)} 
-                                className="text-2xl hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-lg transition-colors flex items-center justify-center"
-                                type="button"
-                            >
-                                {emoji}
-                            </button>
-                        ))}
+        <li className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0`}>
+            <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
+                <div className="min-w-0 flex-grow">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
+                        {item.categorie && item.categorie !== "Geen" && <Badge type={catColor} text={item.categorie} />}
+                    </div>
+                    <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
+                        <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
+                        {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
+                        {item.houdbaarheidsDatum && <span className={`text-xs ${isStockItem ? dateColorClass : 'text-gray-500 dark:text-gray-400'}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
                     </div>
                 </div>
-            ))}
+            </div>
+            {/* KNOPPEN ZIJN TERUG, GEEN SWIPE */}
+            <div className="flex items-center gap-1 flex-shrink-0 print:hidden ml-2">
+                <button onClick={() => onEdit(item)} className="p-2 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50"><Icon path={Icons.Edit2} size={16}/></button>
+                <button onClick={() => onDelete(item)} className="p-2 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50"><Icon path={Icons.Trash2} size={16}/></button>
+            </div>
+        </li>
+    );
+});
+
+const LocationCard = ({ vriezer, lades, items, collapsedLades, onToggleLade, actieveCategorieen, onEditItem, onDeleteItem, search }) => {
+    const gradientKeys = Object.keys(GRADIENTS);
+    let hash = 0;
+    for (let i = 0; i < vriezer.id.length; i++) hash = (hash << 5) - hash + vriezer.id.charCodeAt(i);
+    const colorKey = vriezer.color || gradientKeys[Math.abs(hash) % gradientKeys.length];
+    const gradientClass = GRADIENTS[colorKey] || GRADIENTS.blue;
+
+    return (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
+            <h2 className={`text-lg font-bold mb-3 flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{vriezer.naam}</h2>
+            <div className="space-y-4">
+                {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(lade => {
+                    const ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
+                    if (ladeItems.length === 0 && search) return null;
+                    const isCollapsed = collapsedLades.has(lade.id) && !search;
+                    
+                    return (
+                        <div key={lade.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden page-break-inside-avoid transition-colors">
+                            <div className="bg-gray-50/50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 print:bg-white" onClick={() => onToggleLade(lade.id)}>
+                                <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-sm flex items-center gap-2">
+                                    {isCollapsed ? <Icon path={Icons.ChevronRight} className="print:hidden"/> : <Icon path={Icons.ChevronDown} className="print:hidden"/>} 
+                                    {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
+                                </h3>
+                            </div>
+                            {!isCollapsed && (
+                                <ul className="block"> 
+                                    {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
+                                    ladeItems.map(item => (
+                                        <ItemRow 
+                                            key={item.id} 
+                                            item={item} 
+                                            vriezerType={vriezer.type} 
+                                            actieveCategorieen={actieveCategorieen}
+                                            onEdit={onEditItem}
+                                            onDelete={onDeleteItem}
+                                        />
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 };
 
-// --- 6. APP ---
+// --- 7. MAIN APP ---
 function App() {
-    const [user, setUser] = useState(null);
+    // Hooks init
+    const { user, isAdmin, login, logout, loading: authLoading } = useAuth();
     const [beheerdeUserId, setBeheerdeUserId] = useState(null);
-    const [isAdmin, setIsAdmin] = useState(false);
-    const [usersList, setUsersList] = useState([]);
     
-    // User Settings
-    const [managedUserHiddenTabs, setManagedUserHiddenTabs] = useState([]);
-    const [myHiddenTabs, setMyHiddenTabs] = useState([]);
-    const [darkMode, setDarkMode] = useState(false);
-    const [savedOpenLades, setSavedOpenLades] = useState(null);
-    const [stats, setStats] = useState({ wasted: 0, consumed: 0 });
-    const [geminiAPIKey, setGeminiAPIKey] = useState(''); // NIEUWE STATE
-    
-    // Data
-    const [activeTab, setActiveTab] = useState('vriezer');
-    const [items, setItems] = useState([]);
-    const [vriezers, setVriezers] = useState([]);
-    const [lades, setLades] = useState([]);
-    const [logs, setLogs] = useState([]); 
-    const [shoppingList, setShoppingList] = useState([]);
-    
-    const [customUnitsVries, setCustomUnitsVries] = useState([]);
-    const [customUnitsFrig, setCustomUnitsFrig] = useState([]);
-    const [customUnitsVoorraad, setCustomUnitsVoorraad] = useState([]);
-    const [customCategories, setCustomCategories] = useState([]);
+    // Data Hooks
+    const userData = useUserData(beheerdeUserId);
+    const { items, vriezers, lades, shoppingList, loading: dataLoading } = useInventoryData(beheerdeUserId);
 
-    // UI
+    // Local UI State
+    const [activeTab, setActiveTab] = useState('vriezer');
     const [search, setSearch] = useState('');
     const [collapsedLades, setCollapsedLades] = useState(new Set()); 
-    const [editingItem, setEditingItem] = useState(null);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     const [notification, setNotification] = useState(null);
     
-    // NIEUWE UI STATES VOOR AI
-    const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
-    const [aiRecipes, setAiRecipes] = useState(null);
-    const [isLoadingRecipes, setIsLoadingRecipes] = useState(false);
-    
-    // Modals & Menu
+    // Modals
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showSuggestionModal, setShowSuggestionModal] = useState(false);
+    const [showShoppingModal, setShowShoppingModal] = useState(false); 
+    const [showBeheerModal, setShowBeheerModal] = useState(false);
     const [showWhatsNew, setShowWhatsNew] = useState(false);
     const [showVersionHistory, setShowVersionHistory] = useState(false);
     const [showSwitchAccount, setShowSwitchAccount] = useState(false);
-    const [showBeheerModal, setShowBeheerModal] = useState(false);
-    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [showProfileMenu, setShowProfileMenu] = useState(false); 
+    const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showUserAdminModal, setShowUserAdminModal] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
-    const [showLogModal, setShowLogModal] = useState(false); 
+    const [showLogModal, setShowLogModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [itemToDelete, setItemToDelete] = useState(null);
-    const [showStatsModal, setShowStatsModal] = useState(false);
-    const [showSuggestionModal, setShowSuggestionModal] = useState(false);
-    const [showShoppingModal, setShowShoppingModal] = useState(false); 
-    const [beheerTab, setBeheerTab] = useState('locaties');
-
-    // States voor winkel modal bij verwijderen
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    
+    // Shopping delete flow
     const [showShopifyModal, setShowShopifyModal] = useState(false);
     const [itemToShopify, setItemToShopify] = useState(null);
     const [shopForDeletedItem, setShopForDeletedItem] = useState('');
     const [aantalForShopifyItem, setAantalForShopifyItem] = useState(1);
+    const [showStatsModal, setShowStatsModal] = useState(false);
 
-    // Forms
-    const [formData, setFormData] = useState({
-        naam: '', 
-        aantal: 1, 
-        eenheid: 'stuks', 
-        vriezerId: '', 
-        ladeId: '', 
-        categorie: 'Vlees', 
-        ingevrorenOp: new Date().toISOString().split('T')[0], 
-        houdbaarheidsDatum: '', 
-        emoji: ''
-    });
+    // Form State
+    const [editingItem, setEditingItem] = useState(null);
+    const [modalType, setModalType] = useState('vriezer');
+    const [itemToDelete, setItemToDelete] = useState(null);
+    const [formData, setFormData] = useState({ naam: '', aantal: 1, eenheid: 'stuks', vriezerId: '', ladeId: '', categorie: 'Vlees', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: '' });
+    const [shoppingFormData, setShoppingFormData] = useState({ naam: '', aantal: 1, eenheid: 'stuks', winkel: '' });
+    const [rememberLocation, setRememberLocation] = useState(false);
+    const [beheerTab, setBeheerTab] = useState('locaties');
     
-    const [shoppingFormData, setShoppingFormData] = useState({ 
-        naam: '', 
-        aantal: 1, 
-        eenheid: 'stuks',
-        winkel: '' 
-    });
-    
-    const [rememberLocation, setRememberLocation] = useState(false); 
+    // Beheer Form States
     const [newLocatieNaam, setNewLocatieNaam] = useState('');
-    const [newLocatieColor, setNewLocatieColor] = useState('blue'); 
+    const [newLocatieColor, setNewLocatieColor] = useState('blue');
     const [selectedLocatieForBeheer, setSelectedLocatieForBeheer] = useState(null);
     const [newLadeNaam, setNewLadeNaam] = useState('');
-    const [newUnitNaam, setNewUnitNaam] = useState('');
     const [shareEmail, setShareEmail] = useState('');
-    
-    const [eenheidFilter, setEenheidFilter] = useState('vries'); 
-
-    // State voor het type in de "Toevoegen" modal
-    const [modalType, setModalType] = useState('vriezer');
-
-    // Edit States
-    const [editingLadeId, setEditingLadeId] = useState(null);
-    const [editingLadeName, setEditingLadeName] = useState('');
-    const [editingUnitName, setEditingUnitName] = useState(null); 
-    const [editUnitInput, setEditUnitInput] = useState('');
+    const [eenheidFilter, setEenheidFilter] = useState('vries');
+    const [newUnitNaam, setNewUnitNaam] = useState('');
     const [newCatName, setNewCatName] = useState('');
     const [newCatColor, setNewCatColor] = useState('gray');
+    const [editingUnitName, setEditingUnitName] = useState(null); 
+    const [editUnitInput, setEditUnitInput] = useState('');
+    const [editingLadeId, setEditingLadeId] = useState(null);
+    const [editingLadeName, setEditingLadeName] = useState('');
     const [editingCatName, setEditingCatName] = useState(null);
     const [editCatInputName, setEditCatInputName] = useState('');
     const [editCatInputColor, setEditCatInputColor] = useState('gray');
-
+    
+    // AI State
+    const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
+    const [aiRecipes, setAiRecipes] = useState(null);
+    const [isLoadingRecipes, setIsLoadingRecipes] = useState(false);
+    const fileInputRef = useRef(null);
     const hasCheckedAlerts = useRef(false);
-    const fileInputRef = useRef(null); // Ref voor camera input
+
+    const [usersList, setUsersList] = useState([]);
+    const [logs, setLogs] = useState([]);
+
+    // --- EFFECTS ---
+    useEffect(() => {
+        if (userData.darkMode) document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+    }, [userData.darkMode]);
 
     useEffect(() => {
-        if (darkMode) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
+        if (user) {
+            setBeheerdeUserId(user.uid);
+            checkShares(user);
         }
-    }, [darkMode]);
+    }, [user]);
 
-    const toggleDarkMode = async () => {
-        if (!user) return;
-        const newStatus = !darkMode;
-        setDarkMode(newStatus);
-        try {
-            await db.collection('users').doc(user.uid).set({
-                darkMode: newStatus
-            }, { merge: true });
-        } catch (e) {
-            console.error("Kon dark mode niet opslaan", e);
+    const checkShares = async (u) => {
+        const vCheck = await db.collection('vriezers').where('userId', '==', u.uid).limit(1).get();
+        if (vCheck.empty) {
+            const adminDoc = await db.collection('admins').doc(u.uid).get();
+            if (!adminDoc.exists) {
+                const shares = await db.collection('shares').where("sharedWithEmail", "==", u.email).where("status", "==", "accepted").limit(1).get();
+                if (!shares.empty) setBeheerdeUserId(shares.docs[0].data().ownerId);
+            }
         }
     };
 
-    // --- AUTH & SETUP ---
+    // Load saved open lades
     useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged(async (u) => {
-            if (u) {
-                setUser(u);
-                setBeheerdeUserId(u.uid);
-                try {
-                    await db.collection('users').doc(u.uid).set({
-                        laatstGezien: firebase.firestore.FieldValue.serverTimestamp(),
-                        email: u.email
-                    }, { merge: true });
-                } catch(e) { console.error("Kon laatstGezien niet updaten", e); }
-
-                db.collection('users').doc(u.uid).onSnapshot(doc => {
-                    if(doc.exists) {
-                        const data = doc.data();
-                        if (data.darkMode !== undefined) {
-                            setDarkMode(data.darkMode);
-                        }
-                        setMyHiddenTabs(data.hiddenTabs || []);
-                        
-                        // Check for old OpenAI Key or new Gemini Key
-                        setGeminiAPIKey(data.geminiAPIKey || data.openAIKey || '');
-
-                        if (data.openLades && Array.isArray(data.openLades)) {
-                            setSavedOpenLades(data.openLades);
-                        } else {
-                            setSavedOpenLades([]);
-                        }
-                        if (data.stats) {
-                            setStats(data.stats);
-                        }
-                    } else {
-                        db.collection('users').doc(u.uid).set({
-                            customCategories: CATEGORIEEN_VRIES,
-                            customUnitsVries: [],
-                            customUnitsFrig: [],
-                            customUnitsVoorraad: [],
-                            hiddenTabs: [],
-                            darkMode: false,
-                            openLades: [],
-                            stats: { wasted: 0, consumed: 0 }
-                        });
-                        setSavedOpenLades([]);
-                        setMyHiddenTabs([]);
-                    }
-                });
-
-                const adminDoc = await db.collection('admins').doc(u.uid).get();
-                setIsAdmin(adminDoc.exists);
-
-                const vCheck = await db.collection('vriezers').where('userId', '==', u.uid).limit(1).get();
-                if (vCheck.empty && !adminDoc.exists) {
-                    const shares = await db.collection('shares').where("sharedWithEmail", "==", u.email).where("status", "==", "accepted").limit(1).get();
-                    if (!shares.empty) setBeheerdeUserId(shares.docs[0].data().ownerId);
-                }
-            } else {
-                setUser(null);
+        if (!dataLoading && lades.length > 0 && userData.openLades !== undefined && !isDataLoaded) {
+            const initialCollapsed = new Set(lades.map(l => l.id));
+            if (userData.openLades && userData.openLades.length > 0) {
+                userData.openLades.forEach(id => initialCollapsed.delete(id));
             }
-        });
-        return () => unsubscribe();
-    }, []);
+            setCollapsedLades(initialCollapsed);
+            setIsDataLoaded(true);
+        }
+    }, [dataLoading, lades, userData.openLades, isDataLoaded]);
 
-    // Sync Data
-    useEffect(() => {
-        if(!beheerdeUserId) return;
-        const unsub = db.collection('users').doc(beheerdeUserId).onSnapshot(doc => {
-            if(doc.exists) {
-                const data = doc.data();
-                
-                let vriesUnits = data.customUnitsVries;
-                if (!vriesUnits && data.customUnits) {
-                    vriesUnits = data.customUnits;
-                }
-                setCustomUnitsVries(vriesUnits || []);
-                setCustomUnitsFrig(data.customUnitsFrig || []);
-                setCustomUnitsVoorraad(data.customUnitsVoorraad || []);
-                setManagedUserHiddenTabs(data.hiddenTabs || []); 
-
-                setCustomCategories(data.customCategories && data.customCategories.length > 0 ? data.customCategories : CATEGORIEEN_VRIES);
-                if (data.stats) {
-                    setStats(data.stats);
-                }
-            }
-        });
-        return () => unsub();
-    }, [beheerdeUserId]);
-
-    // Data Listeners
-    useEffect(() => {
-        if (!beheerdeUserId) return;
-        const unsubV = db.collection('vriezers').where('userId', '==', beheerdeUserId).onSnapshot(s => setVriezers(s.docs.map(d => ({id: d.id, ...d.data(), type: d.data().type||'vriezer'}))));
-        const unsubL = db.collection('lades').where('userId', '==', beheerdeUserId).onSnapshot(s => {
-            const loadedLades = s.docs.map(d => ({id: d.id, ...d.data()}));
-            setLades(loadedLades);
-            
-            if (!isDataLoaded && loadedLades.length > 0 && savedOpenLades !== null) {
-                const initialCollapsed = new Set(loadedLades.map(l => l.id));
-                if (savedOpenLades && savedOpenLades.length > 0) {
-                    savedOpenLades.forEach(id => {
-                        if (initialCollapsed.has(id)) {
-                            initialCollapsed.delete(id);
-                        }
-                    });
-                }
-                setCollapsedLades(initialCollapsed);
-                setIsDataLoaded(true);
-            }
-        });
-        const unsubI = db.collection('items').where('userId', '==', beheerdeUserId).onSnapshot(s => setItems(s.docs.map(d => ({id: d.id, ...d.data()}))));
-        const unsubS = db.collection('shoppingList').where('userId', '==', beheerdeUserId).onSnapshot(s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()})))); 
-
-        return () => { unsubV(); unsubL(); unsubI(); unsubS(); };
-    }, [beheerdeUserId, isDataLoaded, savedOpenLades]); 
-
+    // Admin lists
     useEffect(() => {
         if (isAdmin) {
-            const unsubUsers = db.collection('users').orderBy('email').onSnapshot(snap => {
-                setUsersList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-            });
-            return () => unsubUsers();
+            return db.collection('users').orderBy('email').onSnapshot(snap => setUsersList(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
         }
     }, [isAdmin]);
 
+    // Logs
     useEffect(() => {
         if (!user || !showLogModal) return;
-        let query;
-        if (isAdmin) {
-            query = db.collection('logs').orderBy('timestamp', 'desc').limit(50);
-        } else {
-            query = db.collection('logs').where('targetUserId', '==', beheerdeUserId).orderBy('timestamp', 'desc').limit(50);
+        let query = isAdmin ? db.collection('logs') : db.collection('logs').where('targetUserId', '==', beheerdeUserId);
+        return query.orderBy('timestamp', 'desc').limit(50).onSnapshot(snap => setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    }, [user, showLogModal, beheerdeUserId, isAdmin]);
+
+    // --- MEMOIZED HELPERS ---
+    const showNotification = (msg, type = 'success') => setNotification({ msg, type, id: Date.now() });
+
+    const filteredLocaties = useMemo(() => vriezers.filter(l => l.type === activeTab), [vriezers, activeTab]);
+    
+    const actieveCategorieen = useMemo(() => {
+        let base = modalType === 'voorraad' ? CATEGORIEEN_VOORRAAD : modalType === 'frig' ? CATEGORIEEN_FRIG : CATEGORIEEN_VRIES;
+        return [...base, ...userData.customCategories.filter(cc => !base.some(c => c.name === cc.name))];
+    }, [modalType, userData.customCategories]);
+
+    const modalLocaties = useMemo(() => vriezers.filter(l => l.type === modalType), [vriezers, modalType]);
+    const formLades = useMemo(() => formData.vriezerId ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam)) : [], [formData.vriezerId, lades]);
+
+    const alerts = useMemo(() => items.filter(i => {
+        const loc = vriezers.find(v => v.id === i.vriezerId);
+        const type = loc ? (loc.type || 'vriezer') : 'vriezer';
+        return (type === 'voorraad' || type === 'frig') ? getDagenTotTHT(i.houdbaarheidsDatum) < 0 : getDagenOud(i.ingevrorenOp) > 180;
+    }), [items, vriezers]);
+
+    const logAction = async (action, itemNaam, details, actorUser, targetUserId) => {
+        if (!actorUser) return;
+        try {
+            await db.collection('logs').add({
+                action: action, 
+                item: itemNaam,
+                details: details,
+                actorId: actorUser.uid,
+                actorName: actorUser.displayName || actorUser.email,
+                targetUserId: targetUserId, 
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        } catch (e) {
+            console.error("Kon log niet opslaan", e);
         }
-        const unsubLogs = query.onSnapshot(snap => {
-            setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        });
-        return () => unsubLogs();
-    }, [user, showLogModal, beheerdeUserId, isAdmin]); 
-
-    // --- TECHNISCHE OPTIMALISATIE: useMemo ---
-    // Hier passen we useMemo toe om te voorkomen dat zware berekeningen elke render opnieuw gebeuren.
-    
-    const filteredLocaties = useMemo(() => {
-        return vriezers.filter(l => l.type === activeTab);
-    }, [vriezers, activeTab]);
-
-    const activeItems = useMemo(() => {
-        return items.filter(i => filteredLocaties.some(l => l.id === i.vriezerId));
-    }, [items, filteredLocaties]);
-
-    const modalLocaties = useMemo(() => {
-        return vriezers.filter(l => l.type === modalType);
-    }, [vriezers, modalType]);
-
-    // Alerts logic in useMemo
-    const alerts = useMemo(() => {
-        return items.filter(i => {
-            const loc = vriezers.find(v => v.id === i.vriezerId);
-            const type = loc ? (loc.type || 'vriezer') : 'vriezer';
-            if (type === 'voorraad' || type === 'frig') {
-                 return getDagenTotTHT(i.houdbaarheidsDatum) < 0; 
-            } else {
-                 return getDagenOud(i.ingevrorenOp) > 180;
-            }
-        });
-    }, [items, vriezers]);
-
-    const formLades = useMemo(() => {
-        return formData.vriezerId 
-        ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
-        : [];
-    }, [formData.vriezerId, lades]);
-
-    const formLocationType = modalType;
-
-    let contextEenheden = EENHEDEN_VRIES;
-    let contextCategorieen = CATEGORIEEN_VRIES;
-    let activeCustomUnits = customUnitsVries;
-
-    if (formLocationType === 'voorraad') {
-        contextEenheden = EENHEDEN_VOORRAAD;
-        contextCategorieen = CATEGORIEEN_VOORRAAD;
-        activeCustomUnits = customUnitsVoorraad;
-    } else if (formLocationType === 'frig') {
-        contextEenheden = EENHEDEN_FRIG;
-        contextCategorieen = CATEGORIEEN_FRIG;
-        activeCustomUnits = customUnitsFrig;
-    }
-    
-    const alleEenheden = useMemo(() => [...new Set([...contextEenheden, ...activeCustomUnits])].sort(), [contextEenheden, activeCustomUnits]);
-
-    const actieveCategorieen = useMemo(() => [
-        ...contextCategorieen, 
-        ...customCategories.filter(cc => {
-            const inHuidig = contextCategorieen.some(c => c.name === cc.name);
-            return !inHuidig;
-        })
-    ], [contextCategorieen, customCategories]);
-
-    const gridClass = (() => {
-        const count = filteredLocaties.length;
-        if (count === 1) return 'grid-cols-1';
-        if (count === 2) return 'grid-cols-1 md:grid-cols-2';
-        return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
-    })();
-
-    const showNotification = (msg, type = 'success') => {
-        setNotification({ msg, type, id: Date.now() });
     };
 
+    // Version Check
     useEffect(() => {
         if (isDataLoaded && !hasCheckedAlerts.current) {
             const lastVersion = localStorage.getItem('app_version');
@@ -734,1483 +671,440 @@ function App() {
                 setShowWhatsNew(true);
                 if (lastVersion !== APP_VERSION) localStorage.setItem('app_version', APP_VERSION);
             }
-            hasCheckedAlerts.current = true; 
+            hasCheckedAlerts.current = true;
         }
-    }, [isDataLoaded, alerts.length]); 
+    }, [isDataLoaded, alerts.length]);
 
     // --- HANDLERS ---
-    const handleGoogleLogin = async () => { 
-        try { 
-            const provider = new firebase.auth.GoogleAuthProvider();
-            await auth.signInWithPopup(provider); 
-        } catch(e) { alert("Login Fout: " + e.message); } 
-    };
-
-    const handleLogout = () => { auth.signOut(); setShowProfileMenu(false); };
-    const handlePrint = () => { setShowProfileMenu(false); window.print(); };
-
-    // --- AI HANDLERS (GEMINI) ---
-    
-    const handleSaveAPIKey = async () => {
-        try {
-            await db.collection('users').doc(user.uid).set({ geminiAPIKey }, { merge: true });
-            showNotification("API Key opgeslagen!", "success");
-        } catch(e) { showNotification("Kon Key niet opslaan", "error"); }
-    };
-
-    const handleCameraClick = () => { fileInputRef.current.click(); };
-    
-    const handleFileChange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        if (!geminiAPIKey) return alert("Stel eerst je Google Gemini API Key in bij Instellingen > AI / Cloud!");
-
-        setIsAnalyzingImage(true);
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-            const base64Image = reader.result;
-            try {
-                // GEMINI PROMPT
-                const prompt = "Kijk naar deze verpakking. Geef me een JSON object met: naam (korte productnaam NL), categorie (Kies uit: Vlees, Vis, Groenten, Fruit, Brood, IJs, Restjes, Saus, Friet, Pizza, Soep, Ander), hoeveelheid (getal), eenheid (stuks, gram, kilo, liter, zak, pak, doos). Alleen JSON teruggeven, geen markdown.";
-                
-                const result = await callGemini(geminiAPIKey, prompt, base64Image);
-                
-                // Schoon de response op (soms zet Gemini ```json ... ``` eromheen)
-                const jsonText = result.replace(/```json/g, '').replace(/```/g, '').trim();
-                const parsed = JSON.parse(jsonText);
-                
-                setFormData(prev => ({
-                    ...prev,
-                    naam: parsed.naam || prev.naam,
-                    categorie: parsed.categorie || prev.categorie,
-                    aantal: parsed.hoeveelheid || prev.aantal,
-                    eenheid: parsed.eenheid || prev.eenheid,
-                    emoji: getEmojiForCategory(parsed.categorie)
-                }));
-                showNotification("Product herkend!", "success");
-            } catch (err) {
-                console.error(err);
-                showNotification("Kon foto niet lezen. Check Key?", "error");
-            } finally {
-                setIsAnalyzingImage(false);
+    const handleToggleLade = useCallback((id) => {
+        setCollapsedLades(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
+            if (user) {
+                const openLadesArray = lades.filter(l => !newSet.has(l.id)).map(l => l.id);
+                db.collection('users').doc(user.uid).set({ openLades: openLadesArray }, { merge: true }).catch(console.error);
             }
-        };
-        reader.readAsDataURL(file);
-    };
+            return newSet;
+        });
+    }, [lades, user]);
 
-    const handleGetRecipes = async () => {
-        if (!geminiAPIKey) return alert("Stel eerst je Google Gemini API Key in bij Instellingen > AI / Cloud!");
-        setIsLoadingRecipes(true);
-        try {
-            // Maak een lijst van alle items string
-            const inventoryString = items.map(i => `${i.aantal} ${i.eenheid} ${i.naam}`).join(', ');
-            const prompt = `Ik heb dit in huis: ${inventoryString}. Bedenk 3 simpele, lekkere gerechten die ik hiermee kan maken. Geef per recept een titel, korte beschrijving en welke ingrediënten ik uit mijn lijst gebruik. Gebruik leuke emoji's. Houd het beknopt.`;
-            const recipes = await callGemini(geminiAPIKey, prompt);
-            setAiRecipes(recipes);
-        } catch (err) {
-            console.error(err);
-            showNotification("Kon recepten niet laden", "error");
-        } finally {
-            setIsLoadingRecipes(false);
-        }
-    };
-    
-    // Item CRUD
     const handleOpenAdd = () => {
-        setEditingItem(null);
-        setModalType(activeTab); 
-        
-        const typeLocaties = vriezers.filter(l => l.type === activeTab);
-        const defaultLoc = typeLocaties.length > 0 ? typeLocaties[0].id : '';
-        const defaultCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
+        setEditingItem(null); setModalType(activeTab);
+        const typeLocs = vriezers.filter(l => l.type === activeTab);
+        const defLoc = typeLocs.length > 0 ? typeLocs[0].id : '';
+        const defCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
         
         if (!rememberLocation) {
-            setFormData({
-                naam: '', aantal: 1, eenheid: 'stuks', vriezerId: defaultLoc, ladeId: '', 
-                categorie: defaultCat, ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
-            });
+            setFormData({ naam: '', aantal: 1, eenheid: 'stuks', vriezerId: defLoc, ladeId: '', categorie: defCat, ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: '' });
         } else {
-             setFormData(prev => ({
-                ...prev,
-                vriezerId: defaultLoc,
-                naam: '', aantal: 1, categorie: defaultCat, 
-                ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
-            }));
+            setFormData(p => ({ ...p, vriezerId: defLoc, naam: '', aantal: 1, categorie: defCat, ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: '' }));
         }
         setShowAddModal(true);
-    };
-    
-    const handleModalTypeChange = (newType) => {
-        setModalType(newType);
-        const newLocs = vriezers.filter(l => l.type === newType);
-        const defaultLoc = newLocs.length > 0 ? newLocs[0].id : '';
-        const defaultCat = newType === 'voorraad' ? 'Pasta' : 'Vlees';
-        
-        setFormData(prev => ({
-            ...prev,
-            vriezerId: defaultLoc,
-            ladeId: '',
-            categorie: defaultCat
-        }));
     };
 
     const handleSaveItem = async (e) => {
         e.preventDefault();
         const lade = lades.find(l => l.id === formData.ladeId);
+        const data = { ...formData, aantal: parseFloat(formData.aantal), ladeNaam: lade ? lade.naam : '', ingevrorenOp: new Date(formData.ingevrorenOp), houdbaarheidsDatum: formData.houdbaarheidsDatum ? new Date(formData.houdbaarheidsDatum) : null, userId: beheerdeUserId, emoji: formData.emoji || getEmojiForCategory(formData.categorie) };
         
-        const data = {
-            ...formData,
-            aantal: parseFloat(formData.aantal),
-            ladeNaam: lade ? lade.naam : '',
-            ingevrorenOp: new Date(formData.ingevrorenOp),
-            houdbaarheidsDatum: formData.houdbaarheidsDatum ? new Date(formData.houdbaarheidsDatum) : null,
-            userId: beheerdeUserId,
-            emoji: formData.emoji || getEmojiForCategory(formData.categorie)
-        };
         try {
-            if(editingItem) {
+            if (editingItem) {
                 await db.collection('items').doc(editingItem.id).update(data);
                 await logAction('Bewerkt', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
-                showNotification(`${data.naam} is bijgewerkt!`, 'success');
-                setEditingItem(null);
-                setShowAddModal(false);
+                showNotification(`${data.naam} bijgewerkt!`);
             } else {
                 await db.collection('items').add(data);
                 await logAction('Toevoegen', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
-                showNotification(`${data.naam} is toegevoegd!`, 'success');
-                if (rememberLocation) {
-                    setFormData(prev => ({
-                        ...prev, 
-                        naam: '', aantal: 1, emoji: '', 
-                        ingevrorenOp: new Date().toISOString().split('T')[0],
-                        houdbaarheidsDatum: ''
-                    }));
-                } else {
-                    const defaultCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
-                    setFormData(prev => ({...prev, naam: '', aantal: 1, emoji: '', categorie: defaultCat})); 
-                }
-                setShowAddModal(false);
+                showNotification(`${data.naam} toegevoegd!`);
+                if(!rememberLocation) setFormData(p => ({...p, naam: '', aantal: 1, emoji: ''}));
             }
-        } catch(err) { showNotification("Er ging iets mis: " + err.message, 'error'); }
+            if(!rememberLocation) setShowAddModal(false);
+        } catch(e) { showNotification("Fout: " + e.message, 'error'); }
     };
 
-    const initDelete = (item) => {
-        setItemToDelete(item);
-        setShowDeleteModal(true);
-    };
-
-    const confirmDelete = async (reason) => {
-        if (!itemToDelete) return;
-        
-        try {
-            await db.collection('items').doc(itemToDelete.id).delete();
-            
-            let logDetail = 'Item verwijderd';
-            if (reason === 'consumed') {
-                logDetail = 'Opgegeten';
-                await db.collection('users').doc(beheerdeUserId).update({ 'stats.consumed': firebase.firestore.FieldValue.increment(1) });
-            } else if (reason === 'wasted') {
-                logDetail = 'Weggegooid (Verspild)';
-                await db.collection('users').doc(beheerdeUserId).update({ 'stats.wasted': firebase.firestore.FieldValue.increment(1) });
-            }
-
-            await logAction('Verwijderd', itemToDelete.naam, logDetail, user, beheerdeUserId);
-            showNotification(`${itemToDelete.naam} is verwijderd.`, 'success');
-            
-            setItemToShopify(itemToDelete);
-            setAantalForShopifyItem(itemToDelete.aantal || 1);
-            setShowDeleteModal(false);
-            setShowShopifyModal(true);
-            setItemToDelete(null);
-
-        } catch(err) {
-            showNotification("Kon niet verwijderen", 'error');
-            setShowDeleteModal(false);
-            setItemToDelete(null);
-        }
-    };
-
-    const handleAddToShoppingFromDelete = async () => {
-        if (!itemToShopify) return;
-
-        await db.collection('shoppingList').add({
-            naam: itemToShopify.naam,
-            aantal: parseFloat(aantalForShopifyItem),
-            eenheid: itemToShopify.eenheid || 'stuks',
-            winkel: shopForDeletedItem,
-            checked: false,
-            userId: beheerdeUserId
-        });
-        showNotification("Aan boodschappenlijst toegevoegd.", "success");
-        
-        setShopForDeletedItem('');
-        setItemToShopify(null);
-        setAantalForShopifyItem(1);
-        setShowShopifyModal(false);
-    };
-
-    const handleAddShoppingItem = async (e) => {
-        e.preventDefault();
-        await db.collection('shoppingList').add({
-            ...shoppingFormData,
-            aantal: parseFloat(shoppingFormData.aantal),
-            checked: false,
-            userId: beheerdeUserId
-        });
-        setShoppingFormData({ naam: '', aantal: 1, eenheid: 'stuks', winkel: '' });
-    };
-
-    const toggleShoppingItem = async (item) => {
-        await db.collection('shoppingList').doc(item.id).update({ checked: !item.checked });
-    };
-
-    const deleteShoppingItem = async (id) => {
-        await db.collection('shoppingList').doc(id).delete();
-    };
-    
-    const moveShoppingToStock = async (item) => {
-        setEditingItem(null);
-        setModalType('voorraad'); 
-
-        const stockLocs = vriezers.filter(l => l.type === 'voorraad');
-        const defaultLoc = stockLocs.length > 0 ? stockLocs[0].id : '';
-
-        setFormData({
-            naam: item.naam, aantal: item.aantal, eenheid: item.eenheid, 
-            vriezerId: defaultLoc, ladeId: '', categorie: 'Overig', 
-            ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
-        });
-        
-        setShowAddModal(true);
-        setShowShoppingModal(false); 
-        
-        if(confirm("Verwijder van boodschappenlijst?")) {
-            deleteShoppingItem(item.id);
-        }
-    };
-
-    // UseMemo ook hier handig
-    const getSuggestions = useMemo(() => {
-        const scoredItems = items.map(item => {
-            let score = 0;
-            const daysTHT = item.houdbaarheidsDatum ? getDagenTotTHT(item.houdbaarheidsDatum) : 999;
-            const daysOld = getDagenOud(item.ingevrorenOp);
-            const loc = vriezers.find(v => v.id === item.vriezerId);
-            const type = loc?.type || 'vriezer';
-
-            if (type === 'vriezer') {
-                if (daysOld > 180) score += 50; 
-                else if (daysOld > 90) score += 20;
-            } else { 
-                if (daysTHT < 0) score += 100; 
-                else if (daysTHT <= 3) score += 80; 
-                else if (daysTHT <= 7) score += 40;
-            }
-            return { ...item, score, daysTHT, daysOld, type };
-        });
-
-        return scoredItems.filter(i => i.score > 0).sort((a,b) => b.score - a.score).slice(0, 5);
-    }, [items, vriezers]);
-
-    const openEdit = (item) => {
+    const handleEditItem = useCallback((item) => {
         setEditingItem(item);
         const loc = vriezers.find(v => v.id === item.vriezerId);
-        const itemType = loc ? loc.type : 'vriezer';
-        setModalType(itemType);
-
+        setModalType(loc ? loc.type : 'vriezer');
         setFormData({
             naam: item.naam, aantal: item.aantal, eenheid: item.eenheid, vriezerId: item.vriezerId, ladeId: item.ladeId, categorie: item.categorie,
             ingevrorenOp: toInputDate(item.ingevrorenOp), houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), emoji: item.emoji
         });
         setShowAddModal(true);
+    }, [vriezers]);
+
+    const handleDeleteItem = useCallback((item) => { setItemToDelete(item); setShowDeleteModal(true); }, []);
+
+    const confirmDelete = async (reason) => {
+        if (!itemToDelete) return;
+        try {
+            await db.collection('items').doc(itemToDelete.id).delete();
+            let detail = 'Verwijderd';
+            if (reason === 'consumed') { detail = 'Opgegeten'; await db.collection('users').doc(beheerdeUserId).update({ 'stats.consumed': firebase.firestore.FieldValue.increment(1) }); }
+            else if (reason === 'wasted') { detail = 'Weggegooid'; await db.collection('users').doc(beheerdeUserId).update({ 'stats.wasted': firebase.firestore.FieldValue.increment(1) }); }
+            await logAction('Verwijderd', itemToDelete.naam, detail, user, beheerdeUserId);
+            showNotification(`${itemToDelete.naam} verwijderd.`);
+            setItemToShopify(itemToDelete); setAantalForShopifyItem(itemToDelete.aantal||1);
+            setShowDeleteModal(false); setShowShopifyModal(true); setItemToDelete(null);
+        } catch(e) { showNotification("Kon niet verwijderen", 'error'); }
     };
 
-    const handleAddLocatie = async (e) => {
-        e.preventDefault();
-        await db.collection('vriezers').add({ 
-            naam: newLocatieNaam, 
-            type: activeTab, 
-            userId: beheerdeUserId,
-            color: newLocatieColor 
-        });
-        setNewLocatieNaam('');
-        setNewLocatieColor('blue');
-    };
-
-    const cycleLocatieColor = async (locatie) => {
-        const keys = Object.keys(GRADIENTS);
-        const currentColor = locatie.color || 'blue'; 
-        const currentIndex = keys.indexOf(currentColor);
-        const nextIndex = (currentIndex + 1) % keys.length;
-        const nextColor = keys[nextIndex];
-        
-        await db.collection('vriezers').doc(locatie.id).update({ color: nextColor });
-    };
-
-    const handleDeleteLocatie = async (id) => {
-        if(lades.some(l => l.vriezerId === id)) return alert("Maak locatie eerst leeg.");
-        if(confirm("Verwijderen?")) await db.collection('vriezers').doc(id).delete();
-    };
-
-    const handleAddLade = async (e) => {
-        e.preventDefault();
-        await db.collection('lades').add({ naam: newLadeNaam, vriezerId: selectedLocatieForBeheer, userId: beheerdeUserId });
-        setNewLadeNaam('');
-    };
-    const handleDeleteLade = async (id) => {
-        if(items.some(i => i.ladeId === id)) return alert("Maak lade eerst leeg.");
-        if(confirm("Verwijderen?")) await db.collection('lades').doc(id).delete();
-    };
-    
-    const startEditLade = (l) => { setEditingLadeId(l.id); setEditingLadeName(l.naam); };
-    const saveLadeName = async (id) => {
-        await db.collection('lades').doc(id).update({ naam: editingLadeName });
-        const batch = db.batch();
-        const itemsInLade = items.filter(i => i.ladeId === id);
-        itemsInLade.forEach(item => {
-            batch.update(db.collection('items').doc(item.id), { ladeNaam: editingLadeName });
-        });
-        await batch.commit();
-        setEditingLadeId(null);
-    };
-
-    const handleAddUnit = async (e) => {
-        e.preventDefault();
-        const naam = newUnitNaam.trim().toLowerCase();
-        
-        let standardList = EENHEDEN_VRIES;
-        let currentCustom = customUnitsVries;
-        let dbField = 'customUnitsVries';
-
-        if (eenheidFilter === 'voorraad') {
-            standardList = EENHEDEN_VOORRAAD;
-            currentCustom = customUnitsVoorraad;
-            dbField = 'customUnitsVoorraad';
-        } else if (eenheidFilter === 'frig') {
-            standardList = EENHEDEN_FRIG;
-            currentCustom = customUnitsFrig;
-            dbField = 'customUnitsFrig';
-        }
-
-        if(naam && !standardList.includes(naam) && !currentCustom.includes(naam)) {
-            const updated = [...currentCustom, naam];
-            await db.collection('users').doc(beheerdeUserId).set({[dbField]: updated}, {merge:true});
-            setNewUnitNaam('');
-        }
-    };
-
-    const handleDeleteUnit = async (unit) => {
-        if(confirm(`Verwijder eenheid '${unit}'?`)) {
-            let currentCustom = customUnitsVries;
-            let dbField = 'customUnitsVries';
-
-            if (eenheidFilter === 'voorraad') {
-                currentCustom = customUnitsVoorraad;
-                dbField = 'customUnitsVoorraad';
-            } else if (eenheidFilter === 'frig') {
-                currentCustom = customUnitsFrig;
-                dbField = 'customUnitsFrig';
-            }
-            
-            const updated = currentCustom.filter(u => u !== unit);
-            await db.collection('users').doc(beheerdeUserId).set({[dbField]: updated}, {merge:true});
-        }
-    };
-    
-    const startEditUnit = (u) => { setEditingUnitName(u); setEditUnitInput(u); };
-    const saveUnitName = async (id) => {
-        if(!editUnitInput.trim()) return;
-        
-        let currentCustom = customUnitsVries;
-        let dbField = 'customUnitsVries';
-
-        if (eenheidFilter === 'voorraad') {
-            currentCustom = customUnitsVoorraad;
-            dbField = 'customUnitsVoorraad';
-        } else if (eenheidFilter === 'frig') {
-            currentCustom = customUnitsFrig;
-            dbField = 'customUnitsFrig';
-        }
-
-        const updated = currentCustom.map(u => u === editingUnitName ? editUnitInput : u);
-        await db.collection('users').doc(beheerdeUserId).set({[dbField]: updated}, {merge:true});
-        
-        const batch = db.batch();
-        const itemsWithUnit = items.filter(i => i.eenheid === editingUnitName);
-        itemsWithUnit.forEach(item => {
-            batch.update(db.collection('items').doc(item.id), { eenheid: editUnitInput });
-        });
-        await batch.commit();
-        setEditingUnitName(null);
-    };
-
-    const handleAddCat = async (e) => {
-        e.preventDefault();
-        if(newCatName.trim()) {
-            const updated = [...customCategories, {name: newCatName, color: newCatColor}];
-            await db.collection('users').doc(beheerdeUserId).set({customCategories: updated}, {merge:true});
-            setNewCatName('');
-        }
-    };
-    const handleDeleteCat = async (catName) => {
-        if(confirm(`Verwijder categorie '${catName}'?`)) {
-            const updated = customCategories.filter(c => c.name !== catName);
-            await db.collection('users').doc(beheerdeUserId).set({customCategories: updated}, {merge:true});
-        }
-    };
-    const startEditCat = (cat) => { 
-        setEditingCatName(cat.name); 
-        setEditCatInputName(cat.name); 
-        setEditCatInputColor(cat.color || 'gray'); 
-    };
-    const saveCat = async () => {
-        if(!editCatInputName.trim()) return;
-        const updated = customCategories.map(c => c.name === editingCatName ? {name: editCatInputName, color: editCatInputColor} : c);
-        await db.collection('users').doc(beheerdeUserId).set({customCategories: updated}, {merge:true});
-
-        if(editingCatName !== editCatInputName) {
-            const batch = db.batch();
-            const itemsWithCat = items.filter(i => i.categorie === editingCatName);
-            itemsWithCat.forEach(item => {
-                batch.update(db.collection('items').doc(item.id), { categorie: editCatInputName });
-            });
-            await batch.commit();
-        }
-        setEditingCatName(null);
-    };
-
-
-    const handleShare = async (e) => {
-        e.preventDefault();
-        await db.collection('shares').add({ 
-            ownerId: user.uid, ownerEmail: user.email, sharedWithEmail: shareEmail, role: 'editor', status: 'pending' 
-        });
-        alert("Uitnodiging verstuurd!");
-        setShareEmail('');
-        setShowShareModal(false);
-    };
-
-    const toggleUserStatus = async (userId, currentStatus) => {
-        await db.collection('users').doc(userId).update({ disabled: !currentStatus }); 
-    };
-
-    const toggleUserTabVisibility = async (userId, userHiddenTabs, tabName) => {
-        const tabs = userHiddenTabs || [];
-        let newTabs;
-        if (tabs.includes(tabName)) {
-            newTabs = tabs.filter(t => t !== tabName);
-        } else {
-            newTabs = [...tabs, tabName];
-        }
-        await db.collection('users').doc(userId).set({ hiddenTabs: newTabs }, { merge: true });
-    };
-
-    const toggleLade = async (id) => {
-        const newSet = new Set(collapsedLades);
-        if(newSet.has(id)) newSet.delete(id); 
-        else newSet.add(id); 
-        
-        setCollapsedLades(newSet);
-
-        if(user) {
-            const openLadesArray = lades
-                .filter(l => !newSet.has(l.id))
-                .map(l => l.id);
+    // AI Handlers
+    const handleCameraClick = () => fileInputRef.current.click();
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!userData.geminiAPIKey) return alert("Stel eerst je Google Gemini API Key in!");
+        setIsAnalyzingImage(true);
+        const reader = new FileReader();
+        reader.onloadend = async () => {
             try {
-                await db.collection('users').doc(user.uid).set({ openLades: openLadesArray }, { merge: true });
-            } catch(e) { console.error("Kon lade status niet opslaan", e); }
-        }
+                const prompt = "Kijk naar deze verpakking. Geef me een JSON object met: naam (korte productnaam NL), categorie (Kies uit: Vlees, Vis, Groenten, Fruit, Brood, IJs, Restjes, Saus, Friet, Pizza, Soep, Ander), hoeveelheid (getal), eenheid (stuks, gram, kilo, liter, zak, pak, doos). Alleen JSON.";
+                const res = await callGemini(userData.geminiAPIKey, prompt, reader.result);
+                const parsed = JSON.parse(res.replace(/```json/g, '').replace(/```/g, '').trim());
+                setFormData(p => ({ ...p, naam: parsed.naam||p.naam, categorie: parsed.categorie||p.categorie, aantal: parsed.hoeveelheid||p.aantal, eenheid: parsed.eenheid||p.eenheid, emoji: getEmojiForCategory(parsed.categorie) }));
+                showNotification("Product herkend!");
+            } catch(e) { showNotification("Kon foto niet lezen.", "error"); } finally { setIsAnalyzingImage(false); }
+        };
+        reader.readAsDataURL(file);
     };
 
-    const toggleAll = async () => {
-        const expanding = collapsedLades.size > 0; 
-        const newSet = expanding ? new Set() : new Set(lades.map(l => l.id));
-        setCollapsedLades(newSet);
+    const handleGetRecipes = async () => {
+        if (!userData.geminiAPIKey) return alert("Geen API Key!");
+        setIsLoadingRecipes(true);
+        try {
+            const list = items.map(i => `${i.aantal} ${i.eenheid} ${i.naam}`).join(', ');
+            const res = await callGemini(userData.geminiAPIKey, `Ik heb dit: ${list}. Bedenk 3 simpele gerechten. Geef titel, korte beschrijving en gebruikte ingrediënten. Gebruik emoji's.`);
+            setAiRecipes(res);
+        } catch(e) { showNotification("Kon recepten niet laden", "error"); } finally { setIsLoadingRecipes(false); }
+    };
 
-        if (user) {
-            const openLadesArray = expanding ? lades.map(l => l.id) : [];
-            try {
-                await db.collection('users').doc(user.uid).set({ openLades: openLadesArray }, { merge: true });
-            } catch(e) { console.error("Kon lade status niet opslaan", e); }
-        }
+    const handleModalTypeChange = (newType) => {
+        setModalType(newType);
+        const newLocs = vriezers.filter(l => l.type === newType);
+        const defaultLoc = newLocs.length > 0 ? newLocs[0].id : '';
+        const defaultCat = newType === 'voorraad' ? 'Pasta' : 'Vlees';
+        setFormData(prev => ({ ...prev, vriezerId: defaultLoc, ladeId: '', categorie: defaultCat }));
     };
 
     // --- RENDER ---
+    if (authLoading) return <div className="flex h-screen items-center justify-center text-gray-500">Laden...</div>;
     if (!user) return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4 transition-colors duration-300">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
             <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
                 <h1 className="text-2xl font-bold text-blue-600 mb-4">Voorraad.</h1>
-                <p className="text-gray-500 dark:text-gray-400 mb-6">Log in om je voorraad te beheren.</p>
-                <button onClick={handleGoogleLogin} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 py-3 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-600 transition flex items-center justify-center gap-2 mb-3">
-                    <svg width="20" height="20" viewBox="0 0 24 24"><g><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></g></svg>
-                    Inloggen met Google
-                </button>
+                <p className="text-gray-500 mb-6">Log in om te beginnen.</p>
+                <button onClick={login} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 py-3 rounded-xl font-semibold flex items-center justify-center gap-2">Inloggen met Google</button>
             </div>
         </div>
     );
 
-    const currentVersionData = VERSION_HISTORY.find(v => v.version === APP_VERSION);
-
     return (
         <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-100 transition-colors duration-300">
-             {notification && (
-                <Toast 
-                    message={notification.msg} 
-                    type={notification.type} 
-                    key={notification.id}
-                    onClose={() => setNotification(null)}
-                />
-            )}
-
-            <header className="bg-white dark:bg-gray-800 sticky top-0 z-30 shadow-sm border-b border-gray-200 dark:border-gray-700 print:hidden transition-colors duration-300">
+            {notification && <Toast message={notification.msg} type={notification.type} onClose={() => setNotification(null)} />}
+            
+            <header className="bg-white dark:bg-gray-800 sticky top-0 z-30 shadow-sm border-b border-gray-200 dark:border-gray-700 print:hidden">
                 <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
                     <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">Voorraad.</h1>
                     <div className="flex gap-2 relative">
-                        <button onClick={() => { setSelectedLocatieForBeheer(null); setBeheerdeUserId(beheerdeUserId); setShowBeheerModal(true); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><Icon path={Icons.Settings}/></button>
-
-                        <button onClick={() => setShowShoppingModal(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 relative hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-blue-600 dark:text-blue-400">
+                        <button onClick={() => { setSelectedLocatieForBeheer(null); setShowBeheerModal(true); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700"><Icon path={Icons.Settings}/></button>
+                        <button onClick={() => setShowShoppingModal(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 border text-blue-600 relative">
                             <Icon path={Icons.ShoppingCart}/>
-                            {shoppingList.length > 0 && (
-                                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center border-2 border-white dark:border-gray-800 font-bold">
-                                    {shoppingList.length}
-                                </span>
-                            )}
+                            {shoppingList.length > 0 && <span className="absolute -top-1 -right-1 px-1 bg-red-500 rounded-full text-[10px] text-white font-bold">{shoppingList.length}</span>}
                         </button>
+                        {isAdmin && <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600"><Icon path={Icons.Users}/></button>}
+                        <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 relative"><Icon path={Icons.Info}/>{alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full"></span>}</button>
+                        <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200">{user.photoURL ? <img src={user.photoURL} className="w-full h-full object-cover"/> : <div className="w-full h-full bg-gray-200"/>}</button>
                         
-                        {isAdmin && <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors"><Icon path={Icons.Users}/></button>}
-                        
-                        <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 relative hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"><Icon path={Icons.Info}/>{alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>}</button>
-                        
-                        <div className="relative">
-                            <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 transition-colors">
-                                {user.photoURL ? <img src={user.photoURL} alt="Profiel" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400"><Icon path={Icons.User} size={20}/></div>}
-                            </button>
-                            {showProfileMenu && (
-                                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <div className="px-4 py-3 border-b border-gray-50 dark:border-gray-700">
-                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{user.displayName || 'Gebruiker'}</p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
-                                    </div>
-                                    
-                                    <button onClick={toggleDarkMode} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
-                                        {darkMode ? (
-                                            <>
-                                                <Icon path={Icons.Sun} size={16} /> Licht.
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Icon path={Icons.Moon} size={16} /> Donker.
-                                            </>
-                                        )}
-                                    </button>
-
-                                    {isAdmin && (
-                                        <button onClick={() => { setShowUserAdminModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
-                                            <Icon path={Icons.Users} size={16}/> Gebruikers.
-                                        </button>
-                                    )}
-                                    <button onClick={() => { setShowStatsModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
-                                        <Icon path={Icons.PieChart} size={16}/> Statistieken.
-                                    </button>
-                                    <button onClick={() => { setShowLogModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
-                                        <Icon path={Icons.LogBook} size={16}/> Logboek.
-                                    </button>
-                                    <button onClick={() => { setShowShareModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
-                                        <Icon path={Icons.Share} size={16}/> Delen.
-                                    </button>
-                                    <button onClick={handlePrint} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
-                                        <Icon path={Icons.Printer} size={16}/> Print.
-                                    </button>
-                                    <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 border-t border-gray-50 dark:border-gray-700">
-                                        <Icon path={Icons.LogOut} size={16}/> Uitloggen.
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                        {showProfileMenu && (
+                            <div className="absolute right-0 mt-12 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border dark:border-gray-700 py-1 z-50">
+                                <div className="px-4 py-3 border-b dark:border-gray-700"><p className="text-sm font-bold">{user.displayName}</p><p className="text-xs text-gray-500">{user.email}</p></div>
+                                <button onClick={() => db.collection('users').doc(user.uid).set({ darkMode: !userData.darkMode }, { merge: true })} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex gap-2"><Icon path={userData.darkMode ? Icons.Sun : Icons.Moon} size={16}/> {userData.darkMode ? 'Licht' : 'Donker'}</button>
+                                <button onClick={() => setShowStatsModal(true)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex gap-2"><Icon path={Icons.PieChart} size={16}/> Statistieken</button>
+                                <button onClick={() => setShowLogModal(true)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex gap-2"><Icon path={Icons.LogBook} size={16}/> Logboek</button>
+                                <button onClick={() => setShowShareModal(true)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex gap-2"><Icon path={Icons.Share} size={16}/> Delen</button>
+                                <button onClick={handlePrint} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex gap-2"><Icon path={Icons.Printer} size={16}/> Print</button>
+                                <button onClick={logout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex gap-2 border-t dark:border-gray-700"><Icon path={Icons.LogOut} size={16}/> Uitloggen</button>
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="max-w-7xl mx-auto px-4 flex space-x-6 border-b border-gray-100 dark:border-gray-700 overflow-x-auto">
-                    <button onClick={() => setActiveTab('vriezer')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='vriezer' ? 'border-purple-400 text-purple-500' : 'border-transparent text-gray-500 dark:text-gray-400'}`}><Icon path={Icons.Snowflake}/> Vriez.</button>
-                    {(!myHiddenTabs.includes('frig') || isAdmin) && (
-                        <button onClick={() => setActiveTab('frig')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='frig' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
-                            <Icon path={Icons.Fridge}/> Frig.
-                            {isAdmin && managedUserHiddenTabs.includes('frig') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
+                    {['vriezer', 'frig', 'voorraad'].map(t => (
+                        (!userData.hiddenTabs.includes(t) || isAdmin) && 
+                        <button key={t} onClick={() => setActiveTab(t)} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 capitalize transition-colors ${activeTab===t ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'}`}>
+                            <Icon path={t==='vriezer'?Icons.Snowflake:t==='frig'?Icons.Fridge:Icons.Box}/> {t}
                         </button>
-                    )}
-                    {(!myHiddenTabs.includes('voorraad') || isAdmin) && (
-                        <button onClick={() => setActiveTab('voorraad')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
-                            <Icon path={Icons.Box}/> Stock.
-                            {isAdmin && managedUserHiddenTabs.includes('voorraad') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
-                        </button>
-                    )}
+                    ))}
                 </div>
             </header>
 
             <main className="max-w-7xl mx-auto p-4 space-y-6 flex-grow w-full pb-32">
-                
                 <div className="flex flex-col gap-4 print:hidden">
                     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                        <div className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm font-bold">{activeItems.length} items</div>
-                        {filteredLocaties.map(l => <div key={l.id} className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm">{items.filter(i=>i.vriezerId===l.id).length} {l.naam}</div>)}
+                        <div className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border dark:border-gray-700 shadow-sm text-sm font-bold">{items.filter(i => filteredLocaties.some(l=>l.id===i.vriezerId)).length} items</div>
+                        {filteredLocaties.map(l => <div key={l.id} className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border dark:border-gray-700 shadow-sm text-sm">{items.filter(i=>i.vriezerId===l.id).length} {l.naam}</div>)}
                     </div>
-                    
-                    <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-                        <div className="relative group flex-grow w-full">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Icon path={Icons.Search} className="text-gray-400"/></div>
-                            <input type="text" className="block w-full pl-10 pr-3 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400" placeholder="Zoek..." value={search} onChange={e=>setSearch(e.target.value)}/>
-                        </div>
-                        
-                        <div className="flex gap-2 w-full sm:w-auto">
-                            <button onClick={() => setShowSuggestionModal(true)} className="flex-none sm:flex-none w-10 h-10 sm:w-auto sm:h-auto bg-yellow-100 text-yellow-600 sm:p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
-                                <Icon path={Icons.Utensils}/>
-                            </button>
-                            
-                            <button onClick={toggleAll} className="flex-grow sm:flex-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap text-center">
-                                {collapsedLades.size > 0 ? "Alles open" : "Alles dicht"}
-                            </button>
-                        </div>
+                    <div className="flex gap-3">
+                        <div className="relative flex-grow"><div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Icon path={Icons.Search} className="text-gray-400"/></div><input type="text" className="block w-full pl-10 pr-3 py-3 border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Zoek..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
+                        <button onClick={() => setShowSuggestionModal(true)} className="w-12 bg-yellow-100 text-yellow-600 rounded-xl flex items-center justify-center"><Icon path={Icons.Utensils}/></button>
+                        <button onClick={() => setCollapsedLades(collapsedLades.size>0 ? new Set() : new Set(lades.map(l=>l.id)))} className="bg-white dark:bg-gray-800 border dark:border-gray-700 px-4 rounded-xl text-sm font-medium">{collapsedLades.size>0 ? "Open" : "Dicht"}</button>
                     </div>
                 </div>
 
-                <div className={`grid gap-6 items-start ${gridClass}`}>
-                    {filteredLocaties.map(vriezer => {
-                        const gradientKeys = Object.keys(GRADIENTS);
-                        let hash = 0;
-                        for (let i = 0; i < vriezer.id.length; i++) hash = (hash << 5) - hash + vriezer.id.charCodeAt(i);
-                        
-                        const colorKey = vriezer.color || gradientKeys[Math.abs(hash) % gradientKeys.length];
-                        const gradientClass = GRADIENTS[colorKey] || GRADIENTS.blue;
-
-                        return (
-                            <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
-                                <h2 className={`text-lg font-bold mb-3 flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{vriezer.naam}</h2>
-                                <div className="space-y-4">
-                                    {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(lade => {
-                                        const ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
-                                        if (ladeItems.length === 0 && search) return null;
-                                        const isCollapsed = collapsedLades.has(lade.id) && !search;
-                                        
-                                        return (
-                                            <div key={lade.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden page-break-inside-avoid transition-colors">
-                                                <div className="bg-gray-50/50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 print:bg-white" onClick={() => toggleLade(lade.id)}>
-                                                    <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-sm flex items-center gap-2">
-                                                        {isCollapsed ? <Icon path={Icons.ChevronRight} className="print:hidden"/> : <Icon path={Icons.ChevronDown} className="print:hidden"/>} 
-                                                        {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
-                                                    </h3>
-                                                </div>
-                                                {!isCollapsed && (
-                                                    <ul className="block"> 
-                                                        {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
-                                                        ladeItems.map(item => {
-                                                            const dagenOud = getDagenOud(item.ingevrorenOp);
-                                                            const dagenTotTHT = getDagenTotTHT(item.houdbaarheidsDatum);
-                                                            const isStockItem = vriezer.type === 'voorraad' || vriezer.type === 'frig';
-                                                            
-                                                            const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT);
-                                                            const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT);
-                                                            
-                                                            const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
-                                                            const catColor = catObj ? (catObj.color || 'gray') : 'gray';
-
-                                                            return (
-                                                                <li key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0`}>
-                                                                    <div className="flex items-center gap-3 overflow-hidden min-w-0">
-                                                                        <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
-                                                                        <div className="min-w-0 flex-grow">
-                                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                                <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
-                                                                                {item.categorie && item.categorie !== "Geen" && (
-                                                                                    <Badge type={catColor} text={item.categorie} />
-                                                                                )}
-                                                                            </div>
-                                                                            <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
-                                                                                <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
-                                                                                {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
-                                                                                {!isStockItem && item.houdbaarheidsDatum && <span className="text-xs text-gray-500 dark:text-gray-400"> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
-                                                                                {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                    
-                                                                    {/* Knoppen (Altijd zichtbaar, ook op mobiel) */}
-                                                                    <div className="flex items-center gap-1 flex-shrink-0 print:hidden ml-2">
-                                                                        <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50"><Icon path={Icons.Edit2} size={16}/></button>
-                                                                        <button onClick={()=>initDelete(item)} className="p-2 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50"><Icon path={Icons.Trash2} size={16}/></button>
-                                                                    </div>
-                                                                </li>
-                                                            );
-                                                        })}
-                                                    </ul>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        );
-                    })}
+                <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredLocaties.map(vriezer => (
+                        <LocationCard 
+                            key={vriezer.id} 
+                            vriezer={vriezer} 
+                            lades={lades} 
+                            items={items} 
+                            collapsedLades={collapsedLades} 
+                            onToggleLade={handleToggleLade} 
+                            actieveCategorieen={actieveCategorieen}
+                            onEditItem={handleEditItem}
+                            onDeleteItem={handleDeleteItem}
+                            search={search}
+                        />
+                    ))}
                 </div>
             </main>
 
-            <footer className="bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 py-6 print:hidden transition-colors duration-300">
-                <div className="max-w-7xl mx-auto px-4 text-center">
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                         <span className="text-sm text-gray-400 dark:text-gray-500">&copy;</span>
-                         <span className="font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">
-                             Voorraad.
-                         </span>
-                         <button onClick={() => setShowVersionHistory(true)} className="text-[10px] text-gray-300 dark:text-gray-600 hover:text-blue-500 transition-colors cursor-pointer">
-                            v{APP_VERSION}
-                        </button>
-                    </div>
-                    <p className="text-[10px] text-gray-300 dark:text-gray-600">
-                        Beheer je voorraad snel en eenvoudig.
-                    </p>
-                </div>
-            </footer>
+            <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 hover:scale-105 transition-transform"><Icon path={Icons.Plus} size={28}/></button>
 
-            <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 print:hidden hover:scale-105 transition-transform"><Icon path={Icons.Plus} size={28}/></button>
-
-            {/* Add/Edit Modal */}
+            {/* ADD / EDIT MODAL */}
             <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken." : "Toevoegen."} color="blue">
                 <form onSubmit={handleSaveItem} className="space-y-4">
-                    
-                    {/* CAMERA KNOP (Alleen bij toevoegen) */}
                     {!editingItem && (
                         <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl text-center border border-blue-100 dark:border-blue-800">
                             <input type="file" accept="image/*" capture="environment" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
-                            <button type="button" onClick={handleCameraClick} disabled={isAnalyzingImage} className="flex flex-col items-center justify-center w-full gap-2 text-blue-600 dark:text-blue-300 hover:scale-105 transition-transform">
+                            <button type="button" onClick={handleCameraClick} disabled={isAnalyzingImage} className="flex flex-col items-center justify-center w-full gap-2 text-blue-600 dark:text-blue-300">
                                 {isAnalyzingImage ? <Icon path={Icons.Zap} className="animate-spin" size={32}/> : <Icon path={Icons.Camera} size={32}/>}
                                 <span className="font-bold text-sm">{isAnalyzingImage ? "Analyseren..." : "Scan verpakking (AI)"}</span>
                             </button>
-                            <p className="text-[10px] text-gray-400 mt-2">Zorg voor een Google Gemini API Key in instellingen.</p>
                         </div>
                     )}
-
                     <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4">
-                        <button type="button" onClick={() => handleModalTypeChange('vriezer')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${modalType === 'vriezer' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                            Vriezer.
-                        </button>
-                        {(!myHiddenTabs.includes('frig') || isAdmin) && (
-                            <button type="button" onClick={() => handleModalTypeChange('frig')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${modalType === 'frig' ? 'bg-white dark:bg-gray-600 shadow text-green-600 dark:text-green-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                                Frig.
-                            </button>
-                        )}
-                        {(!myHiddenTabs.includes('voorraad') || isAdmin) && (
-                            <button type="button" onClick={() => handleModalTypeChange('voorraad')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${modalType === 'voorraad' ? 'bg-white dark:bg-gray-600 shadow text-orange-600 dark:text-orange-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                                Stock.
-                            </button>
-                        )}
+                        {['vriezer', 'frig', 'voorraad'].map(type => (
+                            (!userData.hiddenTabs.includes(type) || isAdmin) &&
+                            <button type="button" key={type} onClick={() => handleModalTypeChange(type)} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all capitalize ${modalType === type ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>{type}</button>
+                        ))}
                     </div>
-
                     <div className="flex gap-2">
-                        <button type="button" onClick={() => setShowEmojiPicker(true)} className="w-12 h-12 flex-shrink-0 border dark:border-gray-600 rounded-lg flex items-center justify-center text-2xl bg-gray-50 dark:bg-gray-700">{formData.emoji || '🏷️'}</button>
-                        <div className="relative flex-grow">
-                            <input type="text" placeholder="Productnaam" className="w-full h-12 px-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400" value={formData.naam} onChange={e => setFormData({...formData, naam: e.target.value})} required />
-                        </div>
+                        <button type="button" onClick={() => setShowEmojiPicker(true)} className="w-12 h-12 flex-shrink-0 border rounded-lg flex items-center justify-center text-2xl bg-gray-50 dark:bg-gray-700">{formData.emoji || '🏷️'}</button>
+                        <input type="text" placeholder="Productnaam" className="flex-grow h-12 px-4 border rounded-lg bg-white dark:bg-gray-700" value={formData.naam} onChange={e => setFormData({...formData, naam: e.target.value})} required />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Locatie.</label>
-                        <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.vriezerId} onChange={e => setFormData({...formData, vriezerId: e.target.value})} required>
-                            <option value="" disabled>Kies...</option>
+                        <select className="w-full p-3 border rounded-lg bg-white dark:bg-gray-700" value={formData.vriezerId} onChange={e => setFormData({...formData, vriezerId: e.target.value})} required>
+                            <option value="" disabled>Locatie...</option>
                             {modalLocaties.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
-                        </select></div>
-                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Lade.</label>
-                        <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ladeId} onChange={e => setFormData({...formData, ladeId: e.target.value})} required>
-                            <option value="" disabled>Kies...</option>
+                        </select>
+                        <select className="w-full p-3 border rounded-lg bg-white dark:bg-gray-700" value={formData.ladeId} onChange={e => setFormData({...formData, ladeId: e.target.value})} required>
+                            <option value="" disabled>Lade...</option>
                             {formLades.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
-                        </select></div>
+                        </select>
                     </div>
-                    <div className="flex gap-4 items-end">
-                      <div className="relative w-24 flex-1">
-                        <input 
-                          type="number" 
-                          step="0.25" 
-                          min="0" 
-                          max="99.75"
-                          className="w-full text-center h-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg pr-8 pl-8 focus:ring-2 focus:ring-blue-500 outline-none appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
-                          value={formData.aantal} 
-                          onChange={e => setFormData({...formData, aantal: e.target.value})}
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            const current = parseFloat(formData.aantal) || 0;
-                            const next = Math.min(current + 0.25, 99.75);
-                            setFormData({...formData, aantal: next.toFixed(2)});
-                          }}
-                          className="absolute right-1 top-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
-                        >
-                          <Icon path={Icons.ChevronRight} size={12} className="rotate-[-90deg]" />
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            const current = parseFloat(formData.aantal) || 0;
-                            const next = Math.max(current - 0.25, 0);
-                            setFormData({...formData, aantal: next.toFixed(2)});
-                          }}
-                          className="absolute right-1 bottom-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
-                        >
-                          <Icon path={Icons.ChevronRight} size={12} className="rotate-[90deg]" />
-                        </button>
-                      </div>
-                      
-                      <select 
-                        value={formData.eenheid} 
-                        onChange={e => setFormData({...formData, eenheid: e.target.value})}
-                        className="flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                      >
-                        {alleEenheden.map((eenheid) => (
-                          <option key={eenheid} value={eenheid}>
-                            {eenheid}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="flex gap-4">
+                        <input type="number" step="0.25" className="w-24 text-center h-12 border rounded-lg bg-white dark:bg-gray-700" value={formData.aantal} onChange={e => setFormData({...formData, aantal: e.target.value})} />
+                        <select value={formData.eenheid} onChange={e => setFormData({...formData, eenheid: e.target.value})} className="flex-1 p-3 border rounded-lg bg-white dark:bg-gray-700">
+                            {[...new Set([...(modalType==='voorraad'?EENHEDEN_VOORRAAD:modalType==='frig'?EENHEDEN_FRIG:EENHEDEN_VRIES), ...(modalType==='voorraad'?userData.customUnitsVoorraad:modalType==='frig'?userData.customUnitsFrig:userData.customUnitsVries)])].sort().map(u => <option key={u} value={u}>{u}</option>)}
+                        </select>
                     </div>
-
-                    {modalType === 'vriezer' && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Invriesdatum.</label>
-                            <input type="date" className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
-                            <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">THT (Optioneel)</label>
-                            <input type="date" className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
-                        </div>
-                    )}
-                    {(modalType === 'voorraad' || modalType === 'frig') && (
-                        <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Houdbaarheidsdatum (THT).</label>
-                        <input type="date" className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
-                    )}
-
-                    <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Categorie.</label>
-                    <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
+                    <div className="grid grid-cols-2 gap-4">
+                        <input type="date" className="w-full p-2 border rounded-lg bg-white dark:bg-gray-700" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required={modalType==='vriezer'} />
+                        <input type="date" className="w-full p-2 border rounded-lg bg-white dark:bg-gray-700" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} placeholder="THT" />
+                    </div>
+                    <select className="w-full p-3 border rounded-lg bg-white dark:bg-gray-700" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
                         {actieveCategorieen.map(c => <option key={c.name||c} value={c.name||c}>{c.name||c}</option>)}
-                    </select></div>
-                    
+                    </select>
                     {!editingItem && (
                         <div className="flex items-center gap-2">
                             <input type="checkbox" id="rememberLocation" checked={rememberLocation} onChange={e => setRememberLocation(e.target.checked)} className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300 dark:border-gray-600" />
                             <label htmlFor="rememberLocation" className="text-sm text-gray-700 dark:text-gray-300">Onthoud locatie en lade</label>
                         </div>
                     )}
-                    
                     <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md">Opslaan</button>
                 </form>
             </Modal>
 
-            {/* Emoji Modal */}
-            <Modal isOpen={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} title="Emoji." color="orange">
-                <EmojiGrid onSelect={(emoji) => { setFormData(p => ({...p, emoji})); setShowEmojiPicker(false); }} />
-            </Modal>
-
-            {/* Shopping List Modal */}
-            <Modal isOpen={showShoppingModal} onClose={() => setShowShoppingModal(false)} title="Boodschappenlijst." color="blue">
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="bg-white dark:bg-gray-700/50 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600 p-4 mb-4">
-                        <form onSubmit={handleAddShoppingItem} className="flex flex-col gap-2">
-                            <div className="flex gap-2">
-                                <input 
-                                    type="text" 
-                                    placeholder="Wat moet je kopen?" 
-                                    className="flex-grow p-3 min-w-0 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                                    value={shoppingFormData.naam} 
-                                    onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} 
-                                    required
-                                />
-                                <div className="relative w-20 flex-shrink-0">
-                                    <input 
-                                        type="number" 
-                                        step="0.25"
-                                        className="w-full h-12 text-center border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white pr-5 pl-1 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
-                                        value={shoppingFormData.aantal} 
-                                        onChange={e => setShoppingFormData({...shoppingFormData, aantal: e.target.value})} 
-                                    />
-                                    <button 
-                                      type="button"
-                                      onClick={() => {
-                                        const current = parseFloat(shoppingFormData.aantal) || 0;
-                                        setShoppingFormData({...shoppingFormData, aantal: (current + 0.25).toFixed(2)});
-                                      }}
-                                      className="absolute right-1 top-1 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 cursor-pointer"
-                                    >
-                                      <Icon path={Icons.ChevronRight} size={10} className="rotate-[-90deg]" />
-                                    </button>
-                                    <button 
-                                      type="button"
-                                      onClick={() => {
-                                        const current = parseFloat(shoppingFormData.aantal) || 0;
-                                        setShoppingFormData({...shoppingFormData, aantal: Math.max(0, current - 0.25).toFixed(2)});
-                                      }}
-                                      className="absolute right-1 bottom-1 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 cursor-pointer"
-                                    >
-                                      <Icon path={Icons.ChevronRight} size={10} className="rotate-[90deg]" />
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div className="flex gap-2">
-                                <select 
-                                    className="flex-grow p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                                    value={shoppingFormData.winkel}
-                                    onChange={e => setShoppingFormData({...shoppingFormData, winkel: e.target.value})}
-                                >
-                                    <option value="">Kies winkel (optioneel)...</option>
-                                    {WINKELS.map(w => <option key={w.name} value={w.name}>{w.name}</option>)}
-                                </select>
-                                <button type="submit" className="bg-blue-600 text-white px-6 rounded-xl font-bold flex-shrink-0 flex items-center justify-center"><Icon path={Icons.Plus}/></button>
-                            </div>
-                        </form>
-                    </div>
-
-                    <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                        {shoppingList.length === 0 && <p className="text-center text-gray-400 py-8">Je boodschappenlijst is leeg.</p>}
-                        {shoppingList.sort((a,b) => a.checked - b.checked).map(item => {
-                            const winkelObj = WINKELS.find(w => w.name === item.winkel);
-                            const winkelColor = winkelObj ? winkelObj.color : 'gray';
-
-                            return (
-                                <div key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border ${item.checked ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800' : 'border-gray-200 dark:border-gray-600'}`}>
-                                    <div className="flex items-center gap-3 cursor-pointer overflow-hidden flex-grow" onClick={() => toggleShoppingItem(item)}>
-                                        <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${item.checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-500'}`}>
-                                            {item.checked && <Icon path={Icons.Check} size={14} className="text-white"/>}
-                                        </div>
-                                        <div className="flex flex-col min-w-0">
-                                            <span className={`font-medium truncate ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
-                                                {item.aantal > 0 && <span className="font-bold text-blue-600 mr-1">{formatAantal(item.aantal)} {item.eenheid}</span>}
-                                                {item.naam}
-                                            </span>
-                                            {item.winkel && (
-                                                <div className="flex mt-0.5">
-                                                    <Badge type={winkelColor} text={item.winkel} />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2 flex-shrink-0 ml-2">
-                                        <button onClick={() => moveShoppingToStock(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg" title="Naar voorraad"><Icon path={Icons.Box} size={18}/></button>
-                                        <button onClick={() => deleteShoppingItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Icon path={Icons.Trash2} size={18}/></button>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </Modal>
-
-            {/* Delete Confirmation Modal */}
-            <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Product verwijderen." color="red">
-                <p className="text-gray-800 dark:text-gray-200 mb-6">Wat is de reden voor het verwijderen van <strong>{itemToDelete?.naam}</strong>?</p>
-                <div className="grid grid-cols-1 gap-3">
-                    <button onClick={() => confirmDelete('consumed')} className="flex items-center justify-center gap-2 p-3 bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-200 rounded-xl font-bold hover:bg-green-200 dark:hover:bg-green-900/60 transition">
-                        <Icon path={Icons.Utensils} /> Opgegeten
-                    </button>
-                    <button onClick={() => confirmDelete('wasted')} className="flex items-center justify-center gap-2 p-3 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200 rounded-xl font-bold hover:bg-red-200 dark:hover:bg-red-900/60 transition">
-                        <Icon path={Icons.Trash2} /> Weggegooid (Verspild)
-                    </button>
-                    <button onClick={() => confirmDelete('other')} className="flex items-center justify-center gap-2 p-3 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 transition">
-                        Andere reden / Foutje
-                    </button>
-                </div>
-            </Modal>
-
-            {/* Shopify Modal (Choose store and quantity after delete) */}
-            <Modal isOpen={showShopifyModal} onClose={() => setShowShopifyModal(false)} title="Boodschappenlijst?" color="blue">
-                <p className="text-gray-800 dark:text-gray-200 mb-4">Wil je <strong>{itemToShopify?.naam}</strong> op de boodschappenlijst zetten?</p>
-                
-                <div className="space-y-4">
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 block">Winkel (optioneel)</label>
-                            <select 
-                                className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                                value={shopForDeletedItem}
-                                onChange={(e) => setShopForDeletedItem(e.target.value)}
-                            >
-                                <option value="">Geen winkel</option>
-                                {WINKELS.map(w => <option key={w.name} value={w.name}>{w.name}</option>)}
-                            </select>
-                        </div>
-                        <div className="w-24">
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 block">Aantal</label>
-                            <div className="relative">
-                                <input 
-                                    type="number" 
-                                    step="0.25"
-                                    className="w-full h-12 text-center border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none dark:text-white pr-6 pl-1 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
-                                    value={aantalForShopifyItem} 
-                                    onChange={(e) => setAantalForShopifyItem(e.target.value)}
-                                />
-                                <button 
-                                  type="button"
-                                  onClick={() => {
-                                    const current = parseFloat(aantalForShopifyItem) || 0;
-                                    setAantalForShopifyItem((current + 0.25).toFixed(2));
-                                  }}
-                                  className="absolute right-1 top-1 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 cursor-pointer"
-                                >
-                                  <Icon path={Icons.ChevronRight} size={10} className="rotate-[-90deg]" />
-                                </button>
-                                <button 
-                                  type="button"
-                                  onClick={() => {
-                                    const current = parseFloat(aantalForShopifyItem) || 0;
-                                    setAantalForShopifyItem(Math.max(0, current - 0.25).toFixed(2));
-                                  }}
-                                  className="absolute right-1 bottom-1 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 cursor-pointer"
-                                >
-                                  <Icon path={Icons.ChevronRight} size={10} className="rotate-[90deg]" />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <button onClick={() => setShowShopifyModal(false)} className="p-3 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 transition">
-                            Nee
-                        </button>
-                        <button onClick={handleAddToShoppingFromDelete} className="p-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-md">
-                            Ja, voeg toe
-                        </button>
-                    </div>
-                </div>
-            </Modal>
-
-            {/* Stats Modal */}
-            <Modal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} title="Statistieken." color="purple">
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl text-center border border-green-100 dark:border-green-800">
-                        <span className="block text-3xl font-bold text-green-600 dark:text-green-400">{stats.consumed}</span>
-                        <span className="text-xs uppercase tracking-wide text-green-800 dark:text-green-200">Producten gegeten</span>
-                    </div>
-                    <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl text-center border border-red-100 dark:border-red-800">
-                        <span className="block text-3xl font-bold text-red-600 dark:text-red-400">{stats.wasted}</span>
-                        <span className="text-xs uppercase tracking-wide text-red-800 dark:text-red-200">Weggegooid</span>
-                    </div>
-                </div>
-                {stats.consumed + stats.wasted > 0 ? (
-                    <div className="relative pt-1">
-                        <div className="flex mb-2 items-center justify-between">
-                            <span className="text-xs font-semibold inline-block text-blue-600 dark:text-blue-400">Verspillingspercentage</span>
-                            <span className="text-xs font-semibold inline-block text-blue-600 dark:text-blue-400">
-                                {Math.round((stats.wasted / (stats.consumed + stats.wasted)) * 100)}%
-                            </span>
-                        </div>
-                        <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-green-200 dark:bg-green-900">
-                            <div style={{ width: `${Math.round((stats.wasted / (stats.consumed + stats.wasted)) * 100)}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-red-500"></div>
-                        </div>
-                        <p className="text-xs text-center text-gray-500 italic">Gebaseerd op handmatige invoer bij verwijderen.</p>
-                    </div>
-                ) : <p className="text-center text-gray-400 text-sm">Nog geen data beschikbaar.</p>}
-            </Modal>
+            {/* OVERIGE MODALS */}
+            <Modal isOpen={showEmojiPicker} onClose={() => setShowEmojiPicker(false)} title="Kies Emoji"><EmojiGrid onSelect={emoji => { setFormData(p=>({...p, emoji})); setShowEmojiPicker(false); }}/></Modal>
             
-            <Modal isOpen={showSuggestionModal} onClose={() => setShowSuggestionModal(false)} title="Wat eten we vandaag?" color="yellow">
-                 {/* AI KNOP */}
-                 <div className="mb-6 p-4 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl text-white shadow-lg">
-                    <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-bold flex items-center gap-2"><Icon path={Icons.Sparkles}/> Chef AI</h4>
-                    </div>
-                    <p className="text-sm opacity-90 mb-3">Laat Google Gemini 3 recepten bedenken met wat je nu in huis hebt.</p>
-                    <button onClick={handleGetRecipes} disabled={isLoadingRecipes} className="w-full py-2 bg-white/20 hover:bg-white/30 rounded-lg font-bold transition-colors">
-                        {isLoadingRecipes ? "Aan het denken..." : "Verzin recepten"}
-                    </button>
-                    <p className="text-[10px] text-white/60 mt-2 italic">Vereist Gemini API Key in instellingen.</p>
-                 </div>
-
-                 {aiRecipes && (
-                     <div className="mb-6 bg-gray-50 dark:bg-gray-700 p-4 rounded-xl whitespace-pre-line text-sm border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">
-                         {aiRecipes}
-                     </div>
-                 )}
-
-                <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm font-bold border-b pb-2 dark:border-gray-600">Eerst opmaken (THT & Datum):</p>
-                <div className="space-y-3">
-                    {getSuggestions.length === 0 ? <p className="italic text-gray-400 text-center">Alles lijkt vers!</p> : getSuggestions.map(item => (
-                        <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-xl border border-yellow-200 dark:border-gray-600 shadow-sm">
-                            <div className="flex items-center gap-3">
-                                <span className="text-2xl">{item.emoji}</span>
-                                <div>
-                                    <p className="font-bold text-gray-800 dark:text-gray-100">{item.naam}</p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        {item.type === 'vriezer' ? `${item.daysOld} dgn in vriezer` : `THT: ${formatDate(item.houdbaarheidsDatum)}`}
-                                    </p>
-                                </div>
+            <Modal isOpen={showShoppingModal} onClose={() => setShowShoppingModal(false)} title="Boodschappen">
+                <form onSubmit={e => { e.preventDefault(); db.collection('shoppingList').add({ ...shoppingFormData, aantal: parseFloat(shoppingFormData.aantal), checked: false, userId: beheerdeUserId }); setShoppingFormData({ naam: '', aantal: 1, eenheid: 'stuks', winkel: '' }); }} className="flex gap-2 mb-4">
+                    <input className="flex-grow p-2 border rounded bg-white dark:bg-gray-700" placeholder="Wat?" value={shoppingFormData.naam} onChange={e=>setShoppingFormData({...shoppingFormData, naam: e.target.value})} required/>
+                    <button className="bg-blue-600 text-white px-4 rounded">+</button>
+                </form>
+                <div className="max-h-96 overflow-y-auto space-y-2">
+                    {shoppingList.sort((a,b)=>a.checked-b.checked).map(i => (
+                        <div key={i.id} className={`flex justify-between p-2 rounded border ${i.checked ? 'bg-gray-100 dark:bg-gray-800 opacity-50' : 'bg-white dark:bg-gray-700'}`}>
+                            <span onClick={() => db.collection('shoppingList').doc(i.id).update({checked: !i.checked})} className={`cursor-pointer ${i.checked ? 'line-through' : ''}`}>{i.aantal} {i.eenheid} {i.naam}</span>
+                            <div className="flex gap-2">
+                                <button onClick={() => moveShoppingToStock(i)} className="text-green-500"><Icon path={Icons.Box}/></button>
+                                <button onClick={() => db.collection('shoppingList').doc(i.id).delete()} className="text-red-500"><Icon path={Icons.Trash2}/></button>
                             </div>
-                            <Badge type="yellow" text="Eet mij!" />
                         </div>
                     ))}
                 </div>
             </Modal>
 
-            <Modal isOpen={showLogModal} onClose={() => setShowLogModal(false)} title="Logboek." color="teal">
-                {logs.length === 0 ? (
-                    <p className="text-gray-500 dark:text-gray-400 text-center italic py-4">Nog geen activiteiten.</p>
-                ) : (
-                    <ul className="space-y-3">
-                        {logs.map(log => {
-                            const isMine = log.targetUserId === user.uid;
-                            const isAdded = log.action === 'Toevoegen';
-                            const isDeleted = log.action === 'Verwijderd';
-                            
-                            return (
-                                <li key={log.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 border border-gray-100 dark:border-gray-600 text-sm">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <span className="font-bold text-gray-700 dark:text-gray-200">{log.item}</span>
-                                        <span className="text-xs text-gray-400 dark:text-gray-500">{formatDateTime(log.timestamp)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center mt-2">
-                                        <div className="flex gap-2">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isAdded ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : isDeleted ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
-                                                {log.action}
-                                            </span>
-                                            {isAdmin && (
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${isMine ? 'border-green-300 text-green-600 dark:border-green-700 dark:text-green-400' : 'border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400'}`}>
-                                                    {isMine ? 'Eigen' : 'Ander'}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                                            <Icon path={Icons.User} size={12}/> {log.actorName}
-                                        </div>
-                                    </div>
-                                    {log.details && <p className="text-xs text-gray-400 mt-1 pl-1 border-l-2 border-gray-200 dark:border-gray-600">{log.details}</p>}
-                                </li>
-                            );
-                        })}
-                    </ul>
-                )}
+            <Modal isOpen={showSuggestionModal} onClose={() => setShowSuggestionModal(false)} title="Recepten & Tips" color="yellow">
+                <div className="mb-4 bg-purple-100 dark:bg-purple-900/30 p-4 rounded-xl">
+                    <h4 className="font-bold flex gap-2 items-center text-purple-700 dark:text-purple-300"><Icon path={Icons.Sparkles}/> Chef AI</h4>
+                    <button onClick={handleGetRecipes} disabled={isLoadingRecipes} className="mt-2 w-full py-2 bg-purple-600 text-white rounded-lg font-bold">{isLoadingRecipes ? "Aan het denken..." : "Verzin recepten"}</button>
+                    {aiRecipes && <div className="mt-4 text-sm whitespace-pre-line bg-white dark:bg-gray-800 p-3 rounded">{aiRecipes}</div>}
+                </div>
+                <h4 className="font-bold mb-2">Eerst opmaken:</h4>
+                {items.filter(i => (i.houdbaarheidsDatum && getDagenTotTHT(i.houdbaarheidsDatum) < 7) || getDagenOud(i.ingevrorenOp) > 90).slice(0,5).map(i => (
+                    <div key={i.id} className="flex justify-between p-2 border-b dark:border-gray-700"><span>{i.naam}</span><span className="text-red-500 text-xs">Let op!</span></div>
+                ))}
             </Modal>
 
-            <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen." color="purple">
-                <div className="flex border-b dark:border-gray-700 mb-4 overflow-x-auto">
-                    <button onClick={() => setBeheerTab('locaties')} className={`flex-1 py-2 px-2 font-medium whitespace-nowrap ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500 dark:text-gray-400'}`}>Locaties.</button>
-                    <button onClick={() => setBeheerTab('categorieen')} className={`flex-1 py-2 px-2 font-medium whitespace-nowrap ${beheerTab==='categorieen'?'text-purple-600 border-b-2 border-purple-600':'text-gray-500 dark:text-gray-400'}`}>Categorieën.</button>
-                    <button onClick={() => setBeheerTab('eenheden')} className={`flex-1 py-2 px-2 font-medium whitespace-nowrap ${beheerTab==='eenheden'?'text-orange-600 border-b-2 border-orange-600':'text-gray-500 dark:text-gray-400'}`}>Eenheden.</button>
-                    <button onClick={() => setBeheerTab('cloud')} className={`flex-1 py-2 px-2 font-medium whitespace-nowrap ${beheerTab==='cloud'?'text-indigo-600 border-b-2 border-indigo-600':'text-gray-500 dark:text-gray-400'}`}>AI / Cloud.</button>
+            <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Weg?" color="red">
+                <p className="mb-4">Waarom verwijder je <b>{itemToDelete?.naam}</b>?</p>
+                <div className="grid gap-2">
+                    <button onClick={() => confirmDelete('consumed')} className="p-3 bg-green-100 text-green-800 rounded font-bold">Opgegeten</button>
+                    <button onClick={() => confirmDelete('wasted')} className="p-3 bg-red-100 text-red-800 rounded font-bold">Weggegooid</button>
+                    <button onClick={() => confirmDelete('other')} className="p-3 bg-gray-100 text-gray-800 rounded font-bold">Andere</button>
                 </div>
+            </Modal>
 
+            <Modal isOpen={showShopifyModal} onClose={() => setShowShopifyModal(false)} title="Op lijst?" color="blue">
+                <p className="mb-4">Wil je <b>{itemToShopify?.naam}</b> kopen?</p>
+                <div className="flex gap-2 mb-4">
+                    <input type="number" className="w-20 border rounded p-2 text-center" value={aantalForShopifyItem} onChange={e => setAantalForShopifyItem(e.target.value)}/>
+                    <select className="flex-grow border rounded p-2" value={shopForDeletedItem} onChange={e=>setShopForDeletedItem(e.target.value)}>
+                        <option value="">Kies winkel...</option>{WINKELS.map(w => <option key={w.name} value={w.name}>{w.name}</option>)}
+                    </select>
+                </div>
+                <div className="flex gap-2">
+                    <button onClick={() => setShowShopifyModal(false)} className="flex-1 p-3 bg-gray-200 rounded">Nee</button>
+                    <button onClick={() => { db.collection('shoppingList').add({ naam: itemToShopify.naam, aantal: parseFloat(aantalForShopifyItem), eenheid: itemToShopify.eenheid, winkel: shopForDeletedItem, checked: false, userId: beheerdeUserId }); setShowShopifyModal(false); showNotification("Toegevoegd!"); }} className="flex-1 p-3 bg-blue-600 text-white rounded font-bold">Ja</button>
+                </div>
+            </Modal>
+
+            <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen" color="purple">
+                <div className="flex border-b mb-4 overflow-x-auto">
+                    {['locaties','categorieen','eenheden','cloud'].map(t => <button key={t} onClick={()=>setBeheerTab(t)} className={`flex-1 py-2 capitalize ${beheerTab===t?'border-b-2 border-purple-600 text-purple-600':''}`}>{t}</button>)}
+                </div>
                 {beheerTab === 'cloud' && (
                     <div className="space-y-4">
-                        <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg border border-indigo-200 dark:border-indigo-800 text-sm text-indigo-800 dark:text-indigo-200">
-                            <p className="font-bold mb-1 flex items-center gap-2"><Icon path={Icons.Sparkles}/> Google Gemini AI</p>
-                            <p>Om de <strong>Camera Scanner</strong> en <strong>AI Chef</strong> te gebruiken, heb je een Google Gemini API Key nodig. Dit is vaak gratis via Google AI Studio.</p>
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Google Gemini API Key (AIza...)</label>
-                            <input type="password" className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" value={geminiAPIKey} onChange={e => setGeminiAPIKey(e.target.value)} placeholder="AIza..." />
-                            <p className="text-xs text-gray-400 mt-1">Deze sleutel wordt veilig opgeslagen in jouw database.</p>
-                        </div>
-                        <button onClick={handleSaveAPIKey} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition">Key Opslaan</button>
+                        <p className="text-sm">API Key voor AI functies (Google Gemini):</p>
+                        <input type="password" className="w-full p-2 border rounded" placeholder="AIza..." value={userData.geminiAPIKey} onChange={e => db.collection('users').doc(beheerdeUserId).set({ geminiAPIKey: e.target.value }, { merge: true })}/>
                     </div>
                 )}
-
                 {beheerTab === 'locaties' && (
-                    <div className="space-y-6">
-                        <div>
-                            <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Locaties</h4>
-                            <ul className="space-y-2 mb-3">
-                                {filteredLocaties.map(l => (
-                                    <li key={l.id} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">
-                                        <div className="flex items-center gap-3">
-                                            <button 
-                                                onClick={() => cycleLocatieColor(l)}
-                                                className={`w-6 h-6 rounded-full bg-gradient-to-br ${GRADIENTS[l.color || 'blue']} border border-gray-200 shadow-sm transition-transform hover:scale-110`}
-                                                title="Klik om kleur te wijzigen"
-                                            ></button>
-                                            <span onClick={() => setSelectedLocatieForBeheer(l.id)} className={`cursor-pointer ${selectedLocatieForBeheer===l.id?'text-blue-600 font-bold':''}`}>{l.naam}</span>
-                                        </div>
-                                        <button onClick={() => handleDeleteLocatie(l.id)} className="text-red-500"><Icon path={Icons.Trash2}/></button>
-                                    </li>
-                                ))}
-                            </ul>
-                            <form onSubmit={handleAddLocatie} className="flex gap-2">
-                                <select 
-                                    value={newLocatieColor} 
-                                    onChange={e => setNewLocatieColor(e.target.value)}
-                                    className="border border-gray-300 dark:border-gray-600 p-2 rounded bg-white dark:bg-gray-700 dark:text-white w-24 text-sm"
-                                >
-                                    {Object.keys(GRADIENTS).map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                                <input className="flex-grow border border-gray-300 dark:border-gray-600 p-2 rounded dark:bg-gray-700 dark:text-white" placeholder="Nieuwe locatie" value={newLocatieNaam} onChange={e=>setNewLocatieNaam(e.target.value)} required />
-                                <button className="bg-blue-600 text-white px-3 rounded">+</button>
-                            </form>
-                        </div>
-                        {selectedLocatieForBeheer && (
-                            <div className="pt-4 border-t dark:border-gray-700">
-                                <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Lades</h4>
-                                <ul className="space-y-2 mb-3">
-                                    {lades.filter(l => l.vriezerId === selectedLocatieForBeheer).sort((a,b)=>a.naam.localeCompare(b.naam)).map(l => (
-                                        <li key={l.id} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">
-                                            {editingLadeId === l.id ? 
-                                                <div className="flex gap-2 w-full"><input className="flex-grow border p-1 rounded dark:bg-gray-600 dark:text-white" value={editingLadeName} onChange={e=>setEditingLadeName(e.target.value)} /><button onClick={()=>saveLadeName(l.id)} className="text-green-600"><Icon path={Icons.Check}/></button></div> 
-                                                : 
-                                                <><span>{l.naam}</span><div className="flex gap-2"><button onClick={()=>startEditLade(l)} className="text-blue-500"><Icon path={Icons.Edit2} size={16}/></button><button onClick={() => handleDeleteLade(l.id)} className="text-red-500"><Icon path={Icons.Trash2} size={16}/></button></div></>
-                                            }
-                                        </li>
-                                    ))}
-                                </ul>
-                                <form onSubmit={handleAddLade} className="flex gap-2"><input className="flex-grow border border-gray-300 dark:border-gray-600 p-2 rounded dark:bg-gray-700 dark:text-white" placeholder="Nieuwe lade" value={newLadeNaam} onChange={e=>setNewLadeNaam(e.target.value)} required /><button className="bg-blue-600 text-white px-3 rounded">+</button></form>
-                            </div>
-                        )}
+                    <div>
+                        <ul className="mb-4 space-y-2">{filteredLocaties.map(l => (
+                            <li key={l.id} className="flex justify-between bg-gray-50 p-2 rounded">
+                                <span>{l.naam}</span>
+                                <button onClick={() => db.collection('vriezers').doc(l.id).delete()} className="text-red-500"><Icon path={Icons.Trash2}/></button>
+                            </li>
+                        ))}</ul>
+                        <form onSubmit={e => { e.preventDefault(); db.collection('vriezers').add({ naam: newLocatieNaam, type: activeTab, color: newLocatieColor, userId: beheerdeUserId }); setNewLocatieNaam(''); }} className="flex gap-2">
+                            <input className="flex-grow border p-2 rounded" placeholder="Nieuwe locatie" value={newLocatieNaam} onChange={e=>setNewLocatieNaam(e.target.value)} required/>
+                            <button className="bg-purple-600 text-white px-4 rounded">+</button>
+                        </form>
                     </div>
                 )}
                 {beheerTab === 'categorieen' && (
                     <div>
-                        <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Categorieën</h4>
-                        <ul className="space-y-2 mb-3">
-                            {actieveCategorieen.map(cat => (
-                                <li key={cat.name} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">
-                                    {editingCatName === cat.name ?
-                                        <div className="flex gap-2 w-full items-center">
-                                            <input className="flex-grow border p-1 rounded dark:bg-gray-600 dark:text-white" value={editCatInputName} onChange={e=>setEditCatInputName(e.target.value)} />
-                                            <select className="border p-1 rounded dark:bg-gray-600 dark:text-white" value={editCatInputColor} onChange={e=>setEditCatInputColor(e.target.value)}>
-                                                {Object.keys(BADGE_COLORS).map(c => <option key={c} value={c}>{c}</option>)}
-                                            </select>
-                                            <button onClick={saveCat} className="text-green-600"><Icon path={Icons.Check}/></button>
-                                        </div>
-                                        :
-                                        <>
-                                            <div className="flex items-center gap-2"><div className={`w-3 h-3 rounded-full bg-${cat.color}-500`}></div><span>{cat.name}</span></div>
-                                            <div className="flex gap-2">
-                                                <button onClick={()=>startEditCat(cat)} className="text-blue-500"><Icon path={Icons.Edit2} size={16}/></button>
-                                                <button onClick={() => handleDeleteCat(cat.name)} className="text-red-500"><Icon path={Icons.Trash2} size={16}/></button>
-                                            </div>
-                                        </>
-                                    }
-                                </li>
-                            ))}
-                        </ul>
-                        <form onSubmit={handleAddCat} className="flex gap-2 items-center">
-                            <input className="flex-grow border p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" placeholder="Naam" value={newCatName} onChange={e=>setNewCatName(e.target.value)} required />
-                            <select className="border p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" value={newCatColor} onChange={e=>setNewCatColor(e.target.value)}>
-                                {Object.keys(BADGE_COLORS).map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                            <button className="bg-purple-600 text-white px-3 rounded">+</button>
+                        <ul className="mb-4 space-y-2">{actieveCategorieen.map(cat => (
+                            <li key={cat.name} className="flex justify-between bg-gray-50 p-2 rounded">
+                                <span className={`text-${cat.color}-600`}>{cat.name}</span>
+                                <button onClick={() => {
+                                    const updated = userData.customCategories.filter(c => c.name !== cat.name);
+                                    db.collection('users').doc(beheerdeUserId).set({ customCategories: updated }, { merge: true });
+                                }} className="text-red-500"><Icon path={Icons.Trash2}/></button>
+                            </li>
+                        ))}</ul>
+                        <form onSubmit={e => { e.preventDefault(); if(newCatName.trim()){ db.collection('users').doc(beheerdeUserId).set({ customCategories: [...userData.customCategories, {name: newCatName, color: newCatColor}] }, { merge: true }); setNewCatName(''); } }} className="flex gap-2">
+                            <input className="flex-grow border p-2 rounded" placeholder="Nieuwe categorie" value={newCatName} onChange={e=>setNewCatName(e.target.value)} required/>
+                            <button className="bg-purple-600 text-white px-4 rounded">+</button>
                         </form>
                     </div>
                 )}
                 {beheerTab === 'eenheden' && (
                     <div>
-                        <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Mijn eenheden</h4>
-                        <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4">
-                            <button onClick={() => setEenheidFilter('vries')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'vries' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                                Vriezer.
-                            </button>
-                            {(!myHiddenTabs.includes('frig') || isAdmin) && (
-                                <button onClick={() => setEenheidFilter('frig')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'frig' ? 'bg-white dark:bg-gray-600 shadow text-green-600 dark:text-green-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                                    Frig.
-                                </button>
-                            )}
-                            {(!myHiddenTabs.includes('voorraad') || isAdmin) && (
-                                <button onClick={() => setEenheidFilter('voorraad')} className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${eenheidFilter === 'voorraad' ? 'bg-white dark:bg-gray-600 shadow text-orange-600 dark:text-orange-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                                    Stock.
-                                </button>
-                            )}
-                        </div>
-
-                        <ul className="space-y-2 mb-3">
-                            {(
-                                eenheidFilter === 'voorraad' ? customUnitsVoorraad : 
-                                eenheidFilter === 'frig' ? customUnitsFrig :
-                                customUnitsVries
-                            ).length === 0 ? <li className="text-gray-400 italic">Geen eigen eenheden voor {eenheidFilter}.</li> : 
-                            (
-                                eenheidFilter === 'voorraad' ? customUnitsVoorraad : 
-                                eenheidFilter === 'frig' ? customUnitsFrig :
-                                customUnitsVries
-                            ).map(u => (
-                                <li key={u} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">
-                                    {editingUnitName === u ? 
-                                        <div className="flex gap-2 w-full"><input className="flex-grow border p-1 rounded dark:bg-gray-600 dark:text-white" value={editUnitInput} onChange={e=>setEditUnitInput(e.target.value)} /><button onClick={saveUnitName} className="text-green-600"><Icon path={Icons.Check}/></button></div>
-                                        :
-                                        <><span>{u}</span><div className="flex gap-2"><button onClick={()=>startEditUnit(u)} className="text-blue-500"><Icon path={Icons.Edit2} size={16}/></button><button onClick={() => handleDeleteUnit(u)} className="text-red-500"><Icon path={Icons.Trash2} size={16}/></button></div></>
-                                    }
-                                </li>
-                            ))}
-                        </ul>
-                        <form onSubmit={handleAddUnit} className="flex gap-2"><input className="flex-grow border p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" placeholder="Nieuwe eenheid" value={newUnitNaam} onChange={e=>setNewUnitNaam(e.target.value)} required /><button className={`text-white px-3 rounded ${eenheidFilter === 'voorraad' ? 'bg-orange-500' : eenheidFilter === 'frig' ? 'bg-green-600' : 'bg-blue-600'}`}>+</button></form>
+                        <div className="flex mb-2"><button onClick={()=>setEenheidFilter('vries')} className={`flex-1 p-1 ${eenheidFilter==='vries'?'font-bold':''}`}>Vries</button><button onClick={()=>setEenheidFilter('frig')} className={`flex-1 p-1 ${eenheidFilter==='frig'?'font-bold':''}`}>Frig</button><button onClick={()=>setEenheidFilter('voorraad')} className={`flex-1 p-1 ${eenheidFilter==='voorraad'?'font-bold':''}`}>Stock</button></div>
+                        <ul className="mb-4 space-y-2">{(eenheidFilter==='voorraad'?userData.customUnitsVoorraad:eenheidFilter==='frig'?userData.customUnitsFrig:userData.customUnitsVries).map(u => (
+                            <li key={u} className="flex justify-between bg-gray-50 p-2 rounded"><span>{u}</span><button onClick={()=>{
+                                let field = eenheidFilter==='voorraad'?'customUnitsVoorraad':eenheidFilter==='frig'?'customUnitsFrig':'customUnitsVries';
+                                let current = eenheidFilter==='voorraad'?userData.customUnitsVoorraad:eenheidFilter==='frig'?userData.customUnitsFrig:userData.customUnitsVries;
+                                db.collection('users').doc(beheerdeUserId).set({ [field]: current.filter(c => c !== u) }, { merge: true });
+                            }} className="text-red-500"><Icon path={Icons.Trash2}/></button></li>
+                        ))}</ul>
+                        <form onSubmit={e => { e.preventDefault(); if(newUnitNaam.trim()){
+                            let field = eenheidFilter==='voorraad'?'customUnitsVoorraad':eenheidFilter==='frig'?'customUnitsFrig':'customUnitsVries';
+                            let current = eenheidFilter==='voorraad'?userData.customUnitsVoorraad:eenheidFilter==='frig'?userData.customUnitsFrig:userData.customUnitsVries;
+                            db.collection('users').doc(beheerdeUserId).set({ [field]: [...current, newUnitNaam] }, { merge: true }); setNewUnitNaam('');
+                        } }} className="flex gap-2">
+                            <input className="flex-grow border p-2 rounded" placeholder="Nieuwe eenheid" value={newUnitNaam} onChange={e=>setNewUnitNaam(e.target.value)} required/>
+                            <button className="bg-purple-600 text-white px-4 rounded">+</button>
+                        </form>
                     </div>
                 )}
             </Modal>
+
+            <Modal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} title="Statistieken" color="purple">
+                <div className="grid grid-cols-2 gap-4 text-center">
+                    <div className="bg-green-100 p-4 rounded-xl"><div className="text-2xl font-bold text-green-700">{stats.consumed}</div><div className="text-xs uppercase text-green-800">Gegeten</div></div>
+                    <div className="bg-red-100 p-4 rounded-xl"><div className="text-2xl font-bold text-red-700">{stats.wasted}</div><div className="text-xs uppercase text-red-800">Weggegooid</div></div>
+                </div>
+            </Modal>
+
+            <Modal isOpen={showLogModal} onClose={() => setShowLogModal(false)} title="Logboek" color="teal">
+                <ul className="space-y-2 text-sm">{logs.map(l => <li key={l.id} className="p-2 border-b"><b>{l.action}:</b> {l.item} <span className="text-gray-500 text-xs">({formatDateTime(l.timestamp)})</span></li>)}</ul>
+            </Modal>
+
+            <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Delen" color="green">
+                <form onSubmit={e => { e.preventDefault(); db.collection('shares').add({ ownerId: user.uid, ownerEmail: user.email, sharedWithEmail: shareEmail, role: 'editor', status: 'pending' }); alert("Verzonden!"); setShareEmail(''); setShowShareModal(false); }} className="space-y-4">
+                    <input type="email" className="w-full p-2 border rounded" placeholder="Email" value={shareEmail} onChange={e=>setShareEmail(e.target.value)} required/>
+                    <button className="w-full py-2 bg-green-600 text-white rounded">Nodig uit</button>
+                </form>
+            </Modal>
             
-            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers." color="pink">
+            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers" color="pink">
                 <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                     {usersList.map(u => (
                         <li key={u.id} className="p-3 flex flex-col gap-2">
                             <div className="flex justify-between items-center">
-                                <div>
-                                    <p className="font-bold dark:text-white">{u.email || u.displayName}</p>
-                                    <p className="text-xs text-gray-500">{u.id}</p>
-                                </div>
-                                <button onClick={() => toggleUserStatus(u.id, u.disabled)} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-200' : 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-200'}`}>
-                                    {u.disabled ? 'Geblokkeerd' : 'Actief'}
-                                </button>
+                                <div><p className="font-bold dark:text-white">{u.email || u.displayName}</p><p className="text-xs text-gray-500">{u.id}</p></div>
+                                <button onClick={() => db.collection('users').doc(u.id).update({ disabled: !u.disabled })} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{u.disabled ? 'Geblokkeerd' : 'Actief'}</button>
                             </div>
-                            <div className="flex flex-col gap-1 mt-1">
-                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={(u.hiddenTabs || []).includes('frig')} 
-                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'frig')}
-                                    />
-                                    <span>Verberg 'Frig.' tabblad</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={(u.hiddenTabs || []).includes('voorraad')} 
-                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'voorraad')}
-                                    />
-                                    <span>Verberg 'Stock.' tabblad</span>
-                                </div>
-                            </div>
-                            <p className="text-xs text-gray-400 mt-1">
-                                Laatst gezien: {u.laatstGezien ? formatDateTime(u.laatstGezien) : 'Nooit'}
-                            </p>
                         </li>
                     ))}
                 </ul>
             </Modal>
-
-            <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Voorraad Delen" color="green">
-                <form onSubmit={handleShare} className="space-y-4">
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Nodig iemand uit om je voorraad te beheren.</p>
-                    <input type="email" className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Email adres" value={shareEmail} onChange={e => setShareEmail(e.target.value)} required />
-                    <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">Verstuur Uitnodiging</button>
-                </form>
-            </Modal>
-
-            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red">
-                {alerts.length > 0 && (
-                    <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 dark:bg-red-900/20">
-                        <h4 className="font-bold text-red-800 dark:text-red-300">Let op!</h4>
-                        <ul>
-                            {alerts.map(i => {
-                                const loc = vriezers.find(v => v.id === i.vriezerId);
-                                const type = loc ? (loc.type || 'vriezer') : 'vriezer';
-                                const isStock = type === 'voorraad' || type === 'frig';
-                                
-                                return (
-                                    <li key={i.id} className="text-red-700 dark:text-red-300">
-                                        {i.naam} 
-                                        <span className="text-xs ml-1 font-semibold opacity-75">
-                                            {isStock 
-                                                ? `(Verlopen: ${formatDate(i.houdbaarheidsDatum)})` 
-                                                : `(${getDagenOud(i.ingevrorenOp)} dagen oud)`
-                                            }
-                                        </span>
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    </div>
-                )}
+            
+            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Nieuws" color="blue">
                 <div className="space-y-4">
-                    {currentVersionData && (
-                        <div>
-                            <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-4 text-lg">Versie {APP_VERSION}</h4>
-                            <ul className="space-y-3">
-                                {currentVersionData.changes.map((change, idx) => {
-                                    const parts = change.split(': ');
-                                    const type = parts[0];
-                                    const text = parts.slice(1).join(': ');
-                                    
-                                    let IconComp = Icons.Zap;
-                                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
-
-                                    if (type.includes('Feature') || type.includes('Nieuw')) {
-                                        IconComp = Icons.Star;
-                                        iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
-                                    } else if (type.includes('Fix') || type.includes('Opgelost') || type.includes('Hersteld')) {
-                                        IconComp = Icons.Wrench;
-                                        iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
-                                    } else if (type.includes('Update')) {
-                                         IconComp = Icons.Zap;
-                                         iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
-                                    }
-
-                                    return (
-                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start">
-                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
-                                                <Icon path={IconComp} size={14} />
-                                            </div>
-                                             <div className="pt-1.5">
-                                                <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span>
-                                                <span className="leading-relaxed">{text || change}</span>
-                                            </div>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        </div>
-                    )}
-                </div>
-            </Modal>
-
-            <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Nieuws." color="blue">
-                <div className="mb-8 text-center px-4">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
-                        Ontdek alle updates en verbeteringen aan <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Voorraad.</span>
-                    </h3>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-full border border-blue-100 dark:border-blue-800">
-                        <span className="text-xs font-medium text-blue-600 dark:text-blue-300">Huidige versie {APP_VERSION}</span>
-                    </div>
-                </div>
-
-                <div className="space-y-8 relative pl-2">
-                    <div className="absolute left-[19px] top-2 bottom-4 w-0.5 bg-gray-100 dark:bg-gray-700"></div>
-
                     {VERSION_HISTORY.map((v, i) => (
-                        <div key={v.version} className="relative pl-10">
-                            <div className={`absolute left-[13px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-800 z-10 ${i === 0 ? 'bg-blue-500 shadow-md shadow-blue-200' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
-
-                            <div className="mb-3">
-                                <span className={`text-lg font-bold ${i === 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>v{v.version}</span>
-                            </div>
-                            
-                            <ul className="space-y-3">
-                                {v.changes.map((change, idx) => {
-                                    const parts = change.split(': ');
-                                    const type = parts[0];
-                                    const text = parts.slice(1).join(': ');
-                                    
-                                    let IconComp = Icons.Zap;
-                                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
-
-                                    if (type.includes('Feature') || type.includes('Nieuw')) {
-                                        IconComp = Icons.Star;
-                                        iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
-                                    } else if (type.includes('Fix') || type.includes('Opgelost') || type.includes('Hersteld')) {
-                                        IconComp = Icons.Wrench;
-                                        iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
-                                    } else if (type.includes('Update')) {
-                                         IconComp = Icons.Zap;
-                                         iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
-                                    }
-
-                                    return (
-                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start">
-                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
-                                                <Icon path={IconComp} size={14} />
-                                            </div>
-                                            <div className="pt-1.5">
-                                                <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span>
-                                                <span className="leading-relaxed">{text || change}</span>
-                                            </div>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
+                        <div key={i}>
+                            <h4 className="font-bold">v{v.version}</h4>
+                            <ul className="list-disc pl-5 text-sm">{v.changes.map((c, j) => <li key={j}>{c}</li>)}</ul>
                         </div>
                     ))}
                 </div>
             </Modal>
-
-            <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel account." color="gray">
-                <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+            
+            <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Versies" color="gray">
+                 {/* Zelfde content als WhatsNew voor nu */}
+                 <div className="space-y-4">
+                    {VERSION_HISTORY.map((v, i) => (
+                        <div key={i}>
+                            <h4 className="font-bold">v{v.version}</h4>
+                            <ul className="list-disc pl-5 text-sm">{v.changes.map((c, j) => <li key={j}>{c}</li>)}</ul>
+                        </div>
+                    ))}
+                </div>
+            </Modal>
+            
+            <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel" color="gray">
+                <ul className="divide-y">
                     {usersList.map(u => (
-                        <li key={u.id} className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer flex justify-between" onClick={() => { setBeheerdeUserId(u.id); setShowSwitchAccount(false); }}>
-                            <span className="font-medium dark:text-white">{u.email || u.displayName}</span>
-                            {u.id === beheerdeUserId && <Icon path={Icons.Check} className="text-blue-500"/>}
+                        <li key={u.id} className="p-3 cursor-pointer hover:bg-gray-100" onClick={() => { setBeheerdeUserId(u.id); setShowSwitchAccount(false); }}>
+                            {u.email || u.displayName}
                         </li>
                     ))}
                 </ul>
