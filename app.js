@@ -1,4 +1,4 @@
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useMemo } = React;
 
 // --- 1. FIREBASE CONFIGURATIE ---
 const firebaseConfig = typeof __firebase_config !== 'undefined' 
@@ -19,10 +19,20 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.3.5'; 
+const APP_VERSION = '8.4.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.4.0', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: AI Camera Scanner! Maak een foto van een verpakking en de app vult de details in.',
+            'Nieuw: AI Chef in "Wat eten we vandaag?". Verzin recepten met je huidige voorraad.',
+            'Nieuw: Swipe acties op mobiel (Links = Verwijderen, Rechts = Bewerken).',
+            'Update: Grote technische update voor snelheid (useMemo optimalisaties).'
+        ] 
+    },
     { 
         version: '8.3.5', 
         type: 'feature', 
@@ -154,7 +164,11 @@ const Icons = {
     ShoppingCart: <g><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></g>,
     PieChart: <g><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></g>,
     UtensilsCrossed: <g><path d="m3 2 14.5 14.5"/><path d="m3 16.5 14.5-14.5"/><path d="M12.5 11.5 21 20"/><path d="M20 21 11.5 12.5"/><path d="m20 3-8.5 8.5"/><path d="M3 20 11.5 11.5"/></g>,
-    Utensils: <g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></g>
+    Utensils: <g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></g>,
+    // Nieuwe Iconen voor AI & Camera
+    Camera: <g><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></g>,
+    Sparkles: <g><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 5H5"/><path d="M5 5H1"/><path d="M5 9V5"/></g>,
+    Cloud: <path d="M17.5 19c0-1.7-1.3-3-3-3h-1.1c-.1-2.6-2.2-4.7-4.8-4.7-2.3 0-4.2 1.7-4.7 4-2.5.3-4.3 2.5-4 5 .3 2.5 2.5 4.3 5 4h9.6c1.7 0 3-1.3 3-3z"/>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -258,7 +272,82 @@ const logAction = async (action, itemNaam, details, actorUser, targetUserId) => 
     }
 };
 
+// --- NIEUWE HULPFUNCTIE: AI API Call ---
+const callOpenAI = async (apiKey, messages, maxTokens = 300) => {
+    if (!apiKey) throw new Error("Geen API Key ingesteld");
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: "gpt-4o", messages: messages, max_tokens: maxTokens })
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error.message);
+    return data.choices[0].message.content;
+};
+
 // --- 5. COMPONENTEN ---
+
+// --- NIEUW COMPONENT: Swipeable Item (voor mobiel) ---
+const SwipeableItem = ({ children, onSwipeLeft, onSwipeRight, disabled }) => {
+    const [touchStart, setTouchStart] = useState(null);
+    const [touchEnd, setTouchEnd] = useState(null);
+    const [offset, setOffset] = useState(0);
+
+    const minSwipeDistance = 50;
+
+    const onTouchStart = (e) => {
+        setTouchEnd(null);
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const onTouchMove = (e) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+        if(touchStart) {
+            const currentOffset = e.targetTouches[0].clientX - touchStart;
+            // Limit visual drag
+            if (currentOffset > -100 && currentOffset < 100) setOffset(currentOffset);
+        }
+    };
+
+    const onTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > minSwipeDistance;
+        const isRightSwipe = distance < -minSwipeDistance;
+        
+        if (isLeftSwipe && onSwipeLeft) {
+            onSwipeLeft();
+        } else if (isRightSwipe && onSwipeRight) {
+            onSwipeRight();
+        }
+        setOffset(0);
+    };
+
+    const style = { transform: `translateX(${offset}px)`, transition: offset === 0 ? 'transform 0.3s' : 'none' };
+    const bgClass = offset > 50 ? 'bg-blue-100 dark:bg-blue-900/30' : offset < -50 ? 'bg-red-100 dark:bg-red-900/30' : '';
+
+    if (disabled) return children;
+
+    return (
+        <div className={`relative overflow-hidden ${bgClass} transition-colors rounded-lg`}>
+             <div className="absolute inset-y-0 left-0 w-16 flex items-center justify-center text-blue-500 opacity-50">
+                <Icon path={Icons.Edit2} />
+             </div>
+             <div className="absolute inset-y-0 right-0 w-16 flex items-center justify-center text-red-500 opacity-50">
+                <Icon path={Icons.Trash2} />
+             </div>
+            <div 
+                onTouchStart={onTouchStart} 
+                onTouchMove={onTouchMove} 
+                onTouchEnd={onTouchEnd}
+                style={style}
+                className="relative bg-white dark:bg-gray-800 z-10"
+            >
+                {children}
+            </div>
+        </div>
+    );
+};
 
 const Toast = ({ message, type = "success", onClose }) => {
     useEffect(() => {
@@ -348,6 +437,7 @@ function App() {
     const [darkMode, setDarkMode] = useState(false);
     const [savedOpenLades, setSavedOpenLades] = useState(null);
     const [stats, setStats] = useState({ wasted: 0, consumed: 0 });
+    const [openAIKey, setOpenAIKey] = useState(''); // NIEUWE STATE
     
     // Data
     const [activeTab, setActiveTab] = useState('vriezer');
@@ -369,6 +459,11 @@ function App() {
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     const [notification, setNotification] = useState(null);
     
+    // NIEUWE UI STATES VOOR AI
+    const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
+    const [aiRecipes, setAiRecipes] = useState(null);
+    const [isLoadingRecipes, setIsLoadingRecipes] = useState(false);
+    
     // Modals & Menu
     const [showAddModal, setShowAddModal] = useState(false);
     const [showWhatsNew, setShowWhatsNew] = useState(false);
@@ -387,7 +482,7 @@ function App() {
     const [showShoppingModal, setShowShoppingModal] = useState(false); 
     const [beheerTab, setBeheerTab] = useState('locaties');
 
-    // NIEUWE STATES VOOR WINKEL MODAL BIJ VERWIJDEREN
+    // States voor winkel modal bij verwijderen
     const [showShopifyModal, setShowShopifyModal] = useState(false);
     const [itemToShopify, setItemToShopify] = useState(null);
     const [shopForDeletedItem, setShopForDeletedItem] = useState('');
@@ -423,7 +518,7 @@ function App() {
     
     const [eenheidFilter, setEenheidFilter] = useState('vries'); 
 
-    // NIEUW: State voor het type in de "Toevoegen" modal
+    // State voor het type in de "Toevoegen" modal
     const [modalType, setModalType] = useState('vriezer');
 
     // Edit States
@@ -438,6 +533,7 @@ function App() {
     const [editCatInputColor, setEditCatInputColor] = useState('gray');
 
     const hasCheckedAlerts = useRef(false);
+    const fileInputRef = useRef(null); // Ref voor camera input
 
     useEffect(() => {
         if (darkMode) {
@@ -451,7 +547,6 @@ function App() {
         if (!user) return;
         const newStatus = !darkMode;
         setDarkMode(newStatus);
-        
         try {
             await db.collection('users').doc(user.uid).set({
                 darkMode: newStatus
@@ -467,7 +562,6 @@ function App() {
             if (u) {
                 setUser(u);
                 setBeheerdeUserId(u.uid);
-                
                 try {
                     await db.collection('users').doc(u.uid).set({
                         laatstGezien: firebase.firestore.FieldValue.serverTimestamp(),
@@ -482,6 +576,7 @@ function App() {
                             setDarkMode(data.darkMode);
                         }
                         setMyHiddenTabs(data.hiddenTabs || []);
+                        setOpenAIKey(data.openAIKey || ''); // Laad API Key
 
                         if (data.openLades && Array.isArray(data.openLades)) {
                             setSavedOpenLades(data.openLades);
@@ -584,34 +679,53 @@ function App() {
     }, [isAdmin]);
 
     useEffect(() => {
-    if (!user || !showLogModal) return;
+        if (!user || !showLogModal) return;
+        let query;
+        if (isAdmin) {
+            query = db.collection('logs').orderBy('timestamp', 'desc').limit(50);
+        } else {
+            query = db.collection('logs').where('targetUserId', '==', beheerdeUserId).orderBy('timestamp', 'desc').limit(50);
+        }
+        const unsubLogs = query.onSnapshot(snap => {
+            setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+        return () => unsubLogs();
+    }, [user, showLogModal, beheerdeUserId, isAdmin]); 
 
-    let query;
+    // --- TECHNISCHE OPTIMALISATIE: useMemo ---
+    // Hier passen we useMemo toe om te voorkomen dat zware berekeningen elke render opnieuw gebeuren.
     
-    if (isAdmin) {
-        query = db.collection('logs').orderBy('timestamp', 'desc').limit(50);
-    } else {
-        query = db.collection('logs').where('targetUserId', '==', beheerdeUserId).orderBy('timestamp', 'desc').limit(50);
-    }
+    const filteredLocaties = useMemo(() => {
+        return vriezers.filter(l => l.type === activeTab);
+    }, [vriezers, activeTab]);
 
-    const unsubLogs = query.onSnapshot(snap => {
-        setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+    const activeItems = useMemo(() => {
+        return items.filter(i => filteredLocaties.some(l => l.id === i.vriezerId));
+    }, [items, filteredLocaties]);
 
-    return () => unsubLogs();
-}, [user, showLogModal, beheerdeUserId, isAdmin]); 
+    const modalLocaties = useMemo(() => {
+        return vriezers.filter(l => l.type === modalType);
+    }, [vriezers, modalType]);
 
+    // Alerts logic in useMemo
+    const alerts = useMemo(() => {
+        return items.filter(i => {
+            const loc = vriezers.find(v => v.id === i.vriezerId);
+            const type = loc ? (loc.type || 'vriezer') : 'vriezer';
+            if (type === 'voorraad' || type === 'frig') {
+                 return getDagenTotTHT(i.houdbaarheidsDatum) < 0; 
+            } else {
+                 return getDagenOud(i.ingevrorenOp) > 180;
+            }
+        });
+    }, [items, vriezers]);
 
-    // Derived
-    const filteredLocaties = vriezers.filter(l => l.type === activeTab);
-    const activeItems = items.filter(i => filteredLocaties.some(l => l.id === i.vriezerId));
-
-    const modalLocaties = vriezers.filter(l => l.type === modalType);
-
-    const formLades = formData.vriezerId 
+    const formLades = useMemo(() => {
+        return formData.vriezerId 
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
         : [];
-    
+    }, [formData.vriezerId, lades]);
+
     const formLocationType = modalType;
 
     let contextEenheden = EENHEDEN_VRIES;
@@ -628,15 +742,15 @@ function App() {
         activeCustomUnits = customUnitsFrig;
     }
     
-    const alleEenheden = [...new Set([...contextEenheden, ...activeCustomUnits])].sort();
+    const alleEenheden = useMemo(() => [...new Set([...contextEenheden, ...activeCustomUnits])].sort(), [contextEenheden, activeCustomUnits]);
 
-    const actieveCategorieen = [
+    const actieveCategorieen = useMemo(() => [
         ...contextCategorieen, 
         ...customCategories.filter(cc => {
             const inHuidig = contextCategorieen.some(c => c.name === cc.name);
             return !inHuidig;
         })
-    ];
+    ], [contextCategorieen, customCategories]);
 
     const gridClass = (() => {
         const count = filteredLocaties.length;
@@ -648,18 +762,6 @@ function App() {
     const showNotification = (msg, type = 'success') => {
         setNotification({ msg, type, id: Date.now() });
     };
-
-    // Alerts Logic
-    const alerts = items.filter(i => {
-        const loc = vriezers.find(v => v.id === i.vriezerId);
-        const type = loc ? (loc.type || 'vriezer') : 'vriezer';
-
-        if (type === 'voorraad' || type === 'frig') {
-             return getDagenTotTHT(i.houdbaarheidsDatum) < 0; 
-        } else {
-             return getDagenOud(i.ingevrorenOp) > 180;
-        }
-    });
 
     useEffect(() => {
         if (isDataLoaded && !hasCheckedAlerts.current) {
@@ -682,6 +784,76 @@ function App() {
 
     const handleLogout = () => { auth.signOut(); setShowProfileMenu(false); };
     const handlePrint = () => { setShowProfileMenu(false); window.print(); };
+
+    // --- AI HANDLERS (NIEUW) ---
+    
+    const handleSaveAPIKey = async () => {
+        try {
+            await db.collection('users').doc(user.uid).set({ openAIKey }, { merge: true });
+            showNotification("API Key opgeslagen!", "success");
+        } catch(e) { showNotification("Kon Key niet opslaan", "error"); }
+    };
+
+    const handleCameraClick = () => { fileInputRef.current.click(); };
+    
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!openAIKey) return alert("Stel eerst je OpenAI API Key in bij Instellingen > AI / Cloud!");
+
+        setIsAnalyzingImage(true);
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            const base64Image = reader.result;
+            try {
+                // Hier roepen we de AI aan met Vision
+                const prompt = "Kijk naar deze verpakking. Geef me een JSON object met: naam (korte productnaam NL), categorie (Kies uit: Vlees, Vis, Groenten, Fruit, Brood, IJs, Restjes, Saus, Friet, Pizza, Soep, Ander), hoeveelheid (getal), eenheid (stuks, gram, kilo, liter, zak, pak, doos). Alleen JSON teruggeven, geen tekst eromheen.";
+                const messages = [
+                    { role: "user", content: [
+                        { type: "text", text: prompt },
+                        { type: "image_url", image_url: { url: base64Image } }
+                    ]}
+                ];
+                const result = await callOpenAI(openAIKey, messages);
+                
+                // Schoon de response op (soms zet GPT ```json ... ``` eromheen)
+                const jsonText = result.replace(/```json/g, '').replace(/```/g, '').trim();
+                const parsed = JSON.parse(jsonText);
+                
+                setFormData(prev => ({
+                    ...prev,
+                    naam: parsed.naam || prev.naam,
+                    categorie: parsed.categorie || prev.categorie,
+                    aantal: parsed.hoeveelheid || prev.aantal,
+                    eenheid: parsed.eenheid || prev.eenheid,
+                    emoji: getEmojiForCategory(parsed.categorie)
+                }));
+                showNotification("Product herkend!", "success");
+            } catch (err) {
+                console.error(err);
+                showNotification("Kon foto niet lezen. Check Key?", "error");
+            } finally {
+                setIsAnalyzingImage(false);
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleGetRecipes = async () => {
+        if (!openAIKey) return alert("Stel eerst je OpenAI API Key in bij Instellingen > AI / Cloud!");
+        setIsLoadingRecipes(true);
+        try {
+            // Maak een lijst van alle items string
+            const inventoryString = items.map(i => `${i.aantal} ${i.eenheid} ${i.naam}`).join(', ');
+            const prompt = `Ik heb dit in huis: ${inventoryString}. Bedenk 3 simpele, lekkere gerechten die ik hiermee kan maken. Geef per recept een titel, korte beschrijving en welke ingrediënten ik uit mijn lijst gebruik. Gebruik leuke emoji's. Houd het beknopt.`;
+            const recipes = await callOpenAI(openAIKey, [{role: "user", content: prompt}], 800);
+            setAiRecipes(recipes);
+        } catch (err) {
+            showNotification("Kon recepten niet laden", "error");
+        } finally {
+            setIsLoadingRecipes(false);
+        }
+    };
     
     // Item CRUD
     const handleOpenAdd = () => {
@@ -857,7 +1029,8 @@ function App() {
         }
     };
 
-    const getSuggestions = () => {
+    // UseMemo ook hier handig
+    const getSuggestions = useMemo(() => {
         const scoredItems = items.map(item => {
             let score = 0;
             const daysTHT = item.houdbaarheidsDatum ? getDagenTotTHT(item.houdbaarheidsDatum) : 999;
@@ -877,7 +1050,7 @@ function App() {
         });
 
         return scoredItems.filter(i => i.score > 0).sort((a,b) => b.score - a.score).slice(0, 5);
-    };
+    }, [items, vriezers]);
 
     const openEdit = (item) => {
         setEditingItem(item);
@@ -1279,30 +1452,48 @@ function App() {
                                                             const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
                                                             const catColor = catObj ? (catObj.color || 'gray') : 'gray';
 
+                                                            // IMPLEMENTATIE SWIPEABLE ITEM
                                                             return (
-                                                                <li key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0`}>
-                                                                    <div className="flex items-center gap-3 overflow-hidden min-w-0">
-                                                                        <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
-                                                                        <div className="min-w-0 flex-grow">
-                                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                                <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
-                                                                                {item.categorie && item.categorie !== "Geen" && (
-                                                                                    <Badge type={catColor} text={item.categorie} />
-                                                                                )}
-                                                                            </div>
-                                                                            <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
-                                                                                <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
-                                                                                {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
-                                                                                {!isStockItem && item.houdbaarheidsDatum && <span className="text-xs text-gray-500 dark:text-gray-400"> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
-                                                                                {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
+                                                                <SwipeableItem 
+                                                                    key={item.id}
+                                                                    onSwipeLeft={() => initDelete(item)}
+                                                                    onSwipeRight={() => {
+                                                                        setEditingItem(item); 
+                                                                        const loc = vriezers.find(v => v.id === item.vriezerId);
+                                                                        const itemType = loc ? loc.type : 'vriezer';
+                                                                        setModalType(itemType);
+                                                                        setFormData({
+                                                                            naam: item.naam, aantal: item.aantal, eenheid: item.eenheid, vriezerId: item.vriezerId, ladeId: item.ladeId, categorie: item.categorie,
+                                                                            ingevrorenOp: toInputDate(item.ingevrorenOp), houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), emoji: item.emoji
+                                                                        });
+                                                                        setShowAddModal(true);
+                                                                    }}
+                                                                >
+                                                                    <li className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0`}>
+                                                                        <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                                                                            <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
+                                                                            <div className="min-w-0 flex-grow">
+                                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                                    <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
+                                                                                    {item.categorie && item.categorie !== "Geen" && (
+                                                                                        <Badge type={catColor} text={item.categorie} />
+                                                                                    )}
+                                                                                </div>
+                                                                                <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
+                                                                                    <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
+                                                                                    {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
+                                                                                    {!isStockItem && item.houdbaarheidsDatum && <span className="text-xs text-gray-500 dark:text-gray-400"> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
+                                                                                    {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
+                                                                                </div>
                                                                             </div>
                                                                         </div>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1 flex-shrink-0 print:hidden ml-2">
-                                                                        <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50"><Icon path={Icons.Edit2} size={16}/></button>
-                                                                        <button onClick={()=>initDelete(item)} className="p-2 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50"><Icon path={Icons.Trash2} size={16}/></button>
-                                                                    </div>
-                                                                </li>
+                                                                        {/* Knoppen (visible on desktop, swipe is extra) */}
+                                                                        <div className="hidden sm:flex items-center gap-1 flex-shrink-0 print:hidden ml-2">
+                                                                            <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50"><Icon path={Icons.Edit2} size={16}/></button>
+                                                                            <button onClick={()=>initDelete(item)} className="p-2 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50"><Icon path={Icons.Trash2} size={16}/></button>
+                                                                        </div>
+                                                                    </li>
+                                                                </SwipeableItem>
                                                             );
                                                         })}
                                                     </ul>
@@ -1339,6 +1530,19 @@ function App() {
             {/* Add/Edit Modal */}
             <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken." : "Toevoegen."} color="blue">
                 <form onSubmit={handleSaveItem} className="space-y-4">
+                    
+                    {/* CAMERA KNOP (Alleen bij toevoegen) */}
+                    {!editingItem && (
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl text-center border border-blue-100 dark:border-blue-800">
+                            <input type="file" accept="image/*" capture="environment" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+                            <button type="button" onClick={handleCameraClick} disabled={isAnalyzingImage} className="flex flex-col items-center justify-center w-full gap-2 text-blue-600 dark:text-blue-300 hover:scale-105 transition-transform">
+                                {isAnalyzingImage ? <Icon path={Icons.Zap} className="animate-spin" size={32}/> : <Icon path={Icons.Camera} size={32}/>}
+                                <span className="font-bold text-sm">{isAnalyzingImage ? "Analyseren..." : "Scan verpakking (AI)"}</span>
+                            </button>
+                            <p className="text-[10px] text-gray-400 mt-2">Zorg voor een OpenAI Key in instellingen.</p>
+                        </div>
+                    )}
+
                     <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-4">
                         <button type="button" onClick={() => handleModalTypeChange('vriezer')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${modalType === 'vriezer' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>
                             Vriezer.
@@ -1656,9 +1860,27 @@ function App() {
             </Modal>
             
             <Modal isOpen={showSuggestionModal} onClose={() => setShowSuggestionModal(false)} title="Wat eten we vandaag?" color="yellow">
-                <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">Deze producten hebben prioriteit op basis van houdbaarheid:</p>
+                 {/* AI KNOP */}
+                 <div className="mb-6 p-4 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl text-white shadow-lg">
+                    <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-bold flex items-center gap-2"><Icon path={Icons.Sparkles}/> Chef AI</h4>
+                    </div>
+                    <p className="text-sm opacity-90 mb-3">Laat AI 3 recepten bedenken met wat je nu in huis hebt.</p>
+                    <button onClick={handleGetRecipes} disabled={isLoadingRecipes} className="w-full py-2 bg-white/20 hover:bg-white/30 rounded-lg font-bold transition-colors">
+                        {isLoadingRecipes ? "Aan het denken..." : "Verzin recepten"}
+                    </button>
+                    <p className="text-[10px] text-white/60 mt-2 italic">Vereist OpenAI Key in instellingen.</p>
+                 </div>
+
+                 {aiRecipes && (
+                     <div className="mb-6 bg-gray-50 dark:bg-gray-700 p-4 rounded-xl whitespace-pre-line text-sm border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">
+                         {aiRecipes}
+                     </div>
+                 )}
+
+                <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm font-bold border-b pb-2 dark:border-gray-600">Eerst opmaken (THT & Datum):</p>
                 <div className="space-y-3">
-                    {getSuggestions().length === 0 ? <p className="italic text-gray-400 text-center">Alles lijkt vers!</p> : getSuggestions().map(item => (
+                    {getSuggestions.length === 0 ? <p className="italic text-gray-400 text-center">Alles lijkt vers!</p> : getSuggestions.map(item => (
                         <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-xl border border-yellow-200 dark:border-gray-600 shadow-sm">
                             <div className="flex items-center gap-3">
                                 <span className="text-2xl">{item.emoji}</span>
@@ -1715,11 +1937,27 @@ function App() {
             </Modal>
 
             <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen." color="purple">
-                <div className="flex border-b dark:border-gray-700 mb-4">
-                    <button onClick={() => setBeheerTab('locaties')} className={`flex-1 py-2 font-medium ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500 dark:text-gray-400'}`}>Locaties.</button>
-                    <button onClick={() => setBeheerTab('categorieen')} className={`flex-1 py-2 font-medium ${beheerTab==='categorieen'?'text-purple-600 border-b-2 border-purple-600':'text-gray-500 dark:text-gray-400'}`}>Categorieën.</button>
-                    <button onClick={() => setBeheerTab('eenheden')} className={`flex-1 py-2 font-medium ${beheerTab==='eenheden'?'text-orange-600 border-b-2 border-orange-600':'text-gray-500 dark:text-gray-400'}`}>Eenheden.</button>
+                <div className="flex border-b dark:border-gray-700 mb-4 overflow-x-auto">
+                    <button onClick={() => setBeheerTab('locaties')} className={`flex-1 py-2 px-2 font-medium whitespace-nowrap ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500 dark:text-gray-400'}`}>Locaties.</button>
+                    <button onClick={() => setBeheerTab('categorieen')} className={`flex-1 py-2 px-2 font-medium whitespace-nowrap ${beheerTab==='categorieen'?'text-purple-600 border-b-2 border-purple-600':'text-gray-500 dark:text-gray-400'}`}>Categorieën.</button>
+                    <button onClick={() => setBeheerTab('eenheden')} className={`flex-1 py-2 px-2 font-medium whitespace-nowrap ${beheerTab==='eenheden'?'text-orange-600 border-b-2 border-orange-600':'text-gray-500 dark:text-gray-400'}`}>Eenheden.</button>
+                    <button onClick={() => setBeheerTab('cloud')} className={`flex-1 py-2 px-2 font-medium whitespace-nowrap ${beheerTab==='cloud'?'text-indigo-600 border-b-2 border-indigo-600':'text-gray-500 dark:text-gray-400'}`}>AI / Cloud.</button>
                 </div>
+
+                {beheerTab === 'cloud' && (
+                    <div className="space-y-4">
+                        <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg border border-indigo-200 dark:border-indigo-800 text-sm text-indigo-800 dark:text-indigo-200">
+                            <p className="font-bold mb-1 flex items-center gap-2"><Icon path={Icons.Sparkles}/> Slimme Functies</p>
+                            <p>Om de <strong>Camera Scanner</strong> en <strong>AI Chef</strong> te gebruiken, heb je een persoonlijke OpenAI API Key nodig.</p>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">OpenAI API Key (sk-...)</label>
+                            <input type="password" className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" value={openAIKey} onChange={e => setOpenAIKey(e.target.value)} placeholder="sk-..." />
+                            <p className="text-xs text-gray-400 mt-1">Deze sleutel wordt veilig opgeslagen in jouw database.</p>
+                        </div>
+                        <button onClick={handleSaveAPIKey} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition">Key Opslaan</button>
+                    </div>
+                )}
 
                 {beheerTab === 'locaties' && (
                     <div className="space-y-6">
