@@ -19,10 +19,17 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.5.0'; 
+const APP_VERSION = '8.5.1'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.5.1', 
+        type: 'fix', 
+        changes: [
+            'Fix: API Model naam aangepast (gemini-1.5-flash-latest) om "model not found" error op te lossen.',
+        ] 
+    },
     { 
         version: '8.5.0', 
         type: 'feature', 
@@ -267,7 +274,8 @@ const callGemini = async (apiKey, prompt, imageBase64 = null) => {
     if (!apiKey) throw new Error("Geen Google Gemini API Key ingesteld");
     
     // Gebruik Gemini 1.5 Flash (snel & goed)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // Updated to -latest to fix potential versioning issues
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
     
     const parts = [{ text: prompt }];
     
