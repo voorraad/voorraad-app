@@ -19,35 +19,26 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.4.0'; 
+const APP_VERSION = '8.5.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.5.0', 
+        type: 'feature', 
+        changes: [
+            'Update: Overgeschakeld naar Google Gemini AI (vervangt OpenAI).',
+            'Update: Swipe-acties verwijderd op verzoek.',
+            'Fix: Bewerk- en Verwijderknoppen zijn nu altijd zichtbaar op mobiel.',
+        ] 
+    },
     { 
         version: '8.4.0', 
         type: 'feature', 
         changes: [
             'Nieuw: AI Camera Scanner! Maak een foto van een verpakking en de app vult de details in.',
             'Nieuw: AI Chef in "Wat eten we vandaag?". Verzin recepten met je huidige voorraad.',
-            'Nieuw: Swipe acties op mobiel (Links = Verwijderen, Rechts = Bewerken).',
             'Update: Grote technische update voor snelheid (useMemo optimalisaties).'
-        ] 
-    },
-    { 
-        version: '8.3.5', 
-        type: 'feature', 
-        changes: [
-            'Nieuw: Aantal aanpassen bij het toevoegen aan boodschappenlijst na verwijderen.',
-            'Update: Pijltjes (steppers) toegevoegd aan alle aantal-velden voor gebruiksgemak.'
-        ] 
-    },
-    { 
-        version: '8.3.4', 
-        type: 'fix', 
-        changes: [
-            'Fix: Syntaxfout opgelost die de app liet crashen.',
-            'Update: THT-datum in vriezer is nu zwart/grijs (neutraal).',
-            'Nieuw: Je kunt nu een winkel kiezen als je een product verwijdert en op de lijst zet.'
         ] 
     }
 ];
@@ -165,7 +156,6 @@ const Icons = {
     PieChart: <g><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></g>,
     UtensilsCrossed: <g><path d="m3 2 14.5 14.5"/><path d="m3 16.5 14.5-14.5"/><path d="M12.5 11.5 21 20"/><path d="M20 21 11.5 12.5"/><path d="m20 3-8.5 8.5"/><path d="M3 20 11.5 11.5"/></g>,
     Utensils: <g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></g>,
-    // Nieuwe Iconen voor AI & Camera
     Camera: <g><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></g>,
     Sparkles: <g><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 5H5"/><path d="M5 5H1"/><path d="M5 9V5"/></g>,
     Cloud: <path d="M17.5 19c0-1.7-1.3-3-3-3h-1.1c-.1-2.6-2.2-4.7-4.8-4.7-2.3 0-4.2 1.7-4.7 4-2.5.3-4.3 2.5-4 5 .3 2.5 2.5 4.3 5 4h9.6c1.7 0 3-1.3 3-3z"/>
@@ -272,82 +262,46 @@ const logAction = async (action, itemNaam, details, actorUser, targetUserId) => 
     }
 };
 
-// --- NIEUWE HULPFUNCTIE: AI API Call ---
-const callOpenAI = async (apiKey, messages, maxTokens = 300) => {
-    if (!apiKey) throw new Error("Geen API Key ingesteld");
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+// --- NIEUWE HULPFUNCTIE: Google Gemini API Call (Vervangt OpenAI) ---
+const callGemini = async (apiKey, prompt, imageBase64 = null) => {
+    if (!apiKey) throw new Error("Geen Google Gemini API Key ingesteld");
+    
+    // Gebruik Gemini 1.5 Flash (snel & goed)
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
+    const parts = [{ text: prompt }];
+    
+    if (imageBase64) {
+        // Strip de data:image/jpeg;base64, header als die er is
+        const cleanBase64 = imageBase64.split(',')[1];
+        parts.push({
+            inlineData: {
+                mimeType: "image/jpeg", // We nemen aan dat het jpeg/png is
+                data: cleanBase64
+            }
+        });
+    }
+
+    const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: "gpt-4o", messages: messages, max_tokens: maxTokens })
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            contents: [{ parts: parts }]
+        })
     });
-    const data = await res.json();
-    if(data.error) throw new Error(data.error.message);
-    return data.choices[0].message.content;
+
+    const data = await response.json();
+    
+    if (data.error) {
+        throw new Error(data.error.message);
+    }
+    
+    return data.candidates[0].content.parts[0].text;
 };
 
 // --- 5. COMPONENTEN ---
-
-// --- NIEUW COMPONENT: Swipeable Item (voor mobiel) ---
-const SwipeableItem = ({ children, onSwipeLeft, onSwipeRight, disabled }) => {
-    const [touchStart, setTouchStart] = useState(null);
-    const [touchEnd, setTouchEnd] = useState(null);
-    const [offset, setOffset] = useState(0);
-
-    const minSwipeDistance = 50;
-
-    const onTouchStart = (e) => {
-        setTouchEnd(null);
-        setTouchStart(e.targetTouches[0].clientX);
-    };
-
-    const onTouchMove = (e) => {
-        setTouchEnd(e.targetTouches[0].clientX);
-        if(touchStart) {
-            const currentOffset = e.targetTouches[0].clientX - touchStart;
-            // Limit visual drag
-            if (currentOffset > -100 && currentOffset < 100) setOffset(currentOffset);
-        }
-    };
-
-    const onTouchEnd = () => {
-        if (!touchStart || !touchEnd) return;
-        const distance = touchStart - touchEnd;
-        const isLeftSwipe = distance > minSwipeDistance;
-        const isRightSwipe = distance < -minSwipeDistance;
-        
-        if (isLeftSwipe && onSwipeLeft) {
-            onSwipeLeft();
-        } else if (isRightSwipe && onSwipeRight) {
-            onSwipeRight();
-        }
-        setOffset(0);
-    };
-
-    const style = { transform: `translateX(${offset}px)`, transition: offset === 0 ? 'transform 0.3s' : 'none' };
-    const bgClass = offset > 50 ? 'bg-blue-100 dark:bg-blue-900/30' : offset < -50 ? 'bg-red-100 dark:bg-red-900/30' : '';
-
-    if (disabled) return children;
-
-    return (
-        <div className={`relative overflow-hidden ${bgClass} transition-colors rounded-lg`}>
-             <div className="absolute inset-y-0 left-0 w-16 flex items-center justify-center text-blue-500 opacity-50">
-                <Icon path={Icons.Edit2} />
-             </div>
-             <div className="absolute inset-y-0 right-0 w-16 flex items-center justify-center text-red-500 opacity-50">
-                <Icon path={Icons.Trash2} />
-             </div>
-            <div 
-                onTouchStart={onTouchStart} 
-                onTouchMove={onTouchMove} 
-                onTouchEnd={onTouchEnd}
-                style={style}
-                className="relative bg-white dark:bg-gray-800 z-10"
-            >
-                {children}
-            </div>
-        </div>
-    );
-};
 
 const Toast = ({ message, type = "success", onClose }) => {
     useEffect(() => {
@@ -437,7 +391,7 @@ function App() {
     const [darkMode, setDarkMode] = useState(false);
     const [savedOpenLades, setSavedOpenLades] = useState(null);
     const [stats, setStats] = useState({ wasted: 0, consumed: 0 });
-    const [openAIKey, setOpenAIKey] = useState(''); // NIEUWE STATE
+    const [geminiAPIKey, setGeminiAPIKey] = useState(''); // NIEUWE STATE
     
     // Data
     const [activeTab, setActiveTab] = useState('vriezer');
@@ -576,7 +530,9 @@ function App() {
                             setDarkMode(data.darkMode);
                         }
                         setMyHiddenTabs(data.hiddenTabs || []);
-                        setOpenAIKey(data.openAIKey || ''); // Laad API Key
+                        
+                        // Check for old OpenAI Key or new Gemini Key
+                        setGeminiAPIKey(data.geminiAPIKey || data.openAIKey || '');
 
                         if (data.openLades && Array.isArray(data.openLades)) {
                             setSavedOpenLades(data.openLades);
@@ -785,11 +741,11 @@ function App() {
     const handleLogout = () => { auth.signOut(); setShowProfileMenu(false); };
     const handlePrint = () => { setShowProfileMenu(false); window.print(); };
 
-    // --- AI HANDLERS (NIEUW) ---
+    // --- AI HANDLERS (GEMINI) ---
     
     const handleSaveAPIKey = async () => {
         try {
-            await db.collection('users').doc(user.uid).set({ openAIKey }, { merge: true });
+            await db.collection('users').doc(user.uid).set({ geminiAPIKey }, { merge: true });
             showNotification("API Key opgeslagen!", "success");
         } catch(e) { showNotification("Kon Key niet opslaan", "error"); }
     };
@@ -799,24 +755,19 @@ function App() {
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        if (!openAIKey) return alert("Stel eerst je OpenAI API Key in bij Instellingen > AI / Cloud!");
+        if (!geminiAPIKey) return alert("Stel eerst je Google Gemini API Key in bij Instellingen > AI / Cloud!");
 
         setIsAnalyzingImage(true);
         const reader = new FileReader();
         reader.onloadend = async () => {
             const base64Image = reader.result;
             try {
-                // Hier roepen we de AI aan met Vision
-                const prompt = "Kijk naar deze verpakking. Geef me een JSON object met: naam (korte productnaam NL), categorie (Kies uit: Vlees, Vis, Groenten, Fruit, Brood, IJs, Restjes, Saus, Friet, Pizza, Soep, Ander), hoeveelheid (getal), eenheid (stuks, gram, kilo, liter, zak, pak, doos). Alleen JSON teruggeven, geen tekst eromheen.";
-                const messages = [
-                    { role: "user", content: [
-                        { type: "text", text: prompt },
-                        { type: "image_url", image_url: { url: base64Image } }
-                    ]}
-                ];
-                const result = await callOpenAI(openAIKey, messages);
+                // GEMINI PROMPT
+                const prompt = "Kijk naar deze verpakking. Geef me een JSON object met: naam (korte productnaam NL), categorie (Kies uit: Vlees, Vis, Groenten, Fruit, Brood, IJs, Restjes, Saus, Friet, Pizza, Soep, Ander), hoeveelheid (getal), eenheid (stuks, gram, kilo, liter, zak, pak, doos). Alleen JSON teruggeven, geen markdown.";
                 
-                // Schoon de response op (soms zet GPT ```json ... ``` eromheen)
+                const result = await callGemini(geminiAPIKey, prompt, base64Image);
+                
+                // Schoon de response op (soms zet Gemini ```json ... ``` eromheen)
                 const jsonText = result.replace(/```json/g, '').replace(/```/g, '').trim();
                 const parsed = JSON.parse(jsonText);
                 
@@ -840,15 +791,16 @@ function App() {
     };
 
     const handleGetRecipes = async () => {
-        if (!openAIKey) return alert("Stel eerst je OpenAI API Key in bij Instellingen > AI / Cloud!");
+        if (!geminiAPIKey) return alert("Stel eerst je Google Gemini API Key in bij Instellingen > AI / Cloud!");
         setIsLoadingRecipes(true);
         try {
             // Maak een lijst van alle items string
             const inventoryString = items.map(i => `${i.aantal} ${i.eenheid} ${i.naam}`).join(', ');
             const prompt = `Ik heb dit in huis: ${inventoryString}. Bedenk 3 simpele, lekkere gerechten die ik hiermee kan maken. Geef per recept een titel, korte beschrijving en welke ingrediënten ik uit mijn lijst gebruik. Gebruik leuke emoji's. Houd het beknopt.`;
-            const recipes = await callOpenAI(openAIKey, [{role: "user", content: prompt}], 800);
+            const recipes = await callGemini(geminiAPIKey, prompt);
             setAiRecipes(recipes);
         } catch (err) {
+            console.error(err);
             showNotification("Kon recepten niet laden", "error");
         } finally {
             setIsLoadingRecipes(false);
@@ -1452,48 +1404,32 @@ function App() {
                                                             const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
                                                             const catColor = catObj ? (catObj.color || 'gray') : 'gray';
 
-                                                            // IMPLEMENTATIE SWIPEABLE ITEM
                                                             return (
-                                                                <SwipeableItem 
-                                                                    key={item.id}
-                                                                    onSwipeLeft={() => initDelete(item)}
-                                                                    onSwipeRight={() => {
-                                                                        setEditingItem(item); 
-                                                                        const loc = vriezers.find(v => v.id === item.vriezerId);
-                                                                        const itemType = loc ? loc.type : 'vriezer';
-                                                                        setModalType(itemType);
-                                                                        setFormData({
-                                                                            naam: item.naam, aantal: item.aantal, eenheid: item.eenheid, vriezerId: item.vriezerId, ladeId: item.ladeId, categorie: item.categorie,
-                                                                            ingevrorenOp: toInputDate(item.ingevrorenOp), houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), emoji: item.emoji
-                                                                        });
-                                                                        setShowAddModal(true);
-                                                                    }}
-                                                                >
-                                                                    <li className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0`}>
-                                                                        <div className="flex items-center gap-3 overflow-hidden min-w-0">
-                                                                            <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
-                                                                            <div className="min-w-0 flex-grow">
-                                                                                <div className="flex items-center gap-2 flex-wrap">
-                                                                                    <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
-                                                                                    {item.categorie && item.categorie !== "Geen" && (
-                                                                                        <Badge type={catColor} text={item.categorie} />
-                                                                                    )}
-                                                                                </div>
-                                                                                <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
-                                                                                    <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
-                                                                                    {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
-                                                                                    {!isStockItem && item.houdbaarheidsDatum && <span className="text-xs text-gray-500 dark:text-gray-400"> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
-                                                                                    {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
-                                                                                </div>
+                                                                <li key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0`}>
+                                                                    <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                                                                        <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
+                                                                        <div className="min-w-0 flex-grow">
+                                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                                <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
+                                                                                {item.categorie && item.categorie !== "Geen" && (
+                                                                                    <Badge type={catColor} text={item.categorie} />
+                                                                                )}
+                                                                            </div>
+                                                                            <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
+                                                                                <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
+                                                                                {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
+                                                                                {!isStockItem && item.houdbaarheidsDatum && <span className="text-xs text-gray-500 dark:text-gray-400"> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
+                                                                                {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
                                                                             </div>
                                                                         </div>
-                                                                        {/* Knoppen (visible on desktop, swipe is extra) */}
-                                                                        <div className="hidden sm:flex items-center gap-1 flex-shrink-0 print:hidden ml-2">
-                                                                            <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50"><Icon path={Icons.Edit2} size={16}/></button>
-                                                                            <button onClick={()=>initDelete(item)} className="p-2 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50"><Icon path={Icons.Trash2} size={16}/></button>
-                                                                        </div>
-                                                                    </li>
-                                                                </SwipeableItem>
+                                                                    </div>
+                                                                    
+                                                                    {/* Knoppen (Altijd zichtbaar, ook op mobiel) */}
+                                                                    <div className="flex items-center gap-1 flex-shrink-0 print:hidden ml-2">
+                                                                        <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50"><Icon path={Icons.Edit2} size={16}/></button>
+                                                                        <button onClick={()=>initDelete(item)} className="p-2 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50"><Icon path={Icons.Trash2} size={16}/></button>
+                                                                    </div>
+                                                                </li>
                                                             );
                                                         })}
                                                     </ul>
@@ -1539,7 +1475,7 @@ function App() {
                                 {isAnalyzingImage ? <Icon path={Icons.Zap} className="animate-spin" size={32}/> : <Icon path={Icons.Camera} size={32}/>}
                                 <span className="font-bold text-sm">{isAnalyzingImage ? "Analyseren..." : "Scan verpakking (AI)"}</span>
                             </button>
-                            <p className="text-[10px] text-gray-400 mt-2">Zorg voor een OpenAI Key in instellingen.</p>
+                            <p className="text-[10px] text-gray-400 mt-2">Zorg voor een Google Gemini API Key in instellingen.</p>
                         </div>
                     )}
 
@@ -1865,11 +1801,11 @@ function App() {
                     <div className="flex items-center justify-between mb-2">
                         <h4 className="font-bold flex items-center gap-2"><Icon path={Icons.Sparkles}/> Chef AI</h4>
                     </div>
-                    <p className="text-sm opacity-90 mb-3">Laat AI 3 recepten bedenken met wat je nu in huis hebt.</p>
+                    <p className="text-sm opacity-90 mb-3">Laat Google Gemini 3 recepten bedenken met wat je nu in huis hebt.</p>
                     <button onClick={handleGetRecipes} disabled={isLoadingRecipes} className="w-full py-2 bg-white/20 hover:bg-white/30 rounded-lg font-bold transition-colors">
                         {isLoadingRecipes ? "Aan het denken..." : "Verzin recepten"}
                     </button>
-                    <p className="text-[10px] text-white/60 mt-2 italic">Vereist OpenAI Key in instellingen.</p>
+                    <p className="text-[10px] text-white/60 mt-2 italic">Vereist Gemini API Key in instellingen.</p>
                  </div>
 
                  {aiRecipes && (
@@ -1947,12 +1883,12 @@ function App() {
                 {beheerTab === 'cloud' && (
                     <div className="space-y-4">
                         <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg border border-indigo-200 dark:border-indigo-800 text-sm text-indigo-800 dark:text-indigo-200">
-                            <p className="font-bold mb-1 flex items-center gap-2"><Icon path={Icons.Sparkles}/> Slimme Functies</p>
-                            <p>Om de <strong>Camera Scanner</strong> en <strong>AI Chef</strong> te gebruiken, heb je een persoonlijke OpenAI API Key nodig.</p>
+                            <p className="font-bold mb-1 flex items-center gap-2"><Icon path={Icons.Sparkles}/> Google Gemini AI</p>
+                            <p>Om de <strong>Camera Scanner</strong> en <strong>AI Chef</strong> te gebruiken, heb je een Google Gemini API Key nodig. Dit is vaak gratis via Google AI Studio.</p>
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">OpenAI API Key (sk-...)</label>
-                            <input type="password" className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" value={openAIKey} onChange={e => setOpenAIKey(e.target.value)} placeholder="sk-..." />
+                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Google Gemini API Key (AIza...)</label>
+                            <input type="password" className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" value={geminiAPIKey} onChange={e => setGeminiAPIKey(e.target.value)} placeholder="AIza..." />
                             <p className="text-xs text-gray-400 mt-1">Deze sleutel wordt veilig opgeslagen in jouw database.</p>
                         </div>
                         <button onClick={handleSaveAPIKey} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition">Key Opslaan</button>
