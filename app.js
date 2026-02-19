@@ -1379,7 +1379,7 @@ function App() {
                           type="number" 
                           step="0.25" 
                           min="0" 
-                          max="99.75"
+                          max="5000"
                           className="w-full text-center h-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg pr-8 pl-8 focus:ring-2 focus:ring-blue-500 outline-none appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
                           value={formData.aantal} 
                           onChange={e => setFormData({...formData, aantal: e.target.value})}
