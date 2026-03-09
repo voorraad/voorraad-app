@@ -19,10 +19,17 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.3.5'; 
+const APP_VERSION = '8.3.6'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.3.6', 
+        type: 'fix', 
+        changes: [
+            'Fix: Probleem opgelost waarbij het aantal soms niet werd ingevuld bij het bewerken of toevoegen van producten.'
+        ] 
+    },
     { 
         version: '8.3.5', 
         type: 'feature', 
@@ -726,9 +733,15 @@ function App() {
         e.preventDefault();
         const lade = lades.find(l => l.id === formData.ladeId);
         
+        // VEILIGHEID: Zorg dat het aantal een geldig getal is voor we het opslaan, val anders terug op 1
+        let safeAantal = parseFloat(formData.aantal);
+        if (isNaN(safeAantal) || safeAantal <= 0) {
+            safeAantal = 1;
+        }
+
         const data = {
             ...formData,
-            aantal: parseFloat(formData.aantal),
+            aantal: safeAantal,
             ladeNaam: lade ? lade.naam : '',
             ingevrorenOp: new Date(formData.ingevrorenOp),
             houdbaarheidsDatum: formData.houdbaarheidsDatum ? new Date(formData.houdbaarheidsDatum) : null,
@@ -786,7 +799,12 @@ function App() {
             showNotification(`${itemToDelete.naam} is verwijderd.`, 'success');
             
             setItemToShopify(itemToDelete);
-            setAantalForShopifyItem(itemToDelete.aantal || 1);
+            
+            // Controleer of aantal geldig is, anders 1
+            let validAantal = parseFloat(itemToDelete.aantal);
+            if (isNaN(validAantal) || validAantal <= 0) validAantal = 1;
+            setAantalForShopifyItem(validAantal);
+            
             setShowDeleteModal(false);
             setShowShopifyModal(true);
             setItemToDelete(null);
@@ -800,10 +818,14 @@ function App() {
 
     const handleAddToShoppingFromDelete = async () => {
         if (!itemToShopify) return;
+        
+        // Zorg dat aantal geldig is
+        let safeAantal = parseFloat(aantalForShopifyItem);
+        if (isNaN(safeAantal) || safeAantal <= 0) safeAantal = 1;
 
         await db.collection('shoppingList').add({
             naam: itemToShopify.naam,
-            aantal: parseFloat(aantalForShopifyItem),
+            aantal: safeAantal,
             eenheid: itemToShopify.eenheid || 'stuks',
             winkel: shopForDeletedItem,
             checked: false,
@@ -819,9 +841,14 @@ function App() {
 
     const handleAddShoppingItem = async (e) => {
         e.preventDefault();
+        
+        // Veilige waarde voor aantal
+        let safeAantal = parseFloat(shoppingFormData.aantal);
+        if (isNaN(safeAantal) || safeAantal <= 0) safeAantal = 1;
+
         await db.collection('shoppingList').add({
             ...shoppingFormData,
-            aantal: parseFloat(shoppingFormData.aantal),
+            aantal: safeAantal,
             checked: false,
             userId: beheerdeUserId
         });
@@ -843,8 +870,12 @@ function App() {
         const stockLocs = vriezers.filter(l => l.type === 'voorraad');
         const defaultLoc = stockLocs.length > 0 ? stockLocs[0].id : '';
 
+        // Check of aantal geldig is, val anders terug op 1
+        let safeAantal = parseFloat(item.aantal);
+        if (isNaN(safeAantal) || safeAantal <= 0) safeAantal = 1;
+
         setFormData({
-            naam: item.naam, aantal: item.aantal, eenheid: item.eenheid, 
+            naam: item.naam, aantal: safeAantal, eenheid: item.eenheid, 
             vriezerId: defaultLoc, ladeId: '', categorie: 'Overig', 
             ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
         });
@@ -885,9 +916,22 @@ function App() {
         const itemType = loc ? loc.type : 'vriezer';
         setModalType(itemType);
 
+        // VEILIGHEID: Controleren of item.aantal een geldig getal is, zo niet gebruik 1
+        let safeAantal = parseFloat(item.aantal);
+        if (isNaN(safeAantal)) {
+            safeAantal = 1;
+        }
+
         setFormData({
-            naam: item.naam, aantal: item.aantal, eenheid: item.eenheid, vriezerId: item.vriezerId, ladeId: item.ladeId, categorie: item.categorie,
-            ingevrorenOp: toInputDate(item.ingevrorenOp), houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), emoji: item.emoji
+            naam: item.naam, 
+            aantal: safeAantal, // Hier gebruiken we het veilige aantal
+            eenheid: item.eenheid, 
+            vriezerId: item.vriezerId, 
+            ladeId: item.ladeId, 
+            categorie: item.categorie,
+            ingevrorenOp: toInputDate(item.ingevrorenOp), 
+            houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), 
+            emoji: item.emoji
         });
         setShowAddModal(true);
     };
@@ -1388,8 +1432,9 @@ function App() {
                           type="button"
                           onClick={() => {
                             const current = parseFloat(formData.aantal) || 0;
-                            const next = Math.min(current + 0.25, 99.75);
-                            setFormData({...formData, aantal: next.toFixed(2)});
+                            const next = Math.min(current + 0.25, 5000);
+                            // Gebruik Math.round om zuivere getallen te behouden en input parsing bugs te voorkomen
+                            setFormData({...formData, aantal: Math.round(next * 100) / 100});
                           }}
                           className="absolute right-1 top-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
                         >
@@ -1400,7 +1445,8 @@ function App() {
                           onClick={() => {
                             const current = parseFloat(formData.aantal) || 0;
                             const next = Math.max(current - 0.25, 0);
-                            setFormData({...formData, aantal: next.toFixed(2)});
+                            // Gebruik Math.round om zuivere getallen te behouden
+                            setFormData({...formData, aantal: Math.round(next * 100) / 100});
                           }}
                           className="absolute right-1 bottom-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
                         >
@@ -1481,7 +1527,7 @@ function App() {
                                       type="button"
                                       onClick={() => {
                                         const current = parseFloat(shoppingFormData.aantal) || 0;
-                                        setShoppingFormData({...shoppingFormData, aantal: (current + 0.25).toFixed(2)});
+                                        setShoppingFormData({...shoppingFormData, aantal: Math.round((current + 0.25) * 100) / 100});
                                       }}
                                       className="absolute right-1 top-1 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 cursor-pointer"
                                     >
@@ -1491,7 +1537,7 @@ function App() {
                                       type="button"
                                       onClick={() => {
                                         const current = parseFloat(shoppingFormData.aantal) || 0;
-                                        setShoppingFormData({...shoppingFormData, aantal: Math.max(0, current - 0.25).toFixed(2)});
+                                        setShoppingFormData({...shoppingFormData, aantal: Math.max(0, Math.round((current - 0.25) * 100) / 100)});
                                       }}
                                       className="absolute right-1 bottom-1 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 cursor-pointer"
                                     >
@@ -1596,7 +1642,7 @@ function App() {
                                   type="button"
                                   onClick={() => {
                                     const current = parseFloat(aantalForShopifyItem) || 0;
-                                    setAantalForShopifyItem((current + 0.25).toFixed(2));
+                                    setAantalForShopifyItem(Math.round((current + 0.25) * 100) / 100);
                                   }}
                                   className="absolute right-1 top-1 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 cursor-pointer"
                                 >
@@ -1606,7 +1652,7 @@ function App() {
                                   type="button"
                                   onClick={() => {
                                     const current = parseFloat(aantalForShopifyItem) || 0;
-                                    setAantalForShopifyItem(Math.max(0, current - 0.25).toFixed(2));
+                                    setAantalForShopifyItem(Math.max(0, Math.round((current - 0.25) * 100) / 100));
                                   }}
                                   className="absolute right-1 bottom-1 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 cursor-pointer"
                                 >
