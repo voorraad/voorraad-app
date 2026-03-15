@@ -19,10 +19,17 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.7.0'; 
+const APP_VERSION = '8.7.2'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.7.2', 
+        type: 'update', 
+        changes: [
+            'Update: Geforceerde lettergrootte weer verwijderd. In plaats daarvan is het invoervak voor het aantal breder gemaakt en de eenheid wat smaller, zodat grote letters beter passen.'
+        ] 
+    },
     { 
         version: '8.7.0', 
         type: 'feature', 
@@ -1551,14 +1558,14 @@ function App() {
                             {formLades.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
                         </select></div>
                     </div>
-                    <div className="flex gap-4 items-end">
-                      <div className="relative w-24 flex-1">
+                    <div className="flex gap-3 items-end">
+                      <div className="relative w-36 sm:w-40 flex-shrink-0">
                         <input 
                           type="number" 
                           step="0.25" 
                           min="0" 
                           max="5000"
-                          className="w-full text-center h-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg pr-8 pl-8 focus:ring-2 focus:ring-blue-500 outline-none appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                          className="w-full text-center h-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg pr-7 pl-7 focus:ring-2 focus:ring-blue-500 outline-none appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
                           value={formData.aantal} 
                           onChange={e => setFormData({...formData, aantal: e.target.value})}
                         />
@@ -1589,7 +1596,7 @@ function App() {
                       <select 
                         value={formData.eenheid} 
                         onChange={e => setFormData({...formData, eenheid: e.target.value})}
-                        className="flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="flex-1 min-w-0 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                       >
                         {alleEenheden.map((eenheid) => (
                           <option key={eenheid} value={eenheid}>
@@ -1647,7 +1654,7 @@ function App() {
                                     onChange={e => setShoppingFormData({...shoppingFormData, naam: e.target.value})} 
                                     required
                                 />
-                                <div className="relative w-20 flex-shrink-0">
+                                <div className="relative w-28 sm:w-32 flex-shrink-0">
                                     <input 
                                         type="number" 
                                         step="0.25"
@@ -1748,8 +1755,8 @@ function App() {
                 <p className="text-gray-800 dark:text-gray-200 mb-4">Wil je <strong>{itemToShopify?.naam}</strong> op de boodschappenlijst zetten?</p>
                 
                 <div className="space-y-4">
-                    <div className="flex gap-4">
-                        <div className="flex-1">
+                    <div className="flex gap-3">
+                        <div className="flex-1 min-w-0">
                             <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 block">Winkel (optioneel)</label>
                             <select 
                                 className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
@@ -1760,7 +1767,7 @@ function App() {
                                 {WINKELS.map(w => <option key={w.name} value={w.name}>{w.name}</option>)}
                             </select>
                         </div>
-                        <div className="w-24">
+                        <div className="w-32 sm:w-36 flex-shrink-0">
                             <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 block">Aantal</label>
                             <div className="relative">
                                 <input 
