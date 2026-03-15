@@ -19,15 +19,15 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.6.4'; 
+const APP_VERSION = '8.7.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
     { 
-        version: '8.6.4', 
-        type: 'fix', 
+        version: '8.7.0', 
+        type: 'feature', 
         changes: [
-            'Fix: Knop om te wisselen van account (oranje icoon) was per ongeluk gewijzigd. Deze werkt nu weer zoals vanouds!'
+            'Nieuw: Je kunt locaties (bij Instellingen) nu handmatig verslepen (drag-and-drop) om je eigen volgorde te bepalen!'
         ] 
     },
     { 
@@ -77,20 +77,6 @@ const VERSION_HISTORY = [
         type: 'feature', 
         changes: [
             'Update: Dashboard heeft nu een eigen knop, een breder scherm (met kolommen op PC) en de mogelijkheid om producten direct te bewerken.'
-        ] 
-    },
-    { 
-        version: '8.4.0', 
-        type: 'feature', 
-        changes: [
-            'Nieuw: Admin Dashboard toegevoegd! Bij "Gebruikers" is er nu een dashboard-tab waar je overzichtelijk per gebruiker de locaties, lades en items kunt bekijken.'
-        ] 
-    },
-    { 
-        version: '8.3.6', 
-        type: 'fix', 
-        changes: [
-            'Fix: Probleem opgelost waarbij het aantal soms niet werd ingevuld bij het bewerken of toevoegen van producten.'
         ] 
     }
 ];
@@ -194,6 +180,7 @@ const Icons = {
     Settings: <g><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g>,
     ChevronDown: <path d="m6 9 6 6 6-6"/>,
     ChevronRight: <path d="m9 18 6-6-6-6"/>,
+    GripVertical: <g><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></g>,
     User: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>,
     Printer: <g><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></g>,
     Share: <g><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></g>,
@@ -312,6 +299,16 @@ const logAction = async (action, itemNaam, details, actorUser, targetUserId) => 
     }
 };
 
+// Sorteren van locaties met volgorde en alfabetisch fallback
+const sortLocaties = (locatiesArray) => {
+    return [...locatiesArray].sort((a, b) => {
+        const orderA = a.order !== undefined ? a.order : 999;
+        const orderB = b.order !== undefined ? b.order : 999;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.naam.localeCompare(b.naam);
+    });
+};
+
 // --- 5. COMPONENTEN ---
 
 const Toast = ({ message, type = "success", onClose }) => {
@@ -428,6 +425,7 @@ function App() {
     const [editingItem, setEditingItem] = useState(null);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     const [notification, setNotification] = useState(null);
+    const [draggedLocId, setDraggedLocId] = useState(null); // Voor drag & drop locaties
     
     // Modals & Menu
     const [showAddModal, setShowAddModal] = useState(false);
@@ -484,7 +482,6 @@ function App() {
     const [eenheidFilter, setEenheidFilter] = useState('vries'); 
     const [modalType, setModalType] = useState('vriezer');
 
-    // Edit States
     const [editingLadeId, setEditingLadeId] = useState(null);
     const [editingLadeName, setEditingLadeName] = useState('');
     const [editingUnitName, setEditingUnitName] = useState(null); 
@@ -658,18 +655,18 @@ function App() {
         return () => unsubLogs();
     }, [user, showLogModal, beheerdeUserId, isAdmin]); 
 
-    // OPHALEN VAN DASHBOARD DATA (Enkel 1 keer per geselecteerde gebruiker, geen continue listeners)
+    // OPHALEN VAN DASHBOARD DATA
     useEffect(() => {
         if (!dashboardUser) {
             setDashboardData({ vriezers: [], lades: [], items: [], loading: false });
-            setOpenDashboardLades(new Set()); // Reset open lades
+            setOpenDashboardLades(new Set()); 
             return;
         }
 
         let isMounted = true;
         const fetchDashboard = async () => {
             setDashboardData(prev => ({ ...prev, loading: true }));
-            setOpenDashboardLades(new Set()); // Reset open lades
+            setOpenDashboardLades(new Set()); 
             try {
                 const [vSnap, lSnap, iSnap] = await Promise.all([
                     db.collection('vriezers').where('userId', '==', dashboardUser).get(),
@@ -695,10 +692,10 @@ function App() {
         return () => { isMounted = false; };
     }, [dashboardUser]);
 
-    // Derived
-    const filteredLocaties = vriezers.filter(l => l.type === activeTab).sort((a, b) => a.naam.localeCompare(b.naam));
+    // Derived variables (Using sortLocaties to respect the drag-and-drop order)
+    const filteredLocaties = sortLocaties(vriezers.filter(l => l.type === activeTab));
     const activeItems = items.filter(i => filteredLocaties.some(l => l.id === i.vriezerId));
-    const modalLocaties = vriezers.filter(l => l.type === modalType).sort((a, b) => a.naam.localeCompare(b.naam));
+    const modalLocaties = sortLocaties(vriezers.filter(l => l.type === modalType));
 
     const formLades = formData.vriezerId 
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
@@ -775,6 +772,50 @@ function App() {
     const handleLogout = () => { auth.signOut(); setShowProfileMenu(false); };
     const handlePrint = () => { setShowProfileMenu(false); window.print(); };
     
+    // Drag and Drop handlers voor Locaties
+    const handleDragStart = (e, id) => {
+        setDraggedLocId(id);
+        e.dataTransfer.setData("text/plain", id);
+        e.dataTransfer.effectAllowed = "move";
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+    };
+
+    const handleDrop = async (e, targetId) => {
+        e.preventDefault();
+        if (!draggedLocId || draggedLocId === targetId) {
+            setDraggedLocId(null);
+            return;
+        }
+
+        const locatiesList = [...filteredLocaties];
+        const draggedIndex = locatiesList.findIndex(l => l.id === draggedLocId);
+        const targetIndex = locatiesList.findIndex(l => l.id === targetId);
+
+        if (draggedIndex === -1 || targetIndex === -1) {
+            setDraggedLocId(null);
+            return;
+        }
+
+        const [draggedItem] = locatiesList.splice(draggedIndex, 1);
+        locatiesList.splice(targetIndex, 0, draggedItem);
+        setDraggedLocId(null);
+
+        const batch = db.batch();
+        locatiesList.forEach((loc, index) => {
+            const locRef = db.collection('vriezers').doc(loc.id);
+            batch.update(locRef, { order: index });
+        });
+        await batch.commit();
+    };
+
+    const handleDragEnd = () => {
+        setDraggedLocId(null);
+    };
+
     // Item CRUD
     const handleOpenAdd = () => {
         setEditingItem(null);
@@ -1029,7 +1070,8 @@ function App() {
             naam: newLocatieNaam, 
             type: activeTab, 
             userId: beheerdeUserId,
-            color: newLocatieColor 
+            color: newLocatieColor,
+            order: filteredLocaties.length
         });
         setNewLocatieNaam('');
         setNewLocatieColor('blue');
@@ -1860,19 +1902,33 @@ function App() {
                 {beheerTab === 'locaties' && (
                     <div className="space-y-6">
                         <div>
-                            <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Locaties</h4>
-                            <ul className="space-y-2 mb-3">
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="font-bold text-gray-700 dark:text-gray-300">Locaties</h4>
+                                <span className="text-[10px] uppercase text-gray-400 font-bold bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">Sleep om te sorteren</span>
+                            </div>
+                            <ul className="space-y-2 mb-4 relative">
                                 {filteredLocaties.map(l => (
-                                    <li key={l.id} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">
-                                        <div className="flex items-center gap-3">
+                                    <li 
+                                        key={l.id} 
+                                        draggable
+                                        onDragStart={(e) => handleDragStart(e, l.id)}
+                                        onDragOver={handleDragOver}
+                                        onDrop={(e) => handleDrop(e, l.id)}
+                                        onDragEnd={handleDragEnd}
+                                        className={`flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center border border-transparent hover:border-gray-200 dark:hover:border-gray-600 transition-opacity ${draggedLocId === l.id ? 'opacity-40' : 'opacity-100'}`}
+                                    >
+                                        <div className="flex items-center gap-3 w-full">
+                                            <div className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300" title="Sleep om volgorde aan te passen">
+                                                <Icon path={Icons.GripVertical} size={16}/>
+                                            </div>
                                             <button 
                                                 onClick={() => cycleLocatieColor(l)}
-                                                className={`w-6 h-6 rounded-full bg-gradient-to-br ${GRADIENTS[l.color || 'blue']} border border-gray-200 shadow-sm transition-transform hover:scale-110`}
+                                                className={`w-6 h-6 flex-shrink-0 rounded-full bg-gradient-to-br ${GRADIENTS[l.color || 'blue']} border border-gray-200 shadow-sm transition-transform hover:scale-110`}
                                                 title="Klik om kleur te wijzigen"
                                             ></button>
-                                            <span onClick={() => setSelectedLocatieForBeheer(l.id)} className={`cursor-pointer ${selectedLocatieForBeheer===l.id?'text-blue-600 font-bold':''}`}>{l.naam}</span>
+                                            <span onClick={() => setSelectedLocatieForBeheer(l.id)} className={`cursor-pointer flex-grow ${selectedLocatieForBeheer===l.id?'text-blue-600 font-bold':''}`}>{l.naam}</span>
                                         </div>
-                                        <button onClick={() => handleDeleteLocatie(l.id)} className="text-red-500"><Icon path={Icons.Trash2}/></button>
+                                        <button onClick={() => handleDeleteLocatie(l.id)} className="text-red-500 p-1 ml-2 flex-shrink-0"><Icon path={Icons.Trash2}/></button>
                                     </li>
                                 ))}
                             </ul>
@@ -2051,7 +2107,7 @@ function App() {
                     ) : (
                         <div className="space-y-8 mt-4">
                             {['vriezer', 'frig', 'voorraad'].map(type => {
-                                const typeLocaties = dashboardData.vriezers.filter(v => (v.type || 'vriezer') === type).sort((a,b) => a.naam.localeCompare(b.naam));
+                                const typeLocaties = sortLocaties(dashboardData.vriezers.filter(v => (v.type || 'vriezer') === type));
                                 if (typeLocaties.length === 0) return null;
                                 
                                 const typeNames = { vriezer: 'Vriezer', frig: 'Koelkast', voorraad: 'Voorraad' };
