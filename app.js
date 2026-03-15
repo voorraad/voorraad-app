@@ -19,10 +19,24 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.6.0'; 
+const APP_VERSION = '8.6.2'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.6.2', 
+        type: 'feature', 
+        changes: [
+            'Update: Lades in het dashboard worden nu weergegeven in een overzichtelijk raster (maximaal 3 lades naast elkaar, de rest eronder) in plaats van een carrousel.'
+        ] 
+    },
+    { 
+        version: '8.6.1', 
+        type: 'feature', 
+        changes: [
+            'Update: Lades in het dashboard zijn nu precies zo uitgelijnd dat er maximaal 3 schuiven perfect naast elkaar passen op grotere schermen.'
+        ] 
+    },
     { 
         version: '8.6.0', 
         type: 'feature', 
@@ -2039,12 +2053,12 @@ function App() {
                                                         {v.naam}
                                                     </h4>
                                                     
-                                                    {/* Horizontaal scrollbare lades (Carrousel) */}
-                                                    <div className="flex overflow-x-auto gap-4 pb-2 snap-x items-start">
+                                                    {/* Lades in een grid (max 3 naast elkaar) */}
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start mt-2">
                                                         {dashboardData.lades.filter(l => l.vriezerId === v.id).sort((a,b) => a.naam.localeCompare(b.naam)).map(l => {
                                                             const ladeItems = dashboardData.items.filter(i => i.ladeId === l.id).sort((a,b) => a.naam.localeCompare(b.naam));
                                                             return (
-                                                                <div key={l.id} className="flex-none w-72 sm:w-80 max-w-[85vw] snap-start bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 flex flex-col max-h-[60vh]">
+                                                                <div key={l.id} className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 flex flex-col max-h-[60vh]">
                                                                     <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300 p-3 border-b border-gray-100 dark:border-gray-600 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-700 z-10 rounded-t-lg">
                                                                         <span>{l.naam}</span>
                                                                         <span className="text-xs font-normal text-gray-500 bg-gray-100 dark:bg-gray-600 px-2 py-0.5 rounded-full">{ladeItems.length} items</span>
