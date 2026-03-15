@@ -19,10 +19,17 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.7.0'; 
+const APP_VERSION = '8.7.1'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.7.1', 
+        type: 'fix', 
+        changes: [
+            'Fix: Vaste tekstgrootte ingesteld voor de hele app. Hierdoor breekt de layout (zoals bij de aantallen invoervelden) niet meer als gebruikers de tekstgrootte op hun telefoon groter hebben staan.'
+        ] 
+    },
     { 
         version: '8.7.0', 
         type: 'feature', 
@@ -1278,6 +1285,12 @@ function App() {
     // --- RENDER ---
     if (!user) return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4 transition-colors duration-300">
+            <style dangerouslySetInnerHTML={{__html: `
+                html { font-size: 16px !important; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+                @media screen and (max-width: 768px) {
+                    input, select, textarea, button { font-size: 16px !important; }
+                }
+            `}} />
             <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
                 <h1 className="text-2xl font-bold text-blue-600 mb-4">Voorraad.</h1>
                 <p className="text-gray-500 dark:text-gray-400 mb-6">Log in om je voorraad te beheren.</p>
@@ -1293,6 +1306,12 @@ function App() {
 
     return (
         <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-100 transition-colors duration-300">
+             <style dangerouslySetInnerHTML={{__html: `
+                html { font-size: 16px !important; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+                @media screen and (max-width: 768px) {
+                    input, select, textarea, button { font-size: 16px !important; }
+                }
+            `}} />
              {notification && (
                 <Toast 
                     message={notification.msg} 
