@@ -12,6 +12,12 @@ const firebaseConfig = typeof __firebase_config !== 'undefined'
         appId: "1:902712789943:web:ef270b84968319052cf632"
     };
 
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.firestore();
+const auth = firebase.auth();
+
 const APP_VERSION = '8.5.2'; 
 
 // Versie Geschiedenis Data
