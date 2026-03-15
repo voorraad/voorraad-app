@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.4.0'; 
+const APP_VERSION = '8.5.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
