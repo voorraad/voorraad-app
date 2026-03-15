@@ -19,10 +19,17 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.5.0'; 
+const APP_VERSION = '8.5.1'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.5.1', 
+        type: 'feature', 
+        changes: [
+            'Update: Dashboard weergave aangepast. Vriezers, koelkasten en voorraad staan nu in horizontale rijen naast elkaar voor een logischer overzicht.'
+        ] 
+    },
     { 
         version: '8.5.0', 
         type: 'feature', 
@@ -42,14 +49,6 @@ const VERSION_HISTORY = [
         type: 'fix', 
         changes: [
             'Fix: Probleem opgelost waarbij het aantal soms niet werd ingevuld bij het bewerken of toevoegen van producten.'
-        ] 
-    },
-    { 
-        version: '8.3.5', 
-        type: 'feature', 
-        changes: [
-            'Nieuw: Aantal aanpassen bij het toevoegen aan boodschappenlijst na verwijderen.',
-            'Update: Pijltjes (steppers) toegevoegd aan alle aantal-velden voor gebruiksgemak.'
         ] 
     }
 ];
@@ -299,7 +298,7 @@ const Modal = ({ isOpen, onClose, title, children, color = "blue", size = "md" }
     if (!isOpen) return null;
     
     const gradientClass = GRADIENTS[color] || GRADIENTS.blue;
-    const sizeClass = size === "lg" ? "max-w-4xl" : "max-w-lg";
+    const sizeClass = size === "xl" ? "max-w-6xl" : size === "lg" ? "max-w-4xl" : "max-w-lg";
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden" onClick={onClose}>
@@ -1981,7 +1980,7 @@ function App() {
                 </ul>
             </Modal>
 
-            <Modal isOpen={showDashboardModal} onClose={() => setShowDashboardModal(false)} title="Dashboard." color="blue" size="lg">
+            <Modal isOpen={showDashboardModal} onClose={() => setShowDashboardModal(false)} title="Dashboard." color="blue" size="xl">
                 <div className="space-y-4 min-h-[50vh]">
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Selecteer een gebruiker om direct in hun voorraad te kijken zonder in te loggen op hun account.</p>
                     <select 
@@ -2005,7 +2004,7 @@ function App() {
                             Deze gebruiker heeft nog geen locaties aangemaakt.
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 items-start">
+                        <div className="space-y-8 mt-4">
                             {['vriezer', 'frig', 'voorraad'].map(type => {
                                 const typeLocaties = dashboardData.vriezers.filter(v => (v.type || 'vriezer') === type);
                                 if (typeLocaties.length === 0) return null;
@@ -2014,53 +2013,55 @@ function App() {
 
                                 return (
                                     <div key={type} className="animate-in fade-in duration-300">
-                                        <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 border-b border-gray-200 dark:border-gray-700 pb-1">
+                                        <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">
                                             {typeNames[type]}
                                         </h3>
                                         
-                                        {typeLocaties.map(v => (
-                                            <div key={v.id} className="mb-4 bg-gray-50 dark:bg-gray-800/80 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
-                                                <h4 className="font-bold text-lg mb-3 text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                                                    <span className={`w-3 h-3 rounded-full bg-${v.color || 'blue'}-500 inline-block`}></span>
-                                                    {v.naam}
-                                                </h4>
-                                                
-                                                {dashboardData.lades.filter(l => l.vriezerId === v.id).map(l => {
-                                                    const ladeItems = dashboardData.items.filter(i => i.ladeId === l.id);
-                                                    return (
-                                                        <div key={l.id} className="mb-4 last:mb-0">
-                                                            <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2 flex justify-between items-center bg-white dark:bg-gray-700 p-2 rounded shadow-sm">
-                                                                <span>{l.naam}</span>
-                                                                <span className="text-xs font-normal text-gray-500 bg-gray-100 dark:bg-gray-600 px-2 py-0.5 rounded-full">{ladeItems.length} items</span>
-                                                            </h5>
-                                                            
-                                                            <ul className="space-y-1.5 ml-1">
-                                                                {ladeItems.length === 0 ? (
-                                                                    <li className="text-xs italic text-gray-400 pl-2">Lade is leeg</li>
-                                                                ) : (
-                                                                    ladeItems.map(i => (
-                                                                        <li key={i.id} className="text-sm flex justify-between items-center bg-white dark:bg-gray-700 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-600 shadow-sm transition-colors hover:border-blue-300 dark:hover:border-blue-700 group">
-                                                                            <span className="truncate mr-2 flex items-center gap-2 text-gray-800 dark:text-gray-200">
-                                                                                <span className="text-lg">{i.emoji}</span>
-                                                                                <span className="truncate">{i.naam}</span>
-                                                                            </span>
-                                                                            <div className="flex items-center gap-3">
-                                                                                <span className="font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 whitespace-nowrap">
-                                                                                    {formatAantal(i.aantal)} <span className="text-xs font-normal">{i.eenheid}</span>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+                                            {typeLocaties.map(v => (
+                                                <div key={v.id} className="bg-gray-50 dark:bg-gray-800/80 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+                                                    <h4 className="font-bold text-lg mb-3 text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                                                        <span className={`w-3 h-3 rounded-full bg-${v.color || 'blue'}-500 inline-block`}></span>
+                                                        {v.naam}
+                                                    </h4>
+                                                    
+                                                    {dashboardData.lades.filter(l => l.vriezerId === v.id).map(l => {
+                                                        const ladeItems = dashboardData.items.filter(i => i.ladeId === l.id);
+                                                        return (
+                                                            <div key={l.id} className="mb-4 last:mb-0">
+                                                                <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2 flex justify-between items-center bg-white dark:bg-gray-700 p-2 rounded shadow-sm">
+                                                                    <span>{l.naam}</span>
+                                                                    <span className="text-xs font-normal text-gray-500 bg-gray-100 dark:bg-gray-600 px-2 py-0.5 rounded-full">{ladeItems.length} items</span>
+                                                                </h5>
+                                                                
+                                                                <ul className="space-y-1.5 ml-1">
+                                                                    {ladeItems.length === 0 ? (
+                                                                        <li className="text-xs italic text-gray-400 pl-2">Lade is leeg</li>
+                                                                    ) : (
+                                                                        ladeItems.map(i => (
+                                                                            <li key={i.id} className="text-sm flex justify-between items-center bg-white dark:bg-gray-700 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-600 shadow-sm transition-colors hover:border-blue-300 dark:hover:border-blue-700 group">
+                                                                                <span className="truncate mr-2 flex items-center gap-2 text-gray-800 dark:text-gray-200">
+                                                                                    <span className="text-lg">{i.emoji}</span>
+                                                                                    <span className="truncate">{i.naam}</span>
                                                                                 </span>
-                                                                                <button onClick={() => openEditFromDashboard(i)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded flex-shrink-0 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity" title="Bewerken">
-                                                                                    <Icon path={Icons.Edit2} size={14}/>
-                                                                                </button>
-                                                                            </div>
-                                                                        </li>
-                                                                    ))
-                                                                )}
-                                                            </ul>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        ))}
+                                                                                <div className="flex items-center gap-3">
+                                                                                    <span className="font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 whitespace-nowrap">
+                                                                                        {formatAantal(i.aantal)} <span className="text-xs font-normal">{i.eenheid}</span>
+                                                                                    </span>
+                                                                                    <button onClick={() => openEditFromDashboard(i)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded flex-shrink-0 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity" title="Bewerken">
+                                                                                        <Icon path={Icons.Edit2} size={14}/>
+                                                                                    </button>
+                                                                                </div>
+                                                                            </li>
+                                                                        ))
+                                                                    )}
+                                                                </ul>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 );
                             })}
