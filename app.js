@@ -18,10 +18,18 @@ if (!firebase.apps.length) {
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-const APP_VERSION = '8.5.2'; 
+// --- 2. CONFIGURATIE DATA ---
+const APP_VERSION = '8.6.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.6.0', 
+        type: 'feature', 
+        changes: [
+            'Update: Dashboard layout volledig vernieuwd! Locaties staan nu onder elkaar, maar de lades daarin kun je horizontaal swipen (als een carrousel) voor een perfect overzicht.'
+        ] 
+    },
     { 
         version: '8.5.2', 
         type: 'feature', 
@@ -2023,48 +2031,51 @@ function App() {
                                             {typeNames[type]}
                                         </h3>
                                         
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+                                        <div className="flex flex-col gap-6">
                                             {typeLocaties.map(v => (
-                                                <div key={v.id} className="bg-gray-50 dark:bg-gray-800/80 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+                                                <div key={v.id} className="bg-gray-50 dark:bg-gray-800/80 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                                                     <h4 className="font-bold text-lg mb-3 text-blue-600 dark:text-blue-400 flex items-center gap-2">
                                                         <span className={`w-3 h-3 rounded-full bg-${v.color || 'blue'}-500 inline-block`}></span>
                                                         {v.naam}
                                                     </h4>
                                                     
-                                                    {dashboardData.lades.filter(l => l.vriezerId === v.id).sort((a,b) => a.naam.localeCompare(b.naam)).map(l => {
-                                                        const ladeItems = dashboardData.items.filter(i => i.ladeId === l.id).sort((a,b) => a.naam.localeCompare(b.naam));
-                                                        return (
-                                                            <div key={l.id} className="mb-4 last:mb-0">
-                                                                <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2 flex justify-between items-center bg-white dark:bg-gray-700 p-2 rounded shadow-sm">
-                                                                    <span>{l.naam}</span>
-                                                                    <span className="text-xs font-normal text-gray-500 bg-gray-100 dark:bg-gray-600 px-2 py-0.5 rounded-full">{ladeItems.length} items</span>
-                                                                </h5>
-                                                                
-                                                                <ul className="space-y-1.5 ml-1">
-                                                                    {ladeItems.length === 0 ? (
-                                                                        <li className="text-xs italic text-gray-400 pl-2">Lade is leeg</li>
-                                                                    ) : (
-                                                                        ladeItems.map(i => (
-                                                                            <li key={i.id} className="text-sm flex justify-between items-center bg-white dark:bg-gray-700 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-600 shadow-sm transition-colors hover:border-blue-300 dark:hover:border-blue-700 group">
-                                                                                <span className="truncate mr-2 flex items-center gap-2 text-gray-800 dark:text-gray-200">
-                                                                                    <span className="text-lg">{i.emoji}</span>
-                                                                                    <span className="truncate">{i.naam}</span>
-                                                                                </span>
-                                                                                <div className="flex items-center gap-3">
-                                                                                    <span className="font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 whitespace-nowrap">
-                                                                                        {formatAantal(i.aantal)} <span className="text-xs font-normal">{i.eenheid}</span>
+                                                    {/* Horizontaal scrollbare lades (Carrousel) */}
+                                                    <div className="flex overflow-x-auto gap-4 pb-2 snap-x items-start">
+                                                        {dashboardData.lades.filter(l => l.vriezerId === v.id).sort((a,b) => a.naam.localeCompare(b.naam)).map(l => {
+                                                            const ladeItems = dashboardData.items.filter(i => i.ladeId === l.id).sort((a,b) => a.naam.localeCompare(b.naam));
+                                                            return (
+                                                                <div key={l.id} className="flex-none w-72 sm:w-80 max-w-[85vw] snap-start bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 flex flex-col max-h-[60vh]">
+                                                                    <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300 p-3 border-b border-gray-100 dark:border-gray-600 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-700 z-10 rounded-t-lg">
+                                                                        <span>{l.naam}</span>
+                                                                        <span className="text-xs font-normal text-gray-500 bg-gray-100 dark:bg-gray-600 px-2 py-0.5 rounded-full">{ladeItems.length} items</span>
+                                                                    </h5>
+                                                                    
+                                                                    <ul className="p-2 space-y-2 overflow-y-auto flex-grow">
+                                                                        {ladeItems.length === 0 ? (
+                                                                            <li className="text-xs italic text-gray-400 text-center py-4">Lade is leeg</li>
+                                                                        ) : (
+                                                                            ladeItems.map(i => (
+                                                                                <li key={i.id} className="text-sm flex justify-between items-center bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-600 shadow-sm transition-colors hover:border-blue-300 dark:hover:border-blue-700 group">
+                                                                                    <span className="truncate mr-2 flex items-center gap-2 text-gray-800 dark:text-gray-200">
+                                                                                        <span className="text-lg">{i.emoji}</span>
+                                                                                        <span className="truncate">{i.naam}</span>
                                                                                     </span>
-                                                                                    <button onClick={() => openEditFromDashboard(i)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded flex-shrink-0 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity" title="Bewerken">
-                                                                                        <Icon path={Icons.Edit2} size={14}/>
-                                                                                    </button>
-                                                                                </div>
-                                                                            </li>
-                                                                        ))
-                                                                    )}
-                                                                </ul>
-                                                            </div>
-                                                        )
-                                                    })}
+                                                                                    <div className="flex items-center gap-3">
+                                                                                        <span className="font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 whitespace-nowrap">
+                                                                                            {formatAantal(i.aantal)} <span className="text-xs font-normal">{i.eenheid}</span>
+                                                                                        </span>
+                                                                                        <button onClick={() => openEditFromDashboard(i)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded flex-shrink-0 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity" title="Bewerken">
+                                                                                            <Icon path={Icons.Edit2} size={14}/>
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </li>
+                                                                            ))
+                                                                        )}
+                                                                    </ul>
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
