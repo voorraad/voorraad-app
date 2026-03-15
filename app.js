@@ -19,10 +19,17 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.6.2'; 
+const APP_VERSION = '8.6.3'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.6.3', 
+        type: 'feature', 
+        changes: [
+            'Update: Lades in het dashboard zijn nu standaard ingeklapt en kunnen opengeklikt worden, voor een veel rustiger en compacter overzicht.'
+        ] 
+    },
     { 
         version: '8.6.2', 
         type: 'feature', 
@@ -386,6 +393,7 @@ function App() {
     // Admin Dashboard States
     const [dashboardUser, setDashboardUser] = useState('');
     const [dashboardData, setDashboardData] = useState({ vriezers: [], lades: [], items: [], loading: false });
+    const [openDashboardLades, setOpenDashboardLades] = useState(new Set());
 
     // User Settings
     const [managedUserHiddenTabs, setManagedUserHiddenTabs] = useState([]);
@@ -647,12 +655,14 @@ function App() {
     useEffect(() => {
         if (!dashboardUser) {
             setDashboardData({ vriezers: [], lades: [], items: [], loading: false });
+            setOpenDashboardLades(new Set()); // Reset open lades
             return;
         }
 
         let isMounted = true;
         const fetchDashboard = async () => {
             setDashboardData(prev => ({ ...prev, loading: true }));
+            setOpenDashboardLades(new Set()); // Reset open lades
             try {
                 const [vSnap, lSnap, iSnap] = await Promise.all([
                     db.collection('vriezers').where('userId', '==', dashboardUser).get(),
@@ -2053,39 +2063,54 @@ function App() {
                                                         {v.naam}
                                                     </h4>
                                                     
-                                                    {/* Lades in een grid (max 3 naast elkaar) */}
+                                                    {/* Lades in een grid (max 3 naast elkaar), klikken om te openen */}
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start mt-2">
                                                         {dashboardData.lades.filter(l => l.vriezerId === v.id).sort((a,b) => a.naam.localeCompare(b.naam)).map(l => {
                                                             const ladeItems = dashboardData.items.filter(i => i.ladeId === l.id).sort((a,b) => a.naam.localeCompare(b.naam));
+                                                            const isLadeOpen = openDashboardLades.has(l.id);
+                                                            
                                                             return (
-                                                                <div key={l.id} className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 flex flex-col max-h-[60vh]">
-                                                                    <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300 p-3 border-b border-gray-100 dark:border-gray-600 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-700 z-10 rounded-t-lg">
-                                                                        <span>{l.naam}</span>
+                                                                <div key={l.id} className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 flex flex-col transition-all">
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            const newSet = new Set(openDashboardLades);
+                                                                            if(newSet.has(l.id)) newSet.delete(l.id);
+                                                                            else newSet.add(l.id);
+                                                                            setOpenDashboardLades(newSet);
+                                                                        }}
+                                                                        className="w-full text-left font-semibold text-sm text-gray-700 dark:text-gray-300 p-3 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-700 z-10 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                                                    >
+                                                                        <span className="flex items-center gap-2">
+                                                                            <Icon path={isLadeOpen ? Icons.ChevronDown : Icons.ChevronRight} size={16}/>
+                                                                            {l.naam}
+                                                                        </span>
                                                                         <span className="text-xs font-normal text-gray-500 bg-gray-100 dark:bg-gray-600 px-2 py-0.5 rounded-full">{ladeItems.length} items</span>
-                                                                    </h5>
+                                                                    </button>
                                                                     
-                                                                    <ul className="p-2 space-y-2 overflow-y-auto flex-grow">
-                                                                        {ladeItems.length === 0 ? (
-                                                                            <li className="text-xs italic text-gray-400 text-center py-4">Lade is leeg</li>
-                                                                        ) : (
-                                                                            ladeItems.map(i => (
-                                                                                <li key={i.id} className="text-sm flex justify-between items-center bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-600 shadow-sm transition-colors hover:border-blue-300 dark:hover:border-blue-700 group">
-                                                                                    <span className="truncate mr-2 flex items-center gap-2 text-gray-800 dark:text-gray-200">
-                                                                                        <span className="text-lg">{i.emoji}</span>
-                                                                                        <span className="truncate">{i.naam}</span>
-                                                                                    </span>
-                                                                                    <div className="flex items-center gap-3">
-                                                                                        <span className="font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 whitespace-nowrap">
-                                                                                            {formatAantal(i.aantal)} <span className="text-xs font-normal">{i.eenheid}</span>
+                                                                    {isLadeOpen && (
+                                                                        <ul className="p-2 space-y-2 overflow-y-auto flex-grow max-h-[50vh] border-t border-gray-100 dark:border-gray-600">
+                                                                            {ladeItems.length === 0 ? (
+                                                                                <li className="text-xs italic text-gray-400 text-center py-4">Lade is leeg</li>
+                                                                            ) : (
+                                                                                ladeItems.map(i => (
+                                                                                    <li key={i.id} className="text-sm flex justify-between items-center bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-600 shadow-sm transition-colors hover:border-blue-300 dark:hover:border-blue-700 group">
+                                                                                        <span className="truncate mr-2 flex items-center gap-2 text-gray-800 dark:text-gray-200">
+                                                                                            <span className="text-lg">{i.emoji}</span>
+                                                                                            <span className="truncate">{i.naam}</span>
                                                                                         </span>
-                                                                                        <button onClick={() => openEditFromDashboard(i)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded flex-shrink-0 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity" title="Bewerken">
-                                                                                            <Icon path={Icons.Edit2} size={14}/>
-                                                                                        </button>
-                                                                                    </div>
-                                                                                </li>
-                                                                            ))
-                                                                        )}
-                                                                    </ul>
+                                                                                        <div className="flex items-center gap-3">
+                                                                                            <span className="font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 whitespace-nowrap">
+                                                                                                {formatAantal(i.aantal)} <span className="text-xs font-normal">{i.eenheid}</span>
+                                                                                            </span>
+                                                                                            <button onClick={() => openEditFromDashboard(i)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded flex-shrink-0 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity" title="Bewerken">
+                                                                                                <Icon path={Icons.Edit2} size={14}/>
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    </li>
+                                                                                ))
+                                                                            )}
+                                                                        </ul>
+                                                                    )}
                                                                 </div>
                                                             )
                                                         })}
