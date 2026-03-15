@@ -24,6 +24,13 @@ const APP_VERSION = '8.4.0';
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
     { 
+        version: '8.5.0', 
+        type: 'feature', 
+        changes: [
+            'Update: Dashboard heeft nu een eigen knop, een breder scherm (met kolommen op PC) en de mogelijkheid om producten direct te bewerken.'
+        ] 
+    },
+    { 
         version: '8.4.0', 
         type: 'feature', 
         changes: [
@@ -132,6 +139,7 @@ const Icon = ({ path, size = 20, className = "" }) => (
 const Icons = {
     Plus: <path d="M5 12h14M12 5v14"/>,
     Search: <path d="m21 21-4.3-4.3M11 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12z"/>,
+    LayoutDashboard: <g><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></g>,
     Snowflake: <path d="M2 12h20M12 2v20m-8.5-6L12 12 8.5 8.5m7 7L12 12l3.5-3.5"/>,
     Box: <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.3 7 12 12l8.7-5M12 12v10"/>,
     Trash2: <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/>,
@@ -287,14 +295,15 @@ const Toast = ({ message, type = "success", onClose }) => {
     );
 };
 
-const Modal = ({ isOpen, onClose, title, children, color = "blue" }) => {
+const Modal = ({ isOpen, onClose, title, children, color = "blue", size = "md" }) => {
     if (!isOpen) return null;
     
     const gradientClass = GRADIENTS[color] || GRADIENTS.blue;
+    const sizeClass = size === "lg" ? "max-w-4xl" : "max-w-lg";
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden" onClick={onClose}>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto modal-animate flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full ${sizeClass} max-h-[90vh] overflow-y-auto modal-animate flex flex-col`} onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
                     <h3 className={`text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{title}</h3>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"><Icon path={Icons.X} className="text-gray-500 dark:text-gray-400" /></button>
@@ -348,7 +357,6 @@ function App() {
     const [usersList, setUsersList] = useState([]);
     
     // Admin Dashboard States
-    const [adminTab, setAdminTab] = useState('beheer');
     const [dashboardUser, setDashboardUser] = useState('');
     const [dashboardData, setDashboardData] = useState({ vriezers: [], lades: [], items: [], loading: false });
 
@@ -384,6 +392,7 @@ function App() {
     const [showWhatsNew, setShowWhatsNew] = useState(false);
     const [showVersionHistory, setShowVersionHistory] = useState(false);
     const [showSwitchAccount, setShowSwitchAccount] = useState(false);
+    const [showDashboardModal, setShowDashboardModal] = useState(false);
     const [showBeheerModal, setShowBeheerModal] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showProfileMenu, setShowProfileMenu] = useState(false); 
@@ -937,6 +946,14 @@ function App() {
         return scoredItems.filter(i => i.score > 0).sort((a,b) => b.score - a.score).slice(0, 5);
     };
 
+    const openEditFromDashboard = (item) => {
+        if (beheerdeUserId !== dashboardUser) {
+            setBeheerdeUserId(dashboardUser);
+        }
+        setShowDashboardModal(false);
+        openEdit(item);
+    };
+
     const openEdit = (item) => {
         setEditingItem(item);
         const loc = vriezers.find(v => v.id === item.vriezerId);
@@ -1203,9 +1220,9 @@ function App() {
                 <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
                     <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">Voorraad.</h1>
                     <div className="flex gap-2 relative">
-                        <button onClick={() => { setSelectedLocatieForBeheer(null); setBeheerdeUserId(beheerdeUserId); setShowBeheerModal(true); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><Icon path={Icons.Settings}/></button>
+                        <button onClick={() => { setSelectedLocatieForBeheer(null); setBeheerdeUserId(beheerdeUserId); setShowBeheerModal(true); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors" title="Instellingen"><Icon path={Icons.Settings}/></button>
 
-                        <button onClick={() => setShowShoppingModal(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 relative hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-blue-600 dark:text-blue-400">
+                        <button onClick={() => setShowShoppingModal(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 relative hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-blue-600 dark:text-blue-400" title="Boodschappenlijst">
                             <Icon path={Icons.ShoppingCart}/>
                             {shoppingList.length > 0 && (
                                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center border-2 border-white dark:border-gray-800 font-bold">
@@ -1214,9 +1231,14 @@ function App() {
                             )}
                         </button>
                         
-                        {isAdmin && <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors"><Icon path={Icons.Users}/></button>}
+                        {isAdmin && (
+                            <>
+                                <button onClick={() => setShowDashboardModal(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition-colors" title="Dashboard"><Icon path={Icons.LayoutDashboard}/></button>
+                                <button onClick={() => setShowUserAdminModal(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors" title="Gebruikers"><Icon path={Icons.Users}/></button>
+                            </>
+                        )}
                         
-                        <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 relative hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"><Icon path={Icons.Info}/>{alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>}</button>
+                        <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 relative hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" title="Meldingen"><Icon path={Icons.Info}/>{alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>}</button>
                         
                         <div className="relative">
                             <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 transition-colors">
@@ -1920,133 +1942,131 @@ function App() {
                 )}
             </Modal>
             
-            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers & Dashboard." color="pink">
-                <div className="flex border-b dark:border-gray-700 mb-4">
-                    <button onClick={() => setAdminTab('beheer')} className={`flex-1 py-2 font-medium ${adminTab==='beheer'?'text-pink-600 border-b-2 border-pink-600':'text-gray-500 dark:text-gray-400'}`}>Beheer.</button>
-                    <button onClick={() => setAdminTab('dashboard')} className={`flex-1 py-2 font-medium ${adminTab==='dashboard'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500 dark:text-gray-400'}`}>Dashboard.</button>
-                </div>
+            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers." color="pink">
+                <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {usersList.map(u => (
+                        <li key={u.id} className="py-3 flex flex-col gap-2">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <p className="font-bold dark:text-white">{u.email || u.displayName}</p>
+                                    <p className="text-xs text-gray-500">{u.id}</p>
+                                </div>
+                                <button onClick={() => toggleUserStatus(u.id, u.disabled)} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-200' : 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-200'}`}>
+                                    {u.disabled ? 'Geblokkeerd' : 'Actief'}
+                                </button>
+                            </div>
+                            <div className="flex flex-col gap-1 mt-1">
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={(u.hiddenTabs || []).includes('frig')} 
+                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'frig')}
+                                    />
+                                    <span>Verberg 'Frig.' tabblad</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={(u.hiddenTabs || []).includes('voorraad')} 
+                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'voorraad')}
+                                    />
+                                    <span>Verberg 'Stock.' tabblad</span>
+                                </div>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">
+                                Laatst gezien: {u.laatstGezien ? formatDateTime(u.laatstGezien) : 'Nooit'}
+                            </p>
+                        </li>
+                    ))}
+                </ul>
+            </Modal>
 
-                {adminTab === 'beheer' && (
-                    <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+            <Modal isOpen={showDashboardModal} onClose={() => setShowDashboardModal(false)} title="Dashboard." color="blue" size="lg">
+                <div className="space-y-4 min-h-[50vh]">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Selecteer een gebruiker om direct in hun voorraad te kijken zonder in te loggen op hun account.</p>
+                    <select 
+                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                        value={dashboardUser} 
+                        onChange={e => setDashboardUser(e.target.value)}
+                    >
+                        <option value="">Kies een gebruiker...</option>
                         {usersList.map(u => (
-                            <li key={u.id} className="py-3 flex flex-col gap-2">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <p className="font-bold dark:text-white">{u.email || u.displayName}</p>
-                                        <p className="text-xs text-gray-500">{u.id}</p>
-                                    </div>
-                                    <button onClick={() => toggleUserStatus(u.id, u.disabled)} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-200' : 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-200'}`}>
-                                        {u.disabled ? 'Geblokkeerd' : 'Actief'}
-                                    </button>
-                                </div>
-                                <div className="flex flex-col gap-1 mt-1">
-                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={(u.hiddenTabs || []).includes('frig')} 
-                                            onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'frig')}
-                                        />
-                                        <span>Verberg 'Frig.' tabblad</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={(u.hiddenTabs || []).includes('voorraad')} 
-                                            onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'voorraad')}
-                                        />
-                                        <span>Verberg 'Stock.' tabblad</span>
-                                    </div>
-                                </div>
-                                <p className="text-xs text-gray-400 mt-1">
-                                    Laatst gezien: {u.laatstGezien ? formatDateTime(u.laatstGezien) : 'Nooit'}
-                                </p>
-                            </li>
+                            <option key={u.id} value={u.id}>{u.email || u.displayName} ({u.id.substring(0,6)}...)</option>
                         ))}
-                    </ul>
-                )}
+                    </select>
 
-                {adminTab === 'dashboard' && (
-                    <div className="space-y-4 min-h-[50vh]">
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Selecteer een gebruiker om direct in hun voorraad te kijken zonder in te loggen op hun account.</p>
-                        <select 
-                            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                            value={dashboardUser} 
-                            onChange={e => setDashboardUser(e.target.value)}
-                        >
-                            <option value="">Kies een gebruiker...</option>
-                            {usersList.map(u => (
-                                <option key={u.id} value={u.id}>{u.email || u.displayName} ({u.id.substring(0,6)}...)</option>
-                            ))}
-                        </select>
+                    {dashboardData.loading ? (
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-400 flex flex-col items-center">
+                            <Icon path={Icons.Box} className="animate-bounce mb-2" size={32} />
+                            Laden van voorraad...
+                        </div>
+                    ) : dashboardUser && dashboardData.vriezers.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                            Deze gebruiker heeft nog geen locaties aangemaakt.
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 items-start">
+                            {['vriezer', 'frig', 'voorraad'].map(type => {
+                                const typeLocaties = dashboardData.vriezers.filter(v => (v.type || 'vriezer') === type);
+                                if (typeLocaties.length === 0) return null;
+                                
+                                const typeNames = { vriezer: 'Vriezer', frig: 'Koelkast', voorraad: 'Voorraad' };
 
-                        {dashboardData.loading ? (
-                            <div className="text-center py-8 text-gray-500 dark:text-gray-400 flex flex-col items-center">
-                                <Icon path={Icons.Box} className="animate-bounce mb-2" size={32} />
-                                Laden van voorraad...
-                            </div>
-                        ) : dashboardUser && dashboardData.vriezers.length === 0 ? (
-                            <div className="text-center py-8 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                Deze gebruiker heeft nog geen locaties aangemaakt.
-                            </div>
-                        ) : (
-                            <div className="space-y-6 mt-4">
-                                {['vriezer', 'frig', 'voorraad'].map(type => {
-                                    const typeLocaties = dashboardData.vriezers.filter(v => (v.type || 'vriezer') === type);
-                                    if (typeLocaties.length === 0) return null;
-                                    
-                                    const typeNames = { vriezer: 'Vriezer', frig: 'Koelkast', voorraad: 'Voorraad' };
-
-                                    return (
-                                        <div key={type} className="animate-in fade-in duration-300">
-                                            <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 border-b border-gray-200 dark:border-gray-700 pb-1">
-                                                {typeNames[type]}
-                                            </h3>
-                                            
-                                            {typeLocaties.map(v => (
-                                                <div key={v.id} className="mb-4 bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
-                                                    <h4 className="font-bold text-lg mb-3 text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                                                        <span className={`w-3 h-3 rounded-full bg-${v.color || 'blue'}-500 inline-block`}></span>
-                                                        {v.naam}
-                                                    </h4>
-                                                    
-                                                    {dashboardData.lades.filter(l => l.vriezerId === v.id).map(l => {
-                                                        const ladeItems = dashboardData.items.filter(i => i.ladeId === l.id);
-                                                        return (
-                                                            <div key={l.id} className="ml-2 mb-4 last:mb-0">
-                                                                <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-2 rounded">
-                                                                    <span>{l.naam}</span>
-                                                                    <span className="text-xs font-normal text-gray-500 bg-gray-200 dark:bg-gray-600 px-2 py-0.5 rounded-full">{ladeItems.length} items</span>
-                                                                </h5>
-                                                                
-                                                                <ul className="space-y-1.5 ml-2">
-                                                                    {ladeItems.length === 0 ? (
-                                                                        <li className="text-xs italic text-gray-400 pl-2">Lade is leeg</li>
-                                                                    ) : (
-                                                                        ladeItems.map(i => (
-                                                                            <li key={i.id} className="text-sm flex justify-between items-center bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-600">
-                                                                                <span className="truncate mr-2 flex items-center gap-2">
-                                                                                    <span className="text-lg">{i.emoji}</span>
-                                                                                    {i.naam}
-                                                                                </span>
+                                return (
+                                    <div key={type} className="animate-in fade-in duration-300">
+                                        <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 border-b border-gray-200 dark:border-gray-700 pb-1">
+                                            {typeNames[type]}
+                                        </h3>
+                                        
+                                        {typeLocaties.map(v => (
+                                            <div key={v.id} className="mb-4 bg-gray-50 dark:bg-gray-800/80 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+                                                <h4 className="font-bold text-lg mb-3 text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                                                    <span className={`w-3 h-3 rounded-full bg-${v.color || 'blue'}-500 inline-block`}></span>
+                                                    {v.naam}
+                                                </h4>
+                                                
+                                                {dashboardData.lades.filter(l => l.vriezerId === v.id).map(l => {
+                                                    const ladeItems = dashboardData.items.filter(i => i.ladeId === l.id);
+                                                    return (
+                                                        <div key={l.id} className="mb-4 last:mb-0">
+                                                            <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2 flex justify-between items-center bg-white dark:bg-gray-700 p-2 rounded shadow-sm">
+                                                                <span>{l.naam}</span>
+                                                                <span className="text-xs font-normal text-gray-500 bg-gray-100 dark:bg-gray-600 px-2 py-0.5 rounded-full">{ladeItems.length} items</span>
+                                                            </h5>
+                                                            
+                                                            <ul className="space-y-1.5 ml-1">
+                                                                {ladeItems.length === 0 ? (
+                                                                    <li className="text-xs italic text-gray-400 pl-2">Lade is leeg</li>
+                                                                ) : (
+                                                                    ladeItems.map(i => (
+                                                                        <li key={i.id} className="text-sm flex justify-between items-center bg-white dark:bg-gray-700 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-600 shadow-sm transition-colors hover:border-blue-300 dark:hover:border-blue-700 group">
+                                                                            <span className="truncate mr-2 flex items-center gap-2 text-gray-800 dark:text-gray-200">
+                                                                                <span className="text-lg">{i.emoji}</span>
+                                                                                <span className="truncate">{i.naam}</span>
+                                                                            </span>
+                                                                            <div className="flex items-center gap-3">
                                                                                 <span className="font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 whitespace-nowrap">
                                                                                     {formatAantal(i.aantal)} <span className="text-xs font-normal">{i.eenheid}</span>
                                                                                 </span>
-                                                                            </li>
-                                                                        ))
-                                                                    )}
-                                                                </ul>
-                                                            </div>
-                                                        )
-                                                    })}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                )}
+                                                                                <button onClick={() => openEditFromDashboard(i)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded flex-shrink-0 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity" title="Bewerken">
+                                                                                    <Icon path={Icons.Edit2} size={14}/>
+                                                                                </button>
+                                                                            </div>
+                                                                        </li>
+                                                                    ))
+                                                                )}
+                                                            </ul>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
             </Modal>
 
             <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Voorraad Delen" color="green">
