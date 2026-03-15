@@ -19,10 +19,17 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.3.6'; 
+const APP_VERSION = '8.4.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.4.0', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: Admin Dashboard toegevoegd! Bij "Gebruikers" is er nu een dashboard-tab waar je overzichtelijk per gebruiker de locaties, lades en items kunt bekijken.'
+        ] 
+    },
     { 
         version: '8.3.6', 
         type: 'fix', 
@@ -36,15 +43,6 @@ const VERSION_HISTORY = [
         changes: [
             'Nieuw: Aantal aanpassen bij het toevoegen aan boodschappenlijst na verwijderen.',
             'Update: Pijltjes (steppers) toegevoegd aan alle aantal-velden voor gebruiksgemak.'
-        ] 
-    },
-    { 
-        version: '8.3.4', 
-        type: 'fix', 
-        changes: [
-            'Fix: Syntaxfout opgelost die de app liet crashen.',
-            'Update: THT-datum in vriezer is nu zwart/grijs (neutraal).',
-            'Nieuw: Je kunt nu een winkel kiezen als je een product verwijdert en op de lijst zet.'
         ] 
     }
 ];
@@ -349,6 +347,11 @@ function App() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [usersList, setUsersList] = useState([]);
     
+    // Admin Dashboard States
+    const [adminTab, setAdminTab] = useState('beheer');
+    const [dashboardUser, setDashboardUser] = useState('');
+    const [dashboardData, setDashboardData] = useState({ vriezers: [], lades: [], items: [], loading: false });
+
     // User Settings
     const [managedUserHiddenTabs, setManagedUserHiddenTabs] = useState([]);
     const [myHiddenTabs, setMyHiddenTabs] = useState([]);
@@ -394,7 +397,6 @@ function App() {
     const [showShoppingModal, setShowShoppingModal] = useState(false); 
     const [beheerTab, setBeheerTab] = useState('locaties');
 
-    // NIEUWE STATES VOOR WINKEL MODAL BIJ VERWIJDEREN
     const [showShopifyModal, setShowShopifyModal] = useState(false);
     const [itemToShopify, setItemToShopify] = useState(null);
     const [shopForDeletedItem, setShopForDeletedItem] = useState('');
@@ -429,8 +431,6 @@ function App() {
     const [shareEmail, setShareEmail] = useState('');
     
     const [eenheidFilter, setEenheidFilter] = useState('vries'); 
-
-    // NIEUW: State voor het type in de "Toevoegen" modal
     const [modalType, setModalType] = useState('vriezer');
 
     // Edit States
@@ -591,28 +591,60 @@ function App() {
     }, [isAdmin]);
 
     useEffect(() => {
-    if (!user || !showLogModal) return;
+        if (!user || !showLogModal) return;
 
-    let query;
-    
-    if (isAdmin) {
-        query = db.collection('logs').orderBy('timestamp', 'desc').limit(50);
-    } else {
-        query = db.collection('logs').where('targetUserId', '==', beheerdeUserId).orderBy('timestamp', 'desc').limit(50);
-    }
+        let query;
+        if (isAdmin) {
+            query = db.collection('logs').orderBy('timestamp', 'desc').limit(50);
+        } else {
+            query = db.collection('logs').where('targetUserId', '==', beheerdeUserId).orderBy('timestamp', 'desc').limit(50);
+        }
 
-    const unsubLogs = query.onSnapshot(snap => {
-        setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+        const unsubLogs = query.onSnapshot(snap => {
+            setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
 
-    return () => unsubLogs();
-}, [user, showLogModal, beheerdeUserId, isAdmin]); 
+        return () => unsubLogs();
+    }, [user, showLogModal, beheerdeUserId, isAdmin]); 
 
+    // OPHALEN VAN DASHBOARD DATA (Enkel 1 keer per geselecteerde gebruiker, geen continue listeners)
+    useEffect(() => {
+        if (!dashboardUser) {
+            setDashboardData({ vriezers: [], lades: [], items: [], loading: false });
+            return;
+        }
+
+        let isMounted = true;
+        const fetchDashboard = async () => {
+            setDashboardData(prev => ({ ...prev, loading: true }));
+            try {
+                const [vSnap, lSnap, iSnap] = await Promise.all([
+                    db.collection('vriezers').where('userId', '==', dashboardUser).get(),
+                    db.collection('lades').where('userId', '==', dashboardUser).get(),
+                    db.collection('items').where('userId', '==', dashboardUser).get()
+                ]);
+
+                if (isMounted) {
+                    setDashboardData({
+                        vriezers: vSnap.docs.map(d => ({id: d.id, ...d.data()})),
+                        lades: lSnap.docs.map(d => ({id: d.id, ...d.data()})),
+                        items: iSnap.docs.map(d => ({id: d.id, ...d.data()})),
+                        loading: false
+                    });
+                }
+            } catch (e) {
+                console.error("Fout bij laden dashboard", e);
+                if (isMounted) setDashboardData(prev => ({ ...prev, loading: false }));
+            }
+        };
+
+        fetchDashboard();
+        return () => { isMounted = false; };
+    }, [dashboardUser]);
 
     // Derived
     const filteredLocaties = vriezers.filter(l => l.type === activeTab);
     const activeItems = items.filter(i => filteredLocaties.some(l => l.id === i.vriezerId));
-
     const modalLocaties = vriezers.filter(l => l.type === modalType);
 
     const formLades = formData.vriezerId 
@@ -733,7 +765,6 @@ function App() {
         e.preventDefault();
         const lade = lades.find(l => l.id === formData.ladeId);
         
-        // VEILIGHEID: Zorg dat het aantal een geldig getal is voor we het opslaan, val anders terug op 1
         let safeAantal = parseFloat(formData.aantal);
         if (isNaN(safeAantal) || safeAantal <= 0) {
             safeAantal = 1;
@@ -800,7 +831,6 @@ function App() {
             
             setItemToShopify(itemToDelete);
             
-            // Controleer of aantal geldig is, anders 1
             let validAantal = parseFloat(itemToDelete.aantal);
             if (isNaN(validAantal) || validAantal <= 0) validAantal = 1;
             setAantalForShopifyItem(validAantal);
@@ -819,7 +849,6 @@ function App() {
     const handleAddToShoppingFromDelete = async () => {
         if (!itemToShopify) return;
         
-        // Zorg dat aantal geldig is
         let safeAantal = parseFloat(aantalForShopifyItem);
         if (isNaN(safeAantal) || safeAantal <= 0) safeAantal = 1;
 
@@ -842,7 +871,6 @@ function App() {
     const handleAddShoppingItem = async (e) => {
         e.preventDefault();
         
-        // Veilige waarde voor aantal
         let safeAantal = parseFloat(shoppingFormData.aantal);
         if (isNaN(safeAantal) || safeAantal <= 0) safeAantal = 1;
 
@@ -870,7 +898,6 @@ function App() {
         const stockLocs = vriezers.filter(l => l.type === 'voorraad');
         const defaultLoc = stockLocs.length > 0 ? stockLocs[0].id : '';
 
-        // Check of aantal geldig is, val anders terug op 1
         let safeAantal = parseFloat(item.aantal);
         if (isNaN(safeAantal) || safeAantal <= 0) safeAantal = 1;
 
@@ -916,7 +943,6 @@ function App() {
         const itemType = loc ? loc.type : 'vriezer';
         setModalType(itemType);
 
-        // VEILIGHEID: Controleren of item.aantal een geldig getal is, zo niet gebruik 1
         let safeAantal = parseFloat(item.aantal);
         if (isNaN(safeAantal)) {
             safeAantal = 1;
@@ -924,7 +950,7 @@ function App() {
 
         setFormData({
             naam: item.naam, 
-            aantal: safeAantal, // Hier gebruiken we het veilige aantal
+            aantal: safeAantal, 
             eenheid: item.eenheid, 
             vriezerId: item.vriezerId, 
             ladeId: item.ladeId, 
@@ -1433,7 +1459,6 @@ function App() {
                           onClick={() => {
                             const current = parseFloat(formData.aantal) || 0;
                             const next = Math.min(current + 0.25, 5000);
-                            // Gebruik Math.round om zuivere getallen te behouden en input parsing bugs te voorkomen
                             setFormData({...formData, aantal: Math.round(next * 100) / 100});
                           }}
                           className="absolute right-1 top-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
@@ -1445,7 +1470,6 @@ function App() {
                           onClick={() => {
                             const current = parseFloat(formData.aantal) || 0;
                             const next = Math.max(current - 0.25, 0);
-                            // Gebruik Math.round om zuivere getallen te behouden
                             setFormData({...formData, aantal: Math.round(next * 100) / 100});
                           }}
                           className="absolute right-1 bottom-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
@@ -1896,43 +1920,133 @@ function App() {
                 )}
             </Modal>
             
-            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers." color="pink">
-                <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {usersList.map(u => (
-                        <li key={u.id} className="p-3 flex flex-col gap-2">
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <p className="font-bold dark:text-white">{u.email || u.displayName}</p>
-                                    <p className="text-xs text-gray-500">{u.id}</p>
+            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers & Dashboard." color="pink">
+                <div className="flex border-b dark:border-gray-700 mb-4">
+                    <button onClick={() => setAdminTab('beheer')} className={`flex-1 py-2 font-medium ${adminTab==='beheer'?'text-pink-600 border-b-2 border-pink-600':'text-gray-500 dark:text-gray-400'}`}>Beheer.</button>
+                    <button onClick={() => setAdminTab('dashboard')} className={`flex-1 py-2 font-medium ${adminTab==='dashboard'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500 dark:text-gray-400'}`}>Dashboard.</button>
+                </div>
+
+                {adminTab === 'beheer' && (
+                    <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {usersList.map(u => (
+                            <li key={u.id} className="py-3 flex flex-col gap-2">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <p className="font-bold dark:text-white">{u.email || u.displayName}</p>
+                                        <p className="text-xs text-gray-500">{u.id}</p>
+                                    </div>
+                                    <button onClick={() => toggleUserStatus(u.id, u.disabled)} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-200' : 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-200'}`}>
+                                        {u.disabled ? 'Geblokkeerd' : 'Actief'}
+                                    </button>
                                 </div>
-                                <button onClick={() => toggleUserStatus(u.id, u.disabled)} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-200' : 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-200'}`}>
-                                    {u.disabled ? 'Geblokkeerd' : 'Actief'}
-                                </button>
+                                <div className="flex flex-col gap-1 mt-1">
+                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={(u.hiddenTabs || []).includes('frig')} 
+                                            onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'frig')}
+                                        />
+                                        <span>Verberg 'Frig.' tabblad</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={(u.hiddenTabs || []).includes('voorraad')} 
+                                            onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'voorraad')}
+                                        />
+                                        <span>Verberg 'Stock.' tabblad</span>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    Laatst gezien: {u.laatstGezien ? formatDateTime(u.laatstGezien) : 'Nooit'}
+                                </p>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+
+                {adminTab === 'dashboard' && (
+                    <div className="space-y-4 min-h-[50vh]">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Selecteer een gebruiker om direct in hun voorraad te kijken zonder in te loggen op hun account.</p>
+                        <select 
+                            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                            value={dashboardUser} 
+                            onChange={e => setDashboardUser(e.target.value)}
+                        >
+                            <option value="">Kies een gebruiker...</option>
+                            {usersList.map(u => (
+                                <option key={u.id} value={u.id}>{u.email || u.displayName} ({u.id.substring(0,6)}...)</option>
+                            ))}
+                        </select>
+
+                        {dashboardData.loading ? (
+                            <div className="text-center py-8 text-gray-500 dark:text-gray-400 flex flex-col items-center">
+                                <Icon path={Icons.Box} className="animate-bounce mb-2" size={32} />
+                                Laden van voorraad...
                             </div>
-                            <div className="flex flex-col gap-1 mt-1">
-                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={(u.hiddenTabs || []).includes('frig')} 
-                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'frig')}
-                                    />
-                                    <span>Verberg 'Frig.' tabblad</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={(u.hiddenTabs || []).includes('voorraad')} 
-                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'voorraad')}
-                                    />
-                                    <span>Verberg 'Stock.' tabblad</span>
-                                </div>
+                        ) : dashboardUser && dashboardData.vriezers.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                Deze gebruiker heeft nog geen locaties aangemaakt.
                             </div>
-                            <p className="text-xs text-gray-400 mt-1">
-                                Laatst gezien: {u.laatstGezien ? formatDateTime(u.laatstGezien) : 'Nooit'}
-                            </p>
-                        </li>
-                    ))}
-                </ul>
+                        ) : (
+                            <div className="space-y-6 mt-4">
+                                {['vriezer', 'frig', 'voorraad'].map(type => {
+                                    const typeLocaties = dashboardData.vriezers.filter(v => (v.type || 'vriezer') === type);
+                                    if (typeLocaties.length === 0) return null;
+                                    
+                                    const typeNames = { vriezer: 'Vriezer', frig: 'Koelkast', voorraad: 'Voorraad' };
+
+                                    return (
+                                        <div key={type} className="animate-in fade-in duration-300">
+                                            <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3 border-b border-gray-200 dark:border-gray-700 pb-1">
+                                                {typeNames[type]}
+                                            </h3>
+                                            
+                                            {typeLocaties.map(v => (
+                                                <div key={v.id} className="mb-4 bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+                                                    <h4 className="font-bold text-lg mb-3 text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                                                        <span className={`w-3 h-3 rounded-full bg-${v.color || 'blue'}-500 inline-block`}></span>
+                                                        {v.naam}
+                                                    </h4>
+                                                    
+                                                    {dashboardData.lades.filter(l => l.vriezerId === v.id).map(l => {
+                                                        const ladeItems = dashboardData.items.filter(i => i.ladeId === l.id);
+                                                        return (
+                                                            <div key={l.id} className="ml-2 mb-4 last:mb-0">
+                                                                <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-2 rounded">
+                                                                    <span>{l.naam}</span>
+                                                                    <span className="text-xs font-normal text-gray-500 bg-gray-200 dark:bg-gray-600 px-2 py-0.5 rounded-full">{ladeItems.length} items</span>
+                                                                </h5>
+                                                                
+                                                                <ul className="space-y-1.5 ml-2">
+                                                                    {ladeItems.length === 0 ? (
+                                                                        <li className="text-xs italic text-gray-400 pl-2">Lade is leeg</li>
+                                                                    ) : (
+                                                                        ladeItems.map(i => (
+                                                                            <li key={i.id} className="text-sm flex justify-between items-center bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-600">
+                                                                                <span className="truncate mr-2 flex items-center gap-2">
+                                                                                    <span className="text-lg">{i.emoji}</span>
+                                                                                    {i.naam}
+                                                                                </span>
+                                                                                <span className="font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 whitespace-nowrap">
+                                                                                    {formatAantal(i.aantal)} <span className="text-xs font-normal">{i.eenheid}</span>
+                                                                                </span>
+                                                                            </li>
+                                                                        ))
+                                                                    )}
+                                                                </ul>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
             </Modal>
 
             <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Voorraad Delen" color="green">
