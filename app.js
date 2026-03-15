@@ -1286,9 +1286,9 @@ function App() {
     if (!user) return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4 transition-colors duration-300">
             <style dangerouslySetInnerHTML={{__html: `
-                html { font-size: 16px !important; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+                html { font-size: 12px !important; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
                 @media screen and (max-width: 768px) {
-                    input, select, textarea, button { font-size: 16px !important; }
+                    input, select, textarea, button { font-size: 12px !important; }
                 }
             `}} />
             <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
@@ -1307,9 +1307,9 @@ function App() {
     return (
         <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-100 transition-colors duration-300">
              <style dangerouslySetInnerHTML={{__html: `
-                html { font-size: 16px !important; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+                html { font-size: 12px !important; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
                 @media screen and (max-width: 768px) {
-                    input, select, textarea, button { font-size: 16px !important; }
+                    input, select, textarea, button { font-size: 12px !important; }
                 }
             `}} />
              {notification && (
