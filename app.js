@@ -12,17 +12,17 @@ const firebaseConfig = typeof __firebase_config !== 'undefined'
         appId: "1:902712789943:web:ef270b84968319052cf632"
     };
 
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-const db = firebase.firestore();
-const auth = firebase.auth();
-
-// --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.5.1'; 
+const APP_VERSION = '8.5.2'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.5.2', 
+        type: 'feature', 
+        changes: [
+            'Update: Alles in de app (locaties, lades en producten) wordt nu altijd netjes alfabetisch (A-Z) gesorteerd in plaats van op toevallige volgorde.'
+        ] 
+    },
     { 
         version: '8.5.1', 
         type: 'feature', 
@@ -651,9 +651,9 @@ function App() {
     }, [dashboardUser]);
 
     // Derived
-    const filteredLocaties = vriezers.filter(l => l.type === activeTab);
+    const filteredLocaties = vriezers.filter(l => l.type === activeTab).sort((a, b) => a.naam.localeCompare(b.naam));
     const activeItems = items.filter(i => filteredLocaties.some(l => l.id === i.vriezerId));
-    const modalLocaties = vriezers.filter(l => l.type === modalType);
+    const modalLocaties = vriezers.filter(l => l.type === modalType).sort((a, b) => a.naam.localeCompare(b.naam));
 
     const formLades = formData.vriezerId 
         ? lades.filter(l => l.vriezerId === formData.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam))
@@ -1344,7 +1344,7 @@ function App() {
                                 <h2 className={`text-lg font-bold mb-3 flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{vriezer.naam}</h2>
                                 <div className="space-y-4">
                                     {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(lade => {
-                                        const ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
+                                        const ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase())).sort((a,b) => a.naam.localeCompare(b.naam));
                                         if (ladeItems.length === 0 && search) return null;
                                         const isCollapsed = collapsedLades.has(lade.id) && !search;
                                         
@@ -2006,7 +2006,7 @@ function App() {
                     ) : (
                         <div className="space-y-8 mt-4">
                             {['vriezer', 'frig', 'voorraad'].map(type => {
-                                const typeLocaties = dashboardData.vriezers.filter(v => (v.type || 'vriezer') === type);
+                                const typeLocaties = dashboardData.vriezers.filter(v => (v.type || 'vriezer') === type).sort((a,b) => a.naam.localeCompare(b.naam));
                                 if (typeLocaties.length === 0) return null;
                                 
                                 const typeNames = { vriezer: 'Vriezer', frig: 'Koelkast', voorraad: 'Voorraad' };
@@ -2025,8 +2025,8 @@ function App() {
                                                         {v.naam}
                                                     </h4>
                                                     
-                                                    {dashboardData.lades.filter(l => l.vriezerId === v.id).map(l => {
-                                                        const ladeItems = dashboardData.items.filter(i => i.ladeId === l.id);
+                                                    {dashboardData.lades.filter(l => l.vriezerId === v.id).sort((a,b) => a.naam.localeCompare(b.naam)).map(l => {
+                                                        const ladeItems = dashboardData.items.filter(i => i.ladeId === l.id).sort((a,b) => a.naam.localeCompare(b.naam));
                                                         return (
                                                             <div key={l.id} className="mb-4 last:mb-0">
                                                                 <h5 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2 flex justify-between items-center bg-white dark:bg-gray-700 p-2 rounded shadow-sm">
