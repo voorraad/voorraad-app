@@ -19,10 +19,17 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.6.3'; 
+const APP_VERSION = '8.6.4'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.6.4', 
+        type: 'fix', 
+        changes: [
+            'Fix: Knop om te wisselen van account (oranje icoon) was per ongeluk gewijzigd. Deze werkt nu weer zoals vanouds!'
+        ] 
+    },
     { 
         version: '8.6.3', 
         type: 'feature', 
@@ -1271,7 +1278,7 @@ function App() {
                         {isAdmin && (
                             <>
                                 <button onClick={() => setShowDashboardModal(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition-colors" title="Dashboard"><Icon path={Icons.LayoutDashboard}/></button>
-                                <button onClick={() => setShowUserAdminModal(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors" title="Gebruikers"><Icon path={Icons.Users}/></button>
+                                <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors" title="Wissel Account"><Icon path={Icons.Users}/></button>
                             </>
                         )}
                         
