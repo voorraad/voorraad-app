@@ -19,10 +19,19 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.7.2'; 
+const APP_VERSION = '8.8.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.8.0', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: Snelle "-1" knop toegevoegd bij producten waarvan je er meer dan 1 hebt. Zo kun je razendsnel je voorraad updaten zonder pop-ups!',
+            'Nieuw: Slimme Sorteeropties! Sorteer nu op "THT / Oudste eerst" of "Nieuwste eerst" om verspilling beter tegen te gaan.',
+            'Nieuw: Snelle Categorie-filters. Onder de zoekbalk kun je nu direct op categorie klikken (bijv. Vlees of Vis) om supersnel te filteren.'
+        ] 
+    },
     { 
         version: '8.7.2', 
         type: 'update', 
@@ -45,45 +54,10 @@ const VERSION_HISTORY = [
         ] 
     },
     { 
-        version: '8.6.2', 
-        type: 'feature', 
-        changes: [
-            'Update: Lades in het dashboard worden nu weergegeven in een overzichtelijk raster (maximaal 3 lades naast elkaar, de rest eronder) in plaats van een carrousel.'
-        ] 
-    },
-    { 
-        version: '8.6.1', 
-        type: 'feature', 
-        changes: [
-            'Update: Lades in het dashboard zijn nu precies zo uitgelijnd dat er maximaal 3 schuiven perfect naast elkaar passen op grotere schermen.'
-        ] 
-    },
-    { 
         version: '8.6.0', 
         type: 'feature', 
         changes: [
             'Update: Dashboard layout volledig vernieuwd! Locaties staan nu onder elkaar, maar de lades daarin kun je horizontaal swipen (als een carrousel) voor een perfect overzicht.'
-        ] 
-    },
-    { 
-        version: '8.5.2', 
-        type: 'feature', 
-        changes: [
-            'Update: Alles in de app (locaties, lades en producten) wordt nu altijd netjes alfabetisch (A-Z) gesorteerd in plaats van op toevallige volgorde.'
-        ] 
-    },
-    { 
-        version: '8.5.1', 
-        type: 'feature', 
-        changes: [
-            'Update: Dashboard weergave aangepast. Vriezers, koelkasten en voorraad staan nu in horizontale rijen naast elkaar voor een logischer overzicht.'
-        ] 
-    },
-    { 
-        version: '8.5.0', 
-        type: 'feature', 
-        changes: [
-            'Update: Dashboard heeft nu een eigen knop, een breder scherm (met kolommen op PC) en de mogelijkheid om producten direct te bewerken.'
         ] 
     }
 ];
@@ -172,7 +146,9 @@ const Icon = ({ path, size = 20, className = "" }) => (
 
 const Icons = {
     Plus: <path d="M5 12h14M12 5v14"/>,
+    Minus: <path d="M5 12h14"/>,
     Search: <path d="m21 21-4.3-4.3M11 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12z"/>,
+    Filter: <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>,
     LayoutDashboard: <g><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></g>,
     Snowflake: <path d="M2 12h20M12 2v20m-8.5-6L12 12 8.5 8.5m7 7L12 12l3.5-3.5"/>,
     Box: <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.3 7 12 12l8.7-5M12 12v10"/>,
@@ -426,8 +402,10 @@ function App() {
     const [customUnitsVoorraad, setCustomUnitsVoorraad] = useState([]);
     const [customCategories, setCustomCategories] = useState([]);
 
-    // UI
+    // UI filters & Sort
     const [search, setSearch] = useState('');
+    const [sortBy, setSortBy] = useState('name');
+    const [activeCategoryFilter, setActiveCategoryFilter] = useState(null);
     const [collapsedLades, setCollapsedLades] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
@@ -907,6 +885,30 @@ function App() {
         } catch(err) { showNotification("Er ging iets mis: " + err.message, 'error'); }
     };
 
+    const handleQuickDecrease = async (item) => {
+        const currentAantal = parseFloat(item.aantal);
+        if (currentAantal > 1) {
+            let step = 1;
+            if(currentAantal % 1 !== 0) step = 0.25; 
+            const newAantal = currentAantal - step;
+            
+            if(newAantal > 0) {
+                try {
+                    await db.collection('items').doc(item.id).update({ aantal: newAantal });
+                    await db.collection('users').doc(beheerdeUserId).update({ 'stats.consumed': firebase.firestore.FieldValue.increment(1) });
+                    await logAction('Geconsumeerd', item.naam, `- ${step} ${item.eenheid}`, user, beheerdeUserId);
+                    showNotification(`1 ${item.eenheid} van ${item.naam} opgegeten!`, 'success');
+                } catch(err) {
+                    showNotification("Fout bij updaten", "error");
+                }
+            } else {
+                initDelete(item);
+            }
+        } else {
+            initDelete(item);
+        }
+    };
+
     const initDelete = (item) => {
         setItemToDelete(item);
         setShowDeleteModal(true);
@@ -1382,15 +1384,15 @@ function App() {
                     </div>
                 </div>
                 <div className="max-w-7xl mx-auto px-4 flex space-x-6 border-b border-gray-100 dark:border-gray-700 overflow-x-auto">
-                    <button onClick={() => setActiveTab('vriezer')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='vriezer' ? 'border-purple-400 text-purple-500' : 'border-transparent text-gray-500 dark:text-gray-400'}`}><Icon path={Icons.Snowflake}/> Vriez.</button>
+                    <button onClick={() => { setActiveTab('vriezer'); setActiveCategoryFilter(null); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='vriezer' ? 'border-purple-400 text-purple-500' : 'border-transparent text-gray-500 dark:text-gray-400'}`}><Icon path={Icons.Snowflake}/> Vriez.</button>
                     {(!myHiddenTabs.includes('frig') || isAdmin) && (
-                        <button onClick={() => setActiveTab('frig')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='frig' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
+                        <button onClick={() => { setActiveTab('frig'); setActiveCategoryFilter(null); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='frig' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
                             <Icon path={Icons.Fridge}/> Frig.
                             {isAdmin && managedUserHiddenTabs.includes('frig') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
                     )}
                     {(!myHiddenTabs.includes('voorraad') || isAdmin) && (
-                        <button onClick={() => setActiveTab('voorraad')} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
+                        <button onClick={() => { setActiveTab('voorraad'); setActiveCategoryFilter(null); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
                             <Icon path={Icons.Box}/> Stock.
                             {isAdmin && managedUserHiddenTabs.includes('voorraad') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
@@ -1406,20 +1408,55 @@ function App() {
                         {filteredLocaties.map(l => <div key={l.id} className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm">{items.filter(i=>i.vriezerId===l.id).length} {l.naam}</div>)}
                     </div>
                     
-                    <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-                        <div className="relative group flex-grow w-full">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Icon path={Icons.Search} className="text-gray-400"/></div>
-                            <input type="text" className="block w-full pl-10 pr-3 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400" placeholder="Zoek..." value={search} onChange={e=>setSearch(e.target.value)}/>
-                        </div>
-                        
-                        <div className="flex gap-2 w-full sm:w-auto">
-                            <button onClick={() => setShowSuggestionModal(true)} className="flex-none sm:flex-none w-10 h-10 sm:w-auto sm:h-auto bg-yellow-100 text-yellow-600 sm:p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
-                                <Icon path={Icons.Utensils}/>
-                            </button>
+                    <div className="flex flex-col gap-3">
+                        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                            <div className="relative group flex-grow w-full">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Icon path={Icons.Search} className="text-gray-400"/></div>
+                                <input type="text" className="block w-full pl-10 pr-3 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400" placeholder="Zoek..." value={search} onChange={e=>setSearch(e.target.value)}/>
+                            </div>
                             
-                            <button onClick={toggleAll} className="flex-grow sm:flex-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap text-center">
-                                {collapsedLades.size > 0 ? "Alles open" : "Alles dicht"}
+                            <div className="flex gap-2 w-full sm:w-auto">
+                                <button onClick={() => setShowSuggestionModal(true)} className="flex-none sm:flex-none w-10 h-10 sm:w-auto sm:h-auto bg-yellow-100 text-yellow-600 sm:p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
+                                    <Icon path={Icons.Utensils}/>
+                                </button>
+                                
+                                <button onClick={toggleAll} className="flex-grow sm:flex-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap text-center">
+                                    {collapsedLades.size > 0 ? "Alles open" : "Alles dicht"}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Quick Filters & Sort Bar */}
+                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide items-center text-sm print:hidden">
+                            <div className="flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full px-3 py-1.5 flex-shrink-0 shadow-sm">
+                                <Icon path={Icons.Filter} size={14} className="text-gray-400" />
+                                <select value={sortBy} onChange={e=>setSortBy(e.target.value)} className="bg-transparent border-none outline-none text-gray-700 dark:text-gray-200 text-xs font-bold cursor-pointer appearance-none pl-1 pr-2">
+                                    <option value="name">A-Z</option>
+                                    <option value="expiry">THT / Oudste eerst</option>
+                                    <option value="newest">Nieuwste eerst</option>
+                                </select>
+                            </div>
+                            
+                            <div className="h-5 w-px bg-gray-300 dark:bg-gray-700 mx-1 flex-shrink-0"></div>
+                            
+                            <button 
+                                onClick={() => setActiveCategoryFilter(null)} 
+                                className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors flex-shrink-0 shadow-sm ${!activeCategoryFilter ? 'bg-blue-600 text-white font-bold border-transparent' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                            >
+                                Alles
                             </button>
+                            {actieveCategorieen.map(c => {
+                                const isSelected = activeCategoryFilter === (c.name || c);
+                                return (
+                                    <button 
+                                        key={c.name || c}
+                                        onClick={() => setActiveCategoryFilter(c.name || c)} 
+                                        className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors flex-shrink-0 shadow-sm ${isSelected ? 'bg-blue-600 text-white font-bold border-transparent' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                                    >
+                                        {c.name || c}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
@@ -1438,9 +1475,31 @@ function App() {
                                 <h2 className={`text-lg font-bold mb-3 flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{vriezer.naam}</h2>
                                 <div className="space-y-4">
                                     {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(lade => {
-                                        const ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase())).sort((a,b) => a.naam.localeCompare(b.naam));
-                                        if (ladeItems.length === 0 && search) return null;
-                                        const isCollapsed = collapsedLades.has(lade.id) && !search;
+                                        let ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
+                                        
+                                        // Toepassen Categorie Filter
+                                        if (activeCategoryFilter) {
+                                            ladeItems = ladeItems.filter(i => i.categorie === activeCategoryFilter);
+                                        }
+
+                                        // Toepassen Sortering
+                                        ladeItems.sort((a, b) => {
+                                            if (sortBy === 'name') return a.naam.localeCompare(b.naam);
+                                            if (sortBy === 'expiry') {
+                                                const aTHT = getDagenTotTHT(a.houdbaarheidsDatum);
+                                                const bTHT = getDagenTotTHT(b.houdbaarheidsDatum);
+                                                if (aTHT !== bTHT) return aTHT - bTHT; // Kleine THT eerst
+                                                // Fallback to age if no THT
+                                                return getDagenOud(b.ingevrorenOp) - getDagenOud(a.ingevrorenOp); 
+                                            }
+                                            if (sortBy === 'newest') {
+                                                return getDagenOud(a.ingevrorenOp) - getDagenOud(b.ingevrorenOp); // Minste dagen oud eerst
+                                            }
+                                            return 0;
+                                        });
+
+                                        if (ladeItems.length === 0 && (search || activeCategoryFilter)) return null;
+                                        const isCollapsed = collapsedLades.has(lade.id) && !search && !activeCategoryFilter;
                                         
                                         return (
                                             <div key={lade.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden page-break-inside-avoid transition-colors">
@@ -1465,7 +1524,7 @@ function App() {
                                                             const catColor = catObj ? (catObj.color || 'gray') : 'gray';
 
                                                             return (
-                                                                <li key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0`}>
+                                                                <li key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0 group`}>
                                                                     <div className="flex items-center gap-3 overflow-hidden min-w-0">
                                                                         <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
                                                                         <div className="min-w-0 flex-grow">
@@ -1483,9 +1542,12 @@ function App() {
                                                                             </div>
                                                                         </div>
                                                                     </div>
-                                                                    <div className="flex items-center gap-1 flex-shrink-0 print:hidden ml-2">
-                                                                        <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50"><Icon path={Icons.Edit2} size={16}/></button>
-                                                                        <button onClick={()=>initDelete(item)} className="p-2 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50"><Icon path={Icons.Trash2} size={16}/></button>
+                                                                    <div className="flex items-center gap-1 flex-shrink-0 print:hidden ml-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                                                        {parseFloat(item.aantal) > 1 && (
+                                                                            <button onClick={()=>handleQuickDecrease(item)} className="p-2 text-orange-500 bg-orange-50 dark:bg-orange-900/30 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/50" title="Snel -1 wegnemen"><Icon path={Icons.Minus} size={16}/></button>
+                                                                        )}
+                                                                        <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50" title="Bewerken"><Icon path={Icons.Edit2} size={16}/></button>
+                                                                        <button onClick={()=>initDelete(item)} className="p-2 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50" title="Verwijderen"><Icon path={Icons.Trash2} size={16}/></button>
                                                                     </div>
                                                                 </li>
                                                             );
