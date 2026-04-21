@@ -19,10 +19,19 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.13.0'; 
+const APP_VERSION = '8.14.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.14.0', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: Minimale Voorraad (Auto-Koop). Stel een minimum in, en de app zet het product automatisch op je lijstje als het (bijna) op is!',
+            'Nieuw: Bulk Acties! Klik op "Selecteer" om meerdere producten tegelijk te verwijderen of te verplaatsen.',
+            'Nieuw: Barcode Zoeker toegevoegd in het toevoeg-scherm. Scan of typ een barcode om de productnaam automatisch op te halen via OpenFoodFacts.'
+        ] 
+    },
     { 
         version: '8.13.0', 
         type: 'feature', 
@@ -35,34 +44,16 @@ const VERSION_HISTORY = [
         version: '8.12.0', 
         type: 'update', 
         changes: [
-            'Update: Categorie-filters passen zich nu slim aan per tabblad (Koelkast, Vriezer, Voorraad) in plaats van alles door elkaar te tonen.',
-            'Update: De zoekbalk, filter-knop en "Ideetje"-knop staan nu strak en compact naast elkaar (super strak op mobiel!).',
-            'Nieuw: Filter & Sorteer zijn samengevoegd in een overzichtelijk pop-up menu.'
+            'Update: Categorie-filters passen zich nu slim aan per tabblad.',
+            'Update: Compactere header met Filter & Sorteer samengevoegd in een strak pop-up menu.'
         ] 
     },
     { 
         version: '8.11.0', 
         type: 'feature', 
         changes: [
-            'Nieuw: Boodschappenlijst groepeert nu automatisch op winkel. Perfect voor in de supermarkt!',
-            'Nieuw: "Wis afgevinkt" knop toegevoegd aan de boodschappenlijst om in één klap gekochte items op te ruimen.'
-        ] 
-    },
-    { 
-        version: '8.10.0', 
-        type: 'feature', 
-        changes: [
-            'Verwijderd: Quick-Cart knop is eruit gehaald (dubbelop met de verwijder/opgegeten-flow).',
-            'Nieuw: Notities! Je kan nu een extra opmerking (bijv. "Voor de BBQ" of "Restje") toevoegen aan een product.',
-            'Nieuw: Slim Zoeken. Zoek je een product maar is het op? Dan krijg je direct een knop om je zoekterm op de boodschappenlijst te zetten!'
-        ] 
-    },
-    { 
-        version: '8.9.0', 
-        type: 'feature', 
-        changes: [
-            'Nieuw: "Dupliceer" knop. Kopieer een bestaand item razendsnel om typwerk te besparen.',
-            'Nieuw: Exporteer naar Excel (CSV) toegevoegd aan het profielmenu. Maak eenvoudig een back-up van al je data.'
+            'Nieuw: Boodschappenlijst groepeert nu automatisch op winkel.',
+            'Nieuw: "Wis afgevinkt" knop toegevoegd aan de boodschappenlijst.'
         ] 
     }
 ];
@@ -184,7 +175,9 @@ const Icons = {
     ShoppingCart: <g><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></g>,
     PieChart: <g><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></g>,
     UtensilsCrossed: <g><path d="m3 2 14.5 14.5"/><path d="m3 16.5 14.5-14.5"/><path d="M12.5 11.5 21 20"/><path d="M20 21 11.5 12.5"/><path d="m20 3-8.5 8.5"/><path d="M3 20 11.5 11.5"/></g>,
-    Utensils: <g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></g>
+    Utensils: <g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></g>,
+    CheckSquare: <g><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></g>,
+    BarcodeScan: <g><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M8 7v10M12 7v10M16 7v10"/></g>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -408,7 +401,7 @@ function App() {
     const [customUnitsVoorraad, setCustomUnitsVoorraad] = useState([]);
     const [customCategories, setCustomCategories] = useState([]);
 
-    // UI filters & Sort
+    // UI filters, Sort & Bulk Mode
     const [search, setSearch] = useState('');
     const [sortBy, setSortBy] = useState('name');
     const [activeCategoryFilter, setActiveCategoryFilter] = useState(null);
@@ -418,6 +411,11 @@ function App() {
     const [notification, setNotification] = useState(null);
     const [draggedLocId, setDraggedLocId] = useState(null); 
     
+    const [isBulkMode, setIsBulkMode] = useState(false);
+    const [selectedBulkItems, setSelectedBulkItems] = useState(new Set());
+    const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
+    const [bulkMoveTarget, setBulkMoveTarget] = useState({ vriezerId: '', ladeId: '' });
+
     // Modals & Menu
     const [showAddModal, setShowAddModal] = useState(false);
     const [showFilterModal, setShowFilterModal] = useState(false);
@@ -436,6 +434,8 @@ function App() {
     const [showStatsModal, setShowStatsModal] = useState(false);
     const [showSuggestionModal, setShowSuggestionModal] = useState(false);
     const [showShoppingModal, setShowShoppingModal] = useState(false); 
+    const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+    const [barcodeInput, setBarcodeInput] = useState('');
     const [beheerTab, setBeheerTab] = useState('locaties');
 
     // Shopping / Consume Flow States
@@ -456,6 +456,7 @@ function App() {
         vriezerId: '', 
         ladeId: '', 
         categorie: 'Vlees', 
+        minimumVoorraad: '',
         ingevrorenOp: new Date().toISOString().split('T')[0], 
         houdbaarheidsDatum: '', 
         notitie: '',
@@ -775,7 +776,7 @@ function App() {
         setShowProfileMenu(false);
         if (items.length === 0) return alert("Geen producten om te exporteren.");
 
-        const headers = ['Naam', 'Aantal', 'Eenheid', 'Categorie', 'Locatie', 'Lade', 'Ingevoerd op', 'Houdbaarheidsdatum (THT)', 'Type', 'Notitie'];
+        const headers = ['Naam', 'Aantal', 'Eenheid', 'Categorie', 'Locatie', 'Lade', 'Ingevoerd op', 'Houdbaarheidsdatum (THT)', 'Type', 'Min. Voorraad', 'Notitie'];
         
         const rows = items.map(item => {
             const loc = vriezers.find(v => v.id === item.vriezerId);
@@ -796,11 +797,11 @@ function App() {
                 formatDate(item.ingevrorenOp),
                 item.houdbaarheidsDatum ? formatDate(item.houdbaarheidsDatum) : '',
                 escapeCSV(type),
+                item.minimumVoorraad || '',
                 escapeCSV(item.notitie || '')
             ].join(',');
         });
 
-        // \uFEFF vertelt Excel dat het een UTF-8 bestand is (voor emoji's en speciale karakters)
         const csvContent = "\uFEFF" + [headers.join(','), ...rows].join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -868,13 +869,13 @@ function App() {
         if (!rememberLocation) {
             setFormData({
                 naam: '', aantal: 1, eenheid: 'stuks', vriezerId: defaultLoc, ladeId: '', 
-                categorie: defaultCat, ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: ''
+                categorie: defaultCat, minimumVoorraad: '', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: ''
             });
         } else {
              setFormData(prev => ({
                 ...prev,
                 vriezerId: defaultLoc,
-                naam: '', aantal: 1, categorie: defaultCat, 
+                naam: '', aantal: 1, minimumVoorraad: '', categorie: defaultCat, 
                 ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: ''
             }));
         }
@@ -900,13 +901,15 @@ function App() {
         const lade = lades.find(l => l.id === formData.ladeId);
         
         let safeAantal = parseFloat(formData.aantal);
-        if (isNaN(safeAantal) || safeAantal <= 0) {
-            safeAantal = 1;
-        }
+        if (isNaN(safeAantal) || safeAantal <= 0) safeAantal = 1;
+
+        let safeMinVoorraad = parseFloat(formData.minimumVoorraad);
+        if (isNaN(safeMinVoorraad) || safeMinVoorraad < 0) safeMinVoorraad = null;
 
         const data = {
             ...formData,
             aantal: safeAantal,
+            minimumVoorraad: safeMinVoorraad,
             ladeNaam: lade ? lade.naam : '',
             notitie: formData.notitie || '',
             ingevrorenOp: new Date(formData.ingevrorenOp),
@@ -928,20 +931,64 @@ function App() {
                 if (rememberLocation) {
                     setFormData(prev => ({
                         ...prev, 
-                        naam: '', aantal: 1, notitie: '', emoji: '', 
+                        naam: '', aantal: 1, minimumVoorraad: '', notitie: '', emoji: '', 
                         ingevrorenOp: new Date().toISOString().split('T')[0],
                         houdbaarheidsDatum: ''
                     }));
                 } else {
                     const defaultCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
-                    setFormData(prev => ({...prev, naam: '', aantal: 1, notitie: '', emoji: '', categorie: defaultCat})); 
+                    setFormData(prev => ({...prev, naam: '', aantal: 1, minimumVoorraad: '', notitie: '', emoji: '', categorie: defaultCat})); 
                 }
                 setShowAddModal(false);
             }
         } catch(err) { showNotification("Er ging iets mis: " + err.message, 'error'); }
     };
 
-    // Nieuwe Flow: Verbruik/Minus knop
+    // Auto-shopping logica
+    const checkMinimumStock = async (item, newAantal) => {
+        if (item.minimumVoorraad && newAantal < item.minimumVoorraad) {
+            const onList = shoppingList.some(s => s.naam.toLowerCase() === item.naam.toLowerCase() && !s.checked);
+            if (!onList) {
+                const amountToBuy = item.minimumVoorraad - newAantal;
+                await db.collection('shoppingList').add({
+                    naam: item.naam,
+                    aantal: amountToBuy > 0 ? amountToBuy : 1,
+                    eenheid: item.eenheid,
+                    winkel: '',
+                    checked: false,
+                    userId: beheerdeUserId
+                });
+                showNotification(`${item.naam} staat (weer) op je boodschappenlijst!`, 'info');
+            }
+        }
+    };
+
+    const handleQuickDecrease = async (item) => {
+        const currentAantal = parseFloat(item.aantal);
+        if (currentAantal > 1) {
+            let step = 1;
+            if(currentAantal % 1 !== 0) step = 0.25; 
+            const newAantal = currentAantal - step;
+            
+            if(newAantal > 0) {
+                try {
+                    await db.collection('items').doc(item.id).update({ aantal: newAantal });
+                    await db.collection('users').doc(beheerdeUserId).update({ 'stats.consumed': firebase.firestore.FieldValue.increment(1) });
+                    await logAction('Geconsumeerd', item.naam, `- ${step} ${item.eenheid}`, user, beheerdeUserId);
+                    showNotification(`1 ${item.eenheid} van ${item.naam} opgegeten!`, 'success');
+                    
+                    checkMinimumStock(item, newAantal);
+                } catch(err) {
+                    showNotification("Fout bij updaten", "error");
+                }
+            } else {
+                initDelete(item);
+            }
+        } else {
+            initDelete(item);
+        }
+    };
+
     const initConsume = (item) => {
         setItemToConsume(item);
         let defaultAmount = 1;
@@ -958,7 +1005,6 @@ function App() {
         
         const currentAantal = parseFloat(itemToConsume.aantal);
         
-        // Zorg dat we niet meer verbruiken dan we hebben
         if (amount > currentAantal) amount = currentAantal;
 
         try {
@@ -969,9 +1015,17 @@ function App() {
                 await logAction('Verwijderd', itemToConsume.naam, 'Volledig opgegeten', user, beheerdeUserId);
                 showNotification(`${itemToConsume.naam} is volledig op!`, 'success');
 
-                // Vraag of we het op het lijstje moeten zetten
+                // Controleren of er een minimum is. Zo ja, stilletjes toevoegen ipv pop-up (of juist wel pop-up?).
+                // De pop-up is wel zo handig zodat men aantal/winkel kan aanpassen.
                 setItemToShopify(itemToConsume);
-                setAantalForShopifyItem(1); 
+                
+                // Als er een minimum was ingegeven, stel dat aantal dan voor
+                let suggestAmount = 1;
+                if (itemToConsume.minimumVoorraad && itemToConsume.minimumVoorraad > 0) {
+                    suggestAmount = itemToConsume.minimumVoorraad;
+                }
+                
+                setAantalForShopifyItem(suggestAmount); 
                 setShowConsumeModal(false);
                 setShowShopifyModal(true);
                 setItemToConsume(null);
@@ -983,6 +1037,8 @@ function App() {
                 await logAction('Geconsumeerd', itemToConsume.naam, `- ${amount} ${itemToConsume.eenheid}`, user, beheerdeUserId);
                 showNotification(`${amount} ${itemToConsume.eenheid} van ${itemToConsume.naam} weggenomen!`, 'success');
                 
+                checkMinimumStock(itemToConsume, newAantal);
+
                 setShowConsumeModal(false);
                 setItemToConsume(null);
             }
@@ -992,7 +1048,7 @@ function App() {
     };
 
     const handleDuplicate = (item) => {
-        setEditingItem(null); // Forceer nieuwe aanmaak
+        setEditingItem(null); 
         const loc = vriezers.find(v => v.id === item.vriezerId);
         setModalType(loc ? loc.type : 'vriezer');
 
@@ -1003,6 +1059,7 @@ function App() {
             vriezerId: item.vriezerId,
             ladeId: item.ladeId,
             categorie: item.categorie,
+            minimumVoorraad: item.minimumVoorraad || '',
             notitie: item.notitie || '',
             ingevrorenOp: toInputDate(item.ingevrorenOp),
             houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum),
@@ -1038,6 +1095,11 @@ function App() {
             
             let validAantal = parseFloat(itemToDelete.aantal);
             if (isNaN(validAantal) || validAantal <= 0) validAantal = 1;
+            
+            if (itemToDelete.minimumVoorraad && itemToDelete.minimumVoorraad > 0) {
+                validAantal = itemToDelete.minimumVoorraad;
+            }
+
             setAantalForShopifyItem(validAantal);
             
             setShowDeleteModal(false);
@@ -1124,7 +1186,7 @@ function App() {
         setFormData({
             naam: item.naam, aantal: safeAantal, eenheid: item.eenheid, 
             vriezerId: defaultLoc, ladeId: '', categorie: 'Overig', 
-            notitie: '',
+            minimumVoorraad: '', notitie: '',
             ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
         });
         
@@ -1184,6 +1246,7 @@ function App() {
             vriezerId: item.vriezerId, 
             ladeId: item.ladeId, 
             categorie: item.categorie,
+            minimumVoorraad: item.minimumVoorraad || '',
             notitie: item.notitie || '',
             ingevrorenOp: toInputDate(item.ingevrorenOp), 
             houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), 
@@ -1191,6 +1254,93 @@ function App() {
         });
         setShowAddModal(true);
     };
+
+    // Bulk Functies
+    const toggleBulkSelection = (id) => {
+        const newSet = new Set(selectedBulkItems);
+        if(newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        setSelectedBulkItems(newSet);
+    };
+
+    const handleBulkDelete = async () => {
+        if(selectedBulkItems.size === 0) return;
+        if(!confirm(`Weet je zeker dat je deze ${selectedBulkItems.size} producten wilt verwijderen?`)) return;
+
+        const batch = db.batch();
+        selectedBulkItems.forEach(id => {
+            batch.delete(db.collection('items').doc(id));
+        });
+
+        try {
+            await batch.commit();
+            showNotification(`${selectedBulkItems.size} producten succesvol verwijderd.`, "success");
+            setSelectedBulkItems(new Set());
+            setIsBulkMode(false);
+        } catch(e) {
+            showNotification("Fout bij bulk verwijderen.", "error");
+        }
+    };
+
+    const openBulkMoveModal = () => {
+        if(selectedBulkItems.size === 0) return;
+        setBulkMoveTarget({ vriezerId: '', ladeId: '' });
+        setShowBulkMoveModal(true);
+    };
+
+    const handleBulkMove = async (e) => {
+        e.preventDefault();
+        if(!bulkMoveTarget.vriezerId || !bulkMoveTarget.ladeId) return;
+
+        const targetLade = lades.find(l => l.id === bulkMoveTarget.ladeId);
+        const batch = db.batch();
+
+        selectedBulkItems.forEach(id => {
+            batch.update(db.collection('items').doc(id), { 
+                vriezerId: bulkMoveTarget.vriezerId,
+                ladeId: bulkMoveTarget.ladeId,
+                ladeNaam: targetLade ? targetLade.naam : ''
+            });
+        });
+
+        try {
+            await batch.commit();
+            showNotification(`${selectedBulkItems.size} producten succesvol verplaatst.`, "success");
+            setSelectedBulkItems(new Set());
+            setIsBulkMode(false);
+            setShowBulkMoveModal(false);
+        } catch(e) {
+            showNotification("Fout bij bulk verplaatsen.", "error");
+        }
+    };
+
+    // Barcode Functie
+    const fetchBarcodeData = async (e) => {
+        e.preventDefault();
+        if (!barcodeInput.trim()) return;
+
+        try {
+            const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcodeInput.trim()}.json`);
+            const data = await response.json();
+
+            if (data.status === 1 && data.product) {
+                const productName = data.product.product_name_nl || data.product.product_name || '';
+                if (productName) {
+                    setFormData(prev => ({ ...prev, naam: productName, emoji: '📦' }));
+                    showNotification("Product gevonden en ingevuld!", "success");
+                    setShowBarcodeModal(false);
+                    setBarcodeInput('');
+                } else {
+                    showNotification("Naam niet gevonden in barcode database.", "error");
+                }
+            } else {
+                showNotification("Barcode niet gevonden in database.", "error");
+            }
+        } catch(error) {
+            showNotification("Fout bij ophalen barcode.", "error");
+        }
+    };
+
 
     const handleAddLocatie = async (e) => {
         e.preventDefault();
@@ -1525,15 +1675,15 @@ function App() {
                     </div>
                 </div>
                 <div className="max-w-7xl mx-auto px-4 flex space-x-6 border-b border-gray-100 dark:border-gray-700 overflow-x-auto">
-                    <button onClick={() => { setActiveTab('vriezer'); setActiveCategoryFilter(null); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='vriezer' ? 'border-purple-400 text-purple-500' : 'border-transparent text-gray-500 dark:text-gray-400'}`}><Icon path={Icons.Snowflake}/> Vriez.</button>
+                    <button onClick={() => { setActiveTab('vriezer'); setActiveCategoryFilter(null); setIsBulkMode(false); setSelectedBulkItems(new Set()); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='vriezer' ? 'border-purple-400 text-purple-500' : 'border-transparent text-gray-500 dark:text-gray-400'}`}><Icon path={Icons.Snowflake}/> Vriez.</button>
                     {(!myHiddenTabs.includes('frig') || isAdmin) && (
-                        <button onClick={() => { setActiveTab('frig'); setActiveCategoryFilter(null); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='frig' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
+                        <button onClick={() => { setActiveTab('frig'); setActiveCategoryFilter(null); setIsBulkMode(false); setSelectedBulkItems(new Set()); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='frig' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
                             <Icon path={Icons.Fridge}/> Frig.
                             {isAdmin && managedUserHiddenTabs.includes('frig') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
                     )}
                     {(!myHiddenTabs.includes('voorraad') || isAdmin) && (
-                        <button onClick={() => { setActiveTab('voorraad'); setActiveCategoryFilter(null); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
+                        <button onClick={() => { setActiveTab('voorraad'); setActiveCategoryFilter(null); setIsBulkMode(false); setSelectedBulkItems(new Set()); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
                             <Icon path={Icons.Box}/> Stock.
                             {isAdmin && managedUserHiddenTabs.includes('voorraad') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
@@ -1541,10 +1691,10 @@ function App() {
                 </div>
             </header>
 
-            <main className="max-w-7xl mx-auto p-4 space-y-6 flex-grow w-full pb-32">
+            <main className="max-w-7xl mx-auto p-4 space-y-6 flex-grow w-full pb-32 relative">
                 
                 <div className="flex flex-col gap-4 print:hidden">
-                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide items-center">
                         <div className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm font-bold">{activeItems.length} items</div>
                         {filteredLocaties.map(l => <div key={l.id} className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm">{items.filter(i=>i.vriezerId===l.id).length} {l.naam}</div>)}
                     </div>
@@ -1562,6 +1712,11 @@ function App() {
                                 {(activeCategoryFilter || sortBy !== 'name') && <span className="absolute top-0 right-0 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-gray-800 sm:hidden translate-x-1 -translate-y-1"></span>}
                             </button>
 
+                            <button onClick={() => setIsBulkMode(!isBulkMode)} className={`flex-none w-12 sm:w-auto sm:px-4 rounded-xl border transition-colors flex items-center justify-center gap-2 relative ${isBulkMode ? 'bg-indigo-50 border-indigo-300 text-indigo-600 dark:bg-indigo-900/50 dark:border-indigo-500 dark:text-indigo-300' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`} title="Meerdere selecteren (Bulk Acties)">
+                                <Icon path={Icons.CheckSquare} size={20} />
+                                <span className="hidden sm:inline font-medium">Selecteer</span>
+                            </button>
+
                             <button onClick={() => setShowSuggestionModal(true)} className="flex-none w-12 sm:w-auto sm:px-4 bg-yellow-100 text-yellow-600 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
                                 <Icon path={Icons.Utensils}/>
                                 <span className="hidden sm:inline font-medium pr-1">Idee</span>
@@ -1573,6 +1728,24 @@ function App() {
                         </button>
                     </div>
                 </div>
+
+                {/* Bulk Action Bar (Sticky) */}
+                {isBulkMode && (
+                    <div className="sticky top-2 z-20 bg-indigo-600 text-white p-3 rounded-xl shadow-lg flex items-center justify-between animate-in fade-in slide-in-from-top-4">
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => { setIsBulkMode(false); setSelectedBulkItems(new Set()); }} className="p-2 hover:bg-indigo-500 rounded-lg transition" title="Annuleren"><Icon path={Icons.X}/></button>
+                            <span className="font-bold">{selectedBulkItems.size} geselecteerd</span>
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={handleBulkDelete} disabled={selectedBulkItems.size === 0} className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition ${selectedBulkItems.size > 0 ? 'bg-red-500 hover:bg-red-400 text-white' : 'bg-indigo-400 text-indigo-300 cursor-not-allowed'}`}>
+                                <Icon path={Icons.Trash2} size={16}/> <span className="hidden sm:inline">Verwijderen</span>
+                            </button>
+                            <button onClick={openBulkMoveModal} disabled={selectedBulkItems.size === 0} className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition ${selectedBulkItems.size > 0 ? 'bg-indigo-500 hover:bg-indigo-400 text-white border border-indigo-400' : 'bg-indigo-400 text-indigo-300 cursor-not-allowed'}`}>
+                                <Icon path={Icons.Box} size={16}/> <span className="hidden sm:inline">Verplaatsen</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Slim zoeken fallback als er niks is gevonden */}
                 {isSearching && totalFoundItemsInActiveTab === 0 ? (
@@ -1661,7 +1834,8 @@ function App() {
                                                                 const dagenTotTHT = getDagenTotTHT(item.houdbaarheidsDatum);
                                                                 const isStockItem = vriezer.type === 'voorraad' || vriezer.type === 'frig';
                                                                 
-                                                                const bgClass = 'bg-white dark:bg-gray-800';
+                                                                const isSelected = selectedBulkItems.has(item.id);
+                                                                const bgClass = isBulkMode && isSelected ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : 'bg-white dark:bg-gray-800';
                                                                 const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT);
                                                                 const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT);
                                                                 
@@ -1669,9 +1843,18 @@ function App() {
                                                                 const catColor = catObj ? (catObj.color || 'gray') : 'gray';
 
                                                                 return (
-                                                                    <li key={item.id} className={`flex items-center justify-between p-3 ${bgClass} ${colorClass} last:border-b-0 group transition-colors`}>
+                                                                    <li 
+                                                                        key={item.id} 
+                                                                        onClick={() => isBulkMode ? toggleBulkSelection(item.id) : null}
+                                                                        className={`flex items-center justify-between p-3 ${bgClass} ${colorClass} last:border-b-0 group transition-colors ${isBulkMode ? 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30' : ''}`}
+                                                                    >
                                                                         <div className="flex items-center gap-3 overflow-hidden min-w-0">
-                                                                            <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
+                                                                            {isBulkMode && (
+                                                                                <div className={`w-6 h-6 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-500 border-indigo-500' : 'border-gray-300 dark:border-gray-500'}`}>
+                                                                                    {isSelected && <Icon path={Icons.Check} size={14} className="text-white"/>}
+                                                                                </div>
+                                                                            )}
+                                                                            <span className={`text-2xl flex-shrink-0 ${isBulkMode ? 'hidden sm:block' : ''}`}>{item.emoji||'📦'}</span>
                                                                             <div className="min-w-0 flex-grow">
                                                                                 <div className="flex items-center gap-2 flex-wrap">
                                                                                     <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
@@ -1684,6 +1867,7 @@ function App() {
                                                                                     {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
                                                                                     {!isStockItem && item.houdbaarheidsDatum && <span className="text-xs text-gray-500 dark:text-gray-400"> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
                                                                                     {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
+                                                                                    {item.minimumVoorraad > 0 && <span className="text-[10px] text-orange-500 font-bold px-1.5 py-0.5 rounded bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800">Min: {item.minimumVoorraad}</span>}
                                                                                 </div>
                                                                                 {item.notitie && (
                                                                                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic leading-tight">
@@ -1692,12 +1876,15 @@ function App() {
                                                                                 )}
                                                                             </div>
                                                                         </div>
-                                                                        <div className="flex flex-wrap items-center gap-1 flex-shrink-0 print:hidden ml-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                                            <button onClick={()=>initConsume(item)} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/30 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/50" title="Verbruik (kies hoeveel je wegneemt)"><Icon path={Icons.Minus} size={16}/></button>
-                                                                            <button onClick={()=>handleDuplicate(item)} className="p-1.5 text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50" title="Dupliceer (kopie maken)"><Icon path={Icons.Copy} size={16}/></button>
-                                                                            <button onClick={()=>openEdit(item)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50" title="Bewerken"><Icon path={Icons.Edit2} size={16}/></button>
-                                                                            <button onClick={()=>initDelete(item)} className="p-1.5 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50" title="Verwijderen"><Icon path={Icons.Trash2} size={16}/></button>
-                                                                        </div>
+                                                                        
+                                                                        {!isBulkMode && (
+                                                                            <div className="flex flex-wrap items-center gap-1 flex-shrink-0 print:hidden ml-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                                                                <button onClick={(e)=>{e.stopPropagation(); initConsume(item)}} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/30 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/50" title="Verbruik (kies hoeveel je wegneemt)"><Icon path={Icons.Minus} size={16}/></button>
+                                                                                <button onClick={(e)=>{e.stopPropagation(); handleDuplicate(item)}} className="p-1.5 text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50" title="Dupliceer (kopie maken)"><Icon path={Icons.Copy} size={16}/></button>
+                                                                                <button onClick={(e)=>{e.stopPropagation(); openEdit(item)}} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50" title="Bewerken"><Icon path={Icons.Edit2} size={16}/></button>
+                                                                                <button onClick={(e)=>{e.stopPropagation(); initDelete(item)}} className="p-1.5 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50" title="Verwijderen"><Icon path={Icons.Trash2} size={16}/></button>
+                                                                            </div>
+                                                                        )}
                                                                     </li>
                                                                 );
                                                             })}
@@ -1713,6 +1900,62 @@ function App() {
                     </div>
                 )}
             </main>
+
+            {/* Bulk Verplaats Modal */}
+            <Modal isOpen={showBulkMoveModal} onClose={() => setShowBulkMoveModal(false)} title="Verplaats Items." color="indigo">
+                <form onSubmit={handleBulkMove} className="space-y-4">
+                    <p className="text-gray-700 dark:text-gray-300">Naar welke locatie wil je deze <strong>{selectedBulkItems.size}</strong> items verplaatsen?</p>
+                    
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Doel Locatie.</label>
+                        <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={bulkMoveTarget.vriezerId} onChange={e => setBulkMoveTarget({...bulkMoveTarget, vriezerId: e.target.value, ladeId: ''})} required>
+                            <option value="" disabled>Kies een locatie...</option>
+                            {filteredLocaties.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
+                        </select>
+                    </div>
+
+                    {bulkMoveTarget.vriezerId && (
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Doel Lade.</label>
+                            <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={bulkMoveTarget.ladeId} onChange={e => setBulkMoveTarget({...bulkMoveTarget, ladeId: e.target.value})} required>
+                                <option value="" disabled>Kies een lade...</option>
+                                {lades.filter(l => l.vriezerId === bulkMoveTarget.vriezerId).sort((a,b) => a.naam.localeCompare(b.naam)).map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
+                            </select>
+                        </div>
+                    )}
+                    
+                    <div className="pt-4 border-t border-gray-100 dark:border-gray-700 grid grid-cols-2 gap-3">
+                        <button type="button" onClick={() => setShowBulkMoveModal(false)} className="p-3 bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200 rounded-xl font-medium hover:bg-gray-300 transition">Annuleren</button>
+                        <button type="submit" disabled={!bulkMoveTarget.ladeId} className="p-3 bg-indigo-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50">Verplaatsen</button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Barcode Modal */}
+            <Modal isOpen={showBarcodeModal} onClose={() => setShowBarcodeModal(false)} title="Scan Barcode." color="teal">
+                <form onSubmit={fetchBarcodeData} className="space-y-4 text-center">
+                    <div className="w-16 h-16 bg-teal-50 dark:bg-teal-900/30 text-teal-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <Icon path={Icons.BarcodeScan} size={32} />
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 px-4 mb-4">
+                        Voer de streepjescode (EAN) in om productgegevens op te halen. Als je op mobiel zit kun je een scanner-toetsenbord gebruiken.
+                    </p>
+                    
+                    <input 
+                        type="number" 
+                        placeholder="Bijv. 5410013110202" 
+                        className="w-full h-14 text-center text-xl tracking-widest px-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                        value={barcodeInput} 
+                        onChange={e => setBarcodeInput(e.target.value)} 
+                        autoFocus
+                        required 
+                    />
+
+                    <button type="submit" className="w-full bg-teal-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-teal-700 transition">
+                        Zoek Product
+                    </button>
+                </form>
+            </Modal>
 
             {/* Verbruik (Consume) Modal */}
             <Modal isOpen={showConsumeModal} onClose={() => setShowConsumeModal(false)} title="Product verwerken." color="orange">
@@ -1839,7 +2082,9 @@ function App() {
                 </div>
             </footer>
 
-            <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 print:hidden hover:scale-105 transition-transform"><Icon path={Icons.Plus} size={28}/></button>
+            {!isBulkMode && (
+                <button onClick={handleOpenAdd} className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 print:hidden hover:scale-105 transition-transform"><Icon path={Icons.Plus} size={28}/></button>
+            )}
 
             {/* Add/Edit Modal */}
             <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={editingItem ? "Bewerken." : "Toevoegen."} color="blue">
@@ -1861,9 +2106,13 @@ function App() {
                     </div>
 
                     <div className="flex gap-2">
-                        <button type="button" onClick={() => setShowEmojiPicker(true)} className="w-12 h-12 flex-shrink-0 border dark:border-gray-600 rounded-lg flex items-center justify-center text-2xl bg-gray-50 dark:bg-gray-700">{formData.emoji || '🏷️'}</button>
-                        <div className="relative flex-grow">
-                            <input type="text" placeholder="Productnaam" className="w-full h-12 px-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400" value={formData.naam} onChange={e => setFormData({...formData, naam: e.target.value})} required />
+                        <button type="button" onClick={() => setShowEmojiPicker(true)} className="w-12 h-12 flex-shrink-0 border border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center text-2xl bg-gray-50 dark:bg-gray-700">{formData.emoji || '🏷️'}</button>
+                        
+                        <div className="relative flex-grow flex items-center border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus-within:ring-2 focus-within:ring-blue-500">
+                            <input type="text" placeholder="Productnaam" className="w-full h-12 px-3 outline-none bg-transparent dark:text-white dark:placeholder-gray-400" value={formData.naam} onChange={e => setFormData({...formData, naam: e.target.value})} required />
+                            <button type="button" onClick={() => setShowBarcodeModal(true)} className="p-2 text-gray-400 hover:text-blue-500 transition-colors mr-1" title="Scan Barcode voor auto-aanvullen">
+                                <Icon path={Icons.BarcodeScan} size={20}/>
+                            </button>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -1878,52 +2127,70 @@ function App() {
                             {formLades.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
                         </select></div>
                     </div>
-                    <div className="flex gap-3 items-end">
-                      <div className="relative w-36 sm:w-40 flex-shrink-0">
-                        <input 
-                          type="number" 
-                          step="0.25" 
-                          min="0" 
-                          max="5000"
-                          className="w-full text-center h-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg pr-7 pl-7 focus:ring-2 focus:ring-blue-500 outline-none appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
-                          value={formData.aantal} 
-                          onChange={e => setFormData({...formData, aantal: e.target.value})}
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            const current = parseFloat(formData.aantal) || 0;
-                            const next = Math.min(current + 0.25, 5000);
-                            setFormData({...formData, aantal: Math.round(next * 100) / 100});
-                          }}
-                          className="absolute right-1 top-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
-                        >
-                          <Icon path={Icons.ChevronRight} size={12} className="rotate-[-90deg]" />
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            const current = parseFloat(formData.aantal) || 0;
-                            const next = Math.max(current - 0.25, 0);
-                            setFormData({...formData, aantal: Math.round(next * 100) / 100});
-                          }}
-                          className="absolute right-1 bottom-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
-                        >
-                          <Icon path={Icons.ChevronRight} size={12} className="rotate-[90deg]" />
-                        </button>
+                    <div className="flex flex-wrap gap-3 items-end">
+                      <div className="space-y-1 flex-shrink-0 w-36 sm:w-40">
+                          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Aantal.</label>
+                          <div className="relative">
+                            <input 
+                              type="number" 
+                              step="0.25" 
+                              min="0" 
+                              max="5000"
+                              className="w-full text-center h-12 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg pr-7 pl-7 focus:ring-2 focus:ring-blue-500 outline-none appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                              value={formData.aantal} 
+                              onChange={e => setFormData({...formData, aantal: e.target.value})}
+                            />
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                const current = parseFloat(formData.aantal) || 0;
+                                const next = Math.min(current + 0.25, 5000);
+                                setFormData({...formData, aantal: Math.round(next * 100) / 100});
+                              }}
+                              className="absolute right-1 top-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
+                            >
+                              <Icon path={Icons.ChevronRight} size={12} className="rotate-[-90deg]" />
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                const current = parseFloat(formData.aantal) || 0;
+                                const next = Math.max(current - 0.25, 0);
+                                setFormData({...formData, aantal: Math.round(next * 100) / 100});
+                              }}
+                              className="absolute right-1 bottom-1 w-6 h-5 flex items-center justify-center text-gray-500 hover:text-blue-600 dark:text-gray-400 hover:dark:text-blue-400 transition-colors cursor-pointer"
+                            >
+                              <Icon path={Icons.ChevronRight} size={12} className="rotate-[90deg]" />
+                            </button>
+                          </div>
                       </div>
                       
-                      <select 
-                        value={formData.eenheid} 
-                        onChange={e => setFormData({...formData, eenheid: e.target.value})}
-                        className="flex-1 min-w-0 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                      >
-                        {alleEenheden.map((eenheid) => (
-                          <option key={eenheid} value={eenheid}>
-                            {eenheid}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="space-y-1 flex-1 min-w-[100px]">
+                          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Eenheid.</label>
+                          <select 
+                            value={formData.eenheid} 
+                            onChange={e => setFormData({...formData, eenheid: e.target.value})}
+                            className="w-full h-12 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                          >
+                            {alleEenheden.map((eenheid) => (
+                              <option key={eenheid} value={eenheid}>
+                                {eenheid}
+                              </option>
+                            ))}
+                          </select>
+                      </div>
+
+                      <div className="space-y-1 flex-shrink-0 w-full sm:w-28 mt-2 sm:mt-0">
+                          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Min. (Auto-Koop)</label>
+                          <input 
+                            type="number" 
+                            placeholder="Optioneel"
+                            min="0" 
+                            className="w-full h-12 text-center border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" 
+                            value={formData.minimumVoorraad} 
+                            onChange={e => setFormData({...formData, minimumVoorraad: e.target.value})}
+                          />
+                      </div>
                     </div>
 
                     <div className="space-y-1">
