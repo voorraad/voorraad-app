@@ -19,10 +19,18 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.12.0'; 
+const APP_VERSION = '8.13.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.13.0', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: Verbeterde Verbruik-knop (-)! Je kan nu exact kiezen hoeveel je wegneemt en dit wordt perfect in het logboek geregistreerd.',
+            'Verwijderd: Favorieten (sterretjes) functionaliteit is op verzoek uit de app gehaald.'
+        ] 
+    },
     { 
         version: '8.12.0', 
         type: 'update', 
@@ -36,7 +44,6 @@ const VERSION_HISTORY = [
         version: '8.11.0', 
         type: 'feature', 
         changes: [
-            'Nieuw: Favorieten! Markeer producten met een ster ⭐ om ze altijd bovenaan hun lade te pinnen.',
             'Nieuw: Boodschappenlijst groepeert nu automatisch op winkel. Perfect voor in de supermarkt!',
             'Nieuw: "Wis afgevinkt" knop toegevoegd aan de boodschappenlijst om in één klap gekochte items op te ruimen.'
         ] 
@@ -56,14 +63,6 @@ const VERSION_HISTORY = [
         changes: [
             'Nieuw: "Dupliceer" knop. Kopieer een bestaand item razendsnel om typwerk te besparen.',
             'Nieuw: Exporteer naar Excel (CSV) toegevoegd aan het profielmenu. Maak eenvoudig een back-up van al je data.'
-        ] 
-    },
-    { 
-        version: '8.8.0', 
-        type: 'feature', 
-        changes: [
-            'Nieuw: Snelle "-1" knop toegevoegd bij producten waarvan je er meer dan 1 hebt.',
-            'Nieuw: Slimme Sorteeropties ("THT / Oudste eerst" of "Nieuwste eerst").'
         ] 
     }
 ];
@@ -180,8 +179,6 @@ const Icons = {
     LogBook: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></g>,
     Lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></g>,
     Fridge: <path d="M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 6h14m-7-6v20"/>,
-    Star: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>,
-    StarFilled: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor"/>,
     Zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>, 
     Wrench: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>,
     ShoppingCart: <g><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></g>,
@@ -441,10 +438,15 @@ function App() {
     const [showShoppingModal, setShowShoppingModal] = useState(false); 
     const [beheerTab, setBeheerTab] = useState('locaties');
 
+    // Shopping / Consume Flow States
     const [showShopifyModal, setShowShopifyModal] = useState(false);
     const [itemToShopify, setItemToShopify] = useState(null);
     const [shopForDeletedItem, setShopForDeletedItem] = useState('');
     const [aantalForShopifyItem, setAantalForShopifyItem] = useState(1);
+    
+    const [showConsumeModal, setShowConsumeModal] = useState(false);
+    const [itemToConsume, setItemToConsume] = useState(null);
+    const [consumeAmount, setConsumeAmount] = useState(1);
 
     // Forms
     const [formData, setFormData] = useState({
@@ -773,7 +775,7 @@ function App() {
         setShowProfileMenu(false);
         if (items.length === 0) return alert("Geen producten om te exporteren.");
 
-        const headers = ['Naam', 'Aantal', 'Eenheid', 'Categorie', 'Locatie', 'Lade', 'Ingevoerd op', 'Houdbaarheidsdatum (THT)', 'Type', 'Favoriet', 'Notitie'];
+        const headers = ['Naam', 'Aantal', 'Eenheid', 'Categorie', 'Locatie', 'Lade', 'Ingevoerd op', 'Houdbaarheidsdatum (THT)', 'Type', 'Notitie'];
         
         const rows = items.map(item => {
             const loc = vriezers.find(v => v.id === item.vriezerId);
@@ -794,7 +796,6 @@ function App() {
                 formatDate(item.ingevrorenOp),
                 item.houdbaarheidsDatum ? formatDate(item.houdbaarheidsDatum) : '',
                 escapeCSV(type),
-                item.isFavorite ? 'Ja' : 'Nee',
                 escapeCSV(item.notitie || '')
             ].join(',');
         });
@@ -921,7 +922,6 @@ function App() {
                 setEditingItem(null);
                 setShowAddModal(false);
             } else {
-                data.isFavorite = false; // Standaard niet favoriet
                 await db.collection('items').add(data);
                 await logAction('Toevoegen', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
                 showNotification(`${data.naam} is toegevoegd!`, 'success');
@@ -941,27 +941,53 @@ function App() {
         } catch(err) { showNotification("Er ging iets mis: " + err.message, 'error'); }
     };
 
-    const handleQuickDecrease = async (item) => {
-        const currentAantal = parseFloat(item.aantal);
-        if (currentAantal > 1) {
-            let step = 1;
-            if(currentAantal % 1 !== 0) step = 0.25; 
-            const newAantal = currentAantal - step;
-            
-            if(newAantal > 0) {
-                try {
-                    await db.collection('items').doc(item.id).update({ aantal: newAantal });
-                    await db.collection('users').doc(beheerdeUserId).update({ 'stats.consumed': firebase.firestore.FieldValue.increment(1) });
-                    await logAction('Geconsumeerd', item.naam, `- ${step} ${item.eenheid}`, user, beheerdeUserId);
-                    showNotification(`1 ${item.eenheid} van ${item.naam} opgegeten!`, 'success');
-                } catch(err) {
-                    showNotification("Fout bij updaten", "error");
-                }
+    // Nieuwe Flow: Verbruik/Minus knop
+    const initConsume = (item) => {
+        setItemToConsume(item);
+        let defaultAmount = 1;
+        if (parseFloat(item.aantal) < 1) defaultAmount = parseFloat(item.aantal);
+        setConsumeAmount(defaultAmount);
+        setShowConsumeModal(true);
+    };
+
+    const confirmConsume = async () => {
+        if (!itemToConsume) return;
+        
+        let amount = parseFloat(consumeAmount);
+        if (isNaN(amount) || amount <= 0) return;
+        
+        const currentAantal = parseFloat(itemToConsume.aantal);
+        
+        // Zorg dat we niet meer verbruiken dan we hebben
+        if (amount > currentAantal) amount = currentAantal;
+
+        try {
+            if (amount >= currentAantal) {
+                // Product is volledig op!
+                await db.collection('items').doc(itemToConsume.id).delete();
+                await db.collection('users').doc(beheerdeUserId).update({ 'stats.consumed': firebase.firestore.FieldValue.increment(1) });
+                await logAction('Verwijderd', itemToConsume.naam, 'Volledig opgegeten', user, beheerdeUserId);
+                showNotification(`${itemToConsume.naam} is volledig op!`, 'success');
+
+                // Vraag of we het op het lijstje moeten zetten
+                setItemToShopify(itemToConsume);
+                setAantalForShopifyItem(1); 
+                setShowConsumeModal(false);
+                setShowShopifyModal(true);
+                setItemToConsume(null);
             } else {
-                initDelete(item);
+                // Er blijft nog wat over, dus updaten
+                const newAantal = currentAantal - amount;
+                await db.collection('items').doc(itemToConsume.id).update({ aantal: newAantal });
+                await db.collection('users').doc(beheerdeUserId).update({ 'stats.consumed': firebase.firestore.FieldValue.increment(1) });
+                await logAction('Geconsumeerd', itemToConsume.naam, `- ${amount} ${itemToConsume.eenheid}`, user, beheerdeUserId);
+                showNotification(`${amount} ${itemToConsume.eenheid} van ${itemToConsume.naam} weggenomen!`, 'success');
+                
+                setShowConsumeModal(false);
+                setItemToConsume(null);
             }
-        } else {
-            initDelete(item);
+        } catch(err) {
+            showNotification("Fout bij updaten", "error");
         }
     };
 
@@ -983,14 +1009,6 @@ function App() {
             emoji: item.emoji
         });
         setShowAddModal(true);
-    };
-
-    const toggleFavorite = async (item) => {
-        try {
-            await db.collection('items').doc(item.id).update({ isFavorite: !item.isFavorite });
-        } catch(err) {
-            showNotification("Kon favoriet niet updaten.", "error");
-        }
     };
 
     const initDelete = (item) => {
@@ -1610,10 +1628,6 @@ function App() {
 
                                             // Toepassen Sortering
                                             ladeItems.sort((a, b) => {
-                                                // Favorieten altijd bovenaan
-                                                if (a.isFavorite && !b.isFavorite) return -1;
-                                                if (!a.isFavorite && b.isFavorite) return 1;
-
                                                 if (sortBy === 'name') return a.naam.localeCompare(b.naam);
                                                 if (sortBy === 'expiry') {
                                                     const aTHT = getDagenTotTHT(a.houdbaarheidsDatum);
@@ -1647,8 +1661,7 @@ function App() {
                                                                 const dagenTotTHT = getDagenTotTHT(item.houdbaarheidsDatum);
                                                                 const isStockItem = vriezer.type === 'voorraad' || vriezer.type === 'frig';
                                                                 
-                                                                // Geel markeren als favoriet is
-                                                                const bgClass = item.isFavorite ? 'bg-yellow-50/40 dark:bg-yellow-900/10' : 'bg-white dark:bg-gray-800';
+                                                                const bgClass = 'bg-white dark:bg-gray-800';
                                                                 const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT);
                                                                 const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT);
                                                                 
@@ -1665,9 +1678,6 @@ function App() {
                                                                                     {item.categorie && item.categorie !== "Geen" && (
                                                                                         <Badge type={catColor} text={item.categorie} />
                                                                                     )}
-                                                                                    {item.isFavorite && (
-                                                                                        <Icon path={Icons.StarFilled} size={14} className="text-yellow-400" />
-                                                                                    )}
                                                                                 </div>
                                                                                 <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
                                                                                     <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
@@ -1683,10 +1693,7 @@ function App() {
                                                                             </div>
                                                                         </div>
                                                                         <div className="flex flex-wrap items-center gap-1 flex-shrink-0 print:hidden ml-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                                            {parseFloat(item.aantal) > 1 && (
-                                                                                <button onClick={()=>handleQuickDecrease(item)} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/30 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/50" title="Snel -1 wegnemen"><Icon path={Icons.Minus} size={16}/></button>
-                                                                            )}
-                                                                            <button onClick={()=>toggleFavorite(item)} className={`p-1.5 rounded-lg ${item.isFavorite ? 'text-yellow-500 bg-yellow-100 dark:bg-yellow-900/50' : 'text-gray-400 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/30'}`} title={item.isFavorite ? "Verwijder uit favorieten" : "Maak favoriet"}><Icon path={item.isFavorite ? Icons.StarFilled : Icons.Star} size={16}/></button>
+                                                                            <button onClick={()=>initConsume(item)} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/30 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/50" title="Verbruik (kies hoeveel je wegneemt)"><Icon path={Icons.Minus} size={16}/></button>
                                                                             <button onClick={()=>handleDuplicate(item)} className="p-1.5 text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50" title="Dupliceer (kopie maken)"><Icon path={Icons.Copy} size={16}/></button>
                                                                             <button onClick={()=>openEdit(item)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50" title="Bewerken"><Icon path={Icons.Edit2} size={16}/></button>
                                                                             <button onClick={()=>initDelete(item)} className="p-1.5 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50" title="Verwijderen"><Icon path={Icons.Trash2} size={16}/></button>
@@ -1706,6 +1713,62 @@ function App() {
                     </div>
                 )}
             </main>
+
+            {/* Verbruik (Consume) Modal */}
+            <Modal isOpen={showConsumeModal} onClose={() => setShowConsumeModal(false)} title="Product verwerken." color="orange">
+                {itemToConsume && (
+                    <div className="space-y-4">
+                        <p className="text-gray-800 dark:text-gray-200">
+                            Je hebt momenteel <strong>{formatAantal(itemToConsume.aantal)} {itemToConsume.eenheid}</strong> van <strong>{itemToConsume.naam}</strong>.<br/>Hoeveel wil je hier van afhalen?
+                        </p>
+                        
+                        <div className="flex gap-3 items-center bg-gray-50 dark:bg-gray-700 p-4 rounded-xl border border-gray-200 dark:border-gray-600">
+                            <div className="relative flex-grow">
+                                <input 
+                                    type="number" 
+                                    step="0.25"
+                                    min="0.25"
+                                    max={itemToConsume.aantal}
+                                    className="w-full p-3 border border-gray-300 dark:border-gray-500 rounded-lg bg-white dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none text-center text-xl font-bold appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    value={consumeAmount}
+                                    onChange={e => setConsumeAmount(e.target.value)}
+                                />
+                                <button 
+                                  type="button"
+                                  onClick={() => {
+                                    const current = parseFloat(consumeAmount) || 0;
+                                    const max = parseFloat(itemToConsume.aantal) || 5000;
+                                    setConsumeAmount(Math.min(current + 0.25, max));
+                                  }}
+                                  className="absolute right-2 top-2 w-8 h-6 flex items-center justify-center text-gray-500 hover:text-orange-600 cursor-pointer"
+                                >
+                                  <Icon path={Icons.ChevronRight} size={16} className="rotate-[-90deg]" />
+                                </button>
+                                <button 
+                                  type="button"
+                                  onClick={() => {
+                                    const current = parseFloat(consumeAmount) || 0;
+                                    setConsumeAmount(Math.max(current - 0.25, 0.25));
+                                  }}
+                                  className="absolute right-2 bottom-2 w-8 h-6 flex items-center justify-center text-gray-500 hover:text-orange-600 cursor-pointer"
+                                >
+                                  <Icon path={Icons.ChevronRight} size={16} className="rotate-[90deg]" />
+                                </button>
+                            </div>
+                            <span className="text-gray-500 dark:text-gray-300 font-bold text-lg w-20 truncate">{itemToConsume.eenheid}</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 mt-4">
+                            <button onClick={() => setShowConsumeModal(false)} className="p-3 bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-200 rounded-xl font-medium hover:bg-gray-300 transition">
+                                Annuleren
+                            </button>
+                            <button onClick={confirmConsume} className="p-3 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition shadow-md flex items-center justify-center gap-2">
+                                <Icon path={Icons.Check} size={18}/> Bevestigen
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
 
             {/* Filter Modal */}
             <Modal isOpen={showFilterModal} onClose={() => setShowFilterModal(false)} title="Filter & Sorteer." color="blue">
