@@ -1,6 +1,6 @@
 const { useState, useEffect, useRef } = React;
 
-// --- 1. FIREBASE CONFIGURATIE & MOCK VOOR PREVIEW ---
+// --- 1. FIREBASE CONFIGURATIE ---
 const firebaseConfig = typeof __firebase_config !== 'undefined' 
     ? JSON.parse(__firebase_config) 
     : {
@@ -12,61 +12,25 @@ const firebaseConfig = typeof __firebase_config !== 'undefined'
         appId: "1:902712789943:web:ef270b84968319052cf632"
     };
 
-let db, auth, fbFieldValue;
-
-if (typeof firebase !== 'undefined') {
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-    }
-    db = firebase.firestore();
-    auth = firebase.auth();
-    fbFieldValue = firebase.firestore.FieldValue;
-} else {
-    console.warn("Firebase is niet gedetecteerd. App start in veilige preview-modus.");
-    // Mock setup om crashes in de editor preview te voorkomen
-    const mockUnsub = () => {};
-    const mockDoc = {
-        set: async () => {}, update: async () => {}, delete: async () => {},
-        onSnapshot: (cb) => { cb({ exists: false, data: () => ({}) }); return mockUnsub; },
-        get: async () => ({ exists: false, data: () => ({}) })
-    };
-    const mockQuery = {
-        onSnapshot: (cb) => { cb({ docs: [] }); return mockUnsub; },
-        get: async () => ({ empty: true, docs: [] }),
-        limit: function() { return this; },
-        orderBy: function() { return this; },
-        where: function() { return this; }
-    };
-    const mockCollection = {
-        onSnapshot: (cb) => { cb({ docs: [] }); return mockUnsub; },
-        add: async () => ({ id: 'mock-id' }),
-        doc: () => mockDoc,
-        where: function() { return mockQuery; },
-        orderBy: function() { return mockQuery; }
-    };
-    db = {
-        collection: () => mockCollection,
-        batch: () => ({ update: () => {}, delete: () => {}, commit: async () => {} })
-    };
-    auth = {
-        onAuthStateChanged: (cb) => { 
-            cb({ uid: 'preview-uid', email: 'gebruiker@voorraad.local', displayName: 'Preview Gebruiker' });
-            return mockUnsub; 
-        },
-        signInWithPopup: async () => { alert("Login gesimuleerd in preview modus!"); },
-        signOut: () => {}
-    };
-    fbFieldValue = {
-        serverTimestamp: () => new Date(),
-        increment: (n) => n
-    };
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
 }
+const db = firebase.firestore();
+const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.16.0'; 
+const APP_VERSION = '8.16.1'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.16.1', 
+        type: 'fix', 
+        changes: [
+            'Opgelost: Bug gefixt waardoor pop-ups zoals de Versiegeschiedenis niet meer openden.',
+            'Opgelost: Meldingen van vervallen producten verschijnen nu weer altijd correct bij het laden van de app.'
+        ] 
+    },
     { 
         version: '8.16.0', 
         type: 'feature', 
@@ -97,22 +61,6 @@ const VERSION_HISTORY = [
         changes: [
             'Nieuw: Verbeterde Verbruik-knop (-)! Je kan nu exact kiezen hoeveel je wegneemt en dit wordt perfect in het logboek geregistreerd.',
             'Verwijderd: Favorieten (sterretjes) functionaliteit is op verzoek uit de app gehaald.'
-        ] 
-    },
-    { 
-        version: '8.12.0', 
-        type: 'update', 
-        changes: [
-            'Update: Categorie-filters passen zich nu slim aan per tabblad.',
-            'Update: Compactere header met Filter & Sorteer samengevoegd in een strak pop-up menu.'
-        ] 
-    },
-    { 
-        version: '8.11.0', 
-        type: 'feature', 
-        changes: [
-            'Nieuw: Boodschappenlijst groepeert nu automatisch op winkel.',
-            'Nieuw: "Wis afgevinkt" knop toegevoegd aan de boodschappenlijst.'
         ] 
     }
 ];
@@ -334,7 +282,7 @@ const logAction = async (action, itemNaam, details, actorUser, targetUserId) => 
             actorId: actorUser.uid,
             actorName: actorUser.displayName || actorUser.email,
             targetUserId: targetUserId, 
-            timestamp: fbFieldValue.serverTimestamp()
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
     } catch (e) {
         console.error("Kon log niet opslaan", e);
@@ -448,7 +396,10 @@ function App() {
     const [savedOpenLades, setSavedOpenLades] = useState(null);
     const [stats, setStats] = useState({ wasted: 0, consumed: 0, wastedValue: 0, consumedValue: 0 });
     
-    // Data
+    // Data (Loading states added to fix the refresh bug)
+    const [isLadesLoaded, setIsLadesLoaded] = useState(false);
+    const [isItemsLoaded, setIsItemsLoaded] = useState(false);
+
     const [activeTab, setActiveTab] = useState('vriezer');
     const [items, setItems] = useState([]);
     const [vriezers, setVriezers] = useState([]);
@@ -467,7 +418,6 @@ function App() {
     const [activeCategoryFilter, setActiveCategoryFilter] = useState(null);
     const [collapsedLades, setCollapsedLades] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
-    const [isDataLoaded, setIsDataLoaded] = useState(false);
     const [notification, setNotification] = useState(null);
     const [draggedLocId, setDraggedLocId] = useState(null); 
     
@@ -573,7 +523,7 @@ function App() {
                 
                 try {
                     await db.collection('users').doc(u.uid).set({
-                        laatstGezien: fbFieldValue.serverTimestamp(),
+                        laatstGezien: firebase.firestore.FieldValue.serverTimestamp(),
                         email: u.email
                     }, { merge: true });
                 } catch(e) { console.error("Kon laatstGezien niet updaten", e); }
@@ -663,29 +613,38 @@ function App() {
     // Data Listeners
     useEffect(() => {
         if (!beheerdeUserId) return;
+        
         const unsubV = db.collection('vriezers').where('userId', '==', beheerdeUserId).onSnapshot(s => setVriezers(s.docs.map(d => ({id: d.id, ...d.data(), type: d.data().type||'vriezer'}))));
+        
         const unsubL = db.collection('lades').where('userId', '==', beheerdeUserId).onSnapshot(s => {
             const loadedLades = s.docs.map(d => ({id: d.id, ...d.data()}));
             setLades(loadedLades);
             
-            if (!isDataLoaded && loadedLades.length > 0 && savedOpenLades !== null) {
-                const initialCollapsed = new Set(loadedLades.map(l => l.id));
-                if (savedOpenLades && savedOpenLades.length > 0) {
-                    savedOpenLades.forEach(id => {
-                        if (initialCollapsed.has(id)) {
-                            initialCollapsed.delete(id);
-                        }
-                    });
+            if (!isLadesLoaded && savedOpenLades !== null) {
+                if (loadedLades.length > 0) {
+                    const initialCollapsed = new Set(loadedLades.map(l => l.id));
+                    if (savedOpenLades && savedOpenLades.length > 0) {
+                        savedOpenLades.forEach(id => {
+                            if (initialCollapsed.has(id)) {
+                                initialCollapsed.delete(id);
+                            }
+                        });
+                    }
+                    setCollapsedLades(initialCollapsed);
                 }
-                setCollapsedLades(initialCollapsed);
-                setIsDataLoaded(true);
+                setIsLadesLoaded(true);
             }
         });
-        const unsubI = db.collection('items').where('userId', '==', beheerdeUserId).onSnapshot(s => setItems(s.docs.map(d => ({id: d.id, ...d.data()}))));
+        
+        const unsubI = db.collection('items').where('userId', '==', beheerdeUserId).onSnapshot(s => {
+            setItems(s.docs.map(d => ({id: d.id, ...d.data()})));
+            setIsItemsLoaded(true);
+        });
+        
         const unsubS = db.collection('shoppingList').where('userId', '==', beheerdeUserId).onSnapshot(s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()})))); 
 
         return () => { unsubV(); unsubL(); unsubI(); unsubS(); };
-    }, [beheerdeUserId, isDataLoaded, savedOpenLades]); 
+    }, [beheerdeUserId, isLadesLoaded, savedOpenLades]); 
 
     useEffect(() => {
         if (isAdmin) {
@@ -806,7 +765,7 @@ function App() {
         setNotification({ msg, type, id: Date.now() });
     };
 
-    // Alerts Logic
+    // Alerts Logic (Opgelost laadprobleem)
     const alerts = items.filter(i => {
         const loc = vriezers.find(v => v.id === i.vriezerId);
         const type = loc ? (loc.type || 'vriezer') : 'vriezer';
@@ -819,7 +778,7 @@ function App() {
     });
 
     useEffect(() => {
-        if (isDataLoaded && !hasCheckedAlerts.current) {
+        if (isLadesLoaded && isItemsLoaded && savedOpenLades !== null && !hasCheckedAlerts.current) {
             const lastVersion = localStorage.getItem('app_version');
             if (lastVersion !== APP_VERSION || alerts.length > 0) {
                 setShowWhatsNew(true);
@@ -827,17 +786,13 @@ function App() {
             }
             hasCheckedAlerts.current = true; 
         }
-    }, [isDataLoaded, alerts.length]); 
+    }, [isLadesLoaded, isItemsLoaded, savedOpenLades, alerts.length]); 
 
     // --- HANDLERS ---
     const handleGoogleLogin = async () => { 
         try { 
-            if (typeof firebase !== 'undefined') {
-                const provider = new firebase.auth.GoogleAuthProvider();
-                await auth.signInWithPopup(provider); 
-            } else {
-                alert("Gesimuleerde login in preview modus!");
-            }
+            const provider = new firebase.auth.GoogleAuthProvider();
+            await auth.signInWithPopup(provider); 
         } catch(e) { alert("Login Fout: " + e.message); } 
     };
 
@@ -1056,8 +1011,8 @@ function App() {
 
                     await db.collection('items').doc(item.id).update({ aantal: newAantal, prijs: newPrijs });
                     await db.collection('users').doc(beheerdeUserId).update({ 
-                        'stats.consumed': fbFieldValue.increment(1),
-                        'stats.consumedValue': fbFieldValue.increment(consumedValue)
+                        'stats.consumed': firebase.firestore.FieldValue.increment(1),
+                        'stats.consumedValue': firebase.firestore.FieldValue.increment(consumedValue)
                     });
                     
                     await logAction('Geconsumeerd', item.naam, `- ${step} ${item.eenheid}`, user, beheerdeUserId);
@@ -1098,8 +1053,8 @@ function App() {
                 // Product is volledig op!
                 await db.collection('items').doc(itemToConsume.id).delete();
                 await db.collection('users').doc(beheerdeUserId).update({ 
-                    'stats.consumed': fbFieldValue.increment(1),
-                    'stats.consumedValue': fbFieldValue.increment(itemToConsume.prijs || 0)
+                    'stats.consumed': firebase.firestore.FieldValue.increment(1),
+                    'stats.consumedValue': firebase.firestore.FieldValue.increment(itemToConsume.prijs || 0)
                 });
                 await logAction('Verwijderd', itemToConsume.naam, 'Volledig opgegeten', user, beheerdeUserId);
                 showNotification(`${itemToConsume.naam} is volledig op!`, 'success');
@@ -1123,8 +1078,8 @@ function App() {
 
                 await db.collection('items').doc(itemToConsume.id).update({ aantal: newAantal, prijs: newPrijs });
                 await db.collection('users').doc(beheerdeUserId).update({ 
-                    'stats.consumed': fbFieldValue.increment(1),
-                    'stats.consumedValue': fbFieldValue.increment(consumedValue)
+                    'stats.consumed': firebase.firestore.FieldValue.increment(1),
+                    'stats.consumedValue': firebase.firestore.FieldValue.increment(consumedValue)
                 });
                 await logAction('Geconsumeerd', itemToConsume.naam, `- ${amount} ${itemToConsume.eenheid}`, user, beheerdeUserId);
                 showNotification(`${amount} ${itemToConsume.eenheid} van ${itemToConsume.naam} weggenomen!`, 'success');
@@ -1176,14 +1131,14 @@ function App() {
             if (reason === 'consumed') {
                 logDetail = 'Opgegeten';
                 await db.collection('users').doc(beheerdeUserId).update({ 
-                    'stats.consumed': fbFieldValue.increment(1),
-                    'stats.consumedValue': fbFieldValue.increment(itemToDelete.prijs || 0)
+                    'stats.consumed': firebase.firestore.FieldValue.increment(1),
+                    'stats.consumedValue': firebase.firestore.FieldValue.increment(itemToDelete.prijs || 0)
                 });
             } else if (reason === 'wasted') {
                 logDetail = 'Weggegooid (Verspild)';
                 await db.collection('users').doc(beheerdeUserId).update({ 
-                    'stats.wasted': fbFieldValue.increment(1),
-                    'stats.wastedValue': fbFieldValue.increment(itemToDelete.prijs || 0)
+                    'stats.wasted': firebase.firestore.FieldValue.increment(1),
+                    'stats.wastedValue': firebase.firestore.FieldValue.increment(itemToDelete.prijs || 0)
                 });
             }
 
