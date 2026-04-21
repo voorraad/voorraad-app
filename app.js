@@ -19,10 +19,19 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.8.0'; 
+const APP_VERSION = '8.9.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.9.0', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: "Snel op Boodschappenlijst" knop bij elk product. Zet producten met 1 klik op je kooplijstje!',
+            'Nieuw: "Dupliceer" knop. Kopieer een bestaand item razendsnel om typwerk te besparen.',
+            'Nieuw: Exporteer naar Excel (CSV) toegevoegd aan het profielmenu. Maak eenvoudig een back-up van al je data.'
+        ] 
+    },
     { 
         version: '8.8.0', 
         type: 'feature', 
@@ -33,24 +42,10 @@ const VERSION_HISTORY = [
         ] 
     },
     { 
-        version: '8.7.2', 
-        type: 'update', 
-        changes: [
-            'Update: Geforceerde lettergrootte weer verwijderd. In plaats daarvan is het invoervak voor het aantal breder gemaakt en de eenheid wat smaller, zodat grote letters beter passen.'
-        ] 
-    },
-    { 
         version: '8.7.0', 
         type: 'feature', 
         changes: [
             'Nieuw: Je kunt locaties (bij Instellingen) nu handmatig verslepen (drag-and-drop) om je eigen volgorde te bepalen!'
-        ] 
-    },
-    { 
-        version: '8.6.3', 
-        type: 'feature', 
-        changes: [
-            'Update: Lades in het dashboard zijn nu standaard ingeklapt en kunnen opengeklikt worden, voor een veel rustiger en compacter overzicht.'
         ] 
     },
     { 
@@ -154,6 +149,8 @@ const Icons = {
     Box: <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.3 7 12 12l8.7-5M12 12v10"/>,
     Trash2: <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/>,
     Edit2: <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>,
+    Copy: <g><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></g>,
+    Download: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></g>,
     X: <path d="M18 6 6 18M6 6l12 12"/>,
     Info: <path d="M12 16v-4M12 8h.01M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10z"/>,
     LogOut: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>,
@@ -410,7 +407,7 @@ function App() {
     const [editingItem, setEditingItem] = useState(null);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     const [notification, setNotification] = useState(null);
-    const [draggedLocId, setDraggedLocId] = useState(null); // Voor drag & drop locaties
+    const [draggedLocId, setDraggedLocId] = useState(null); 
     
     // Modals & Menu
     const [showAddModal, setShowAddModal] = useState(false);
@@ -755,7 +752,48 @@ function App() {
     };
 
     const handleLogout = () => { auth.signOut(); setShowProfileMenu(false); };
+    
     const handlePrint = () => { setShowProfileMenu(false); window.print(); };
+
+    const exportToCSV = () => {
+        setShowProfileMenu(false);
+        if (items.length === 0) return alert("Geen producten om te exporteren.");
+
+        const headers = ['Naam', 'Aantal', 'Eenheid', 'Categorie', 'Locatie', 'Lade', 'Ingevoerd op', 'Houdbaarheidsdatum (THT)', 'Type'];
+        
+        const rows = items.map(item => {
+            const loc = vriezers.find(v => v.id === item.vriezerId);
+            const locNaam = loc ? loc.naam : 'Onbekend';
+            const type = loc ? loc.type : 'Onbekend';
+            const ladeNaam = item.ladeNaam || 'Onbekend';
+
+            // Zorg dat komma's of quotes in de tekst het CSV formaat niet breken
+            const escapeCSV = (str) => `"${(str || '').replace(/"/g, '""')}"`;
+
+            return [
+                escapeCSV(item.naam),
+                item.aantal,
+                escapeCSV(item.eenheid),
+                escapeCSV(item.categorie),
+                escapeCSV(locNaam),
+                escapeCSV(ladeNaam),
+                formatDate(item.ingevrorenOp),
+                item.houdbaarheidsDatum ? formatDate(item.houdbaarheidsDatum) : '',
+                escapeCSV(type)
+            ].join(',');
+        });
+
+        // \uFEFF vertelt Excel dat het een UTF-8 bestand is (voor emoji's en speciale karakters)
+        const csvContent = "\uFEFF" + [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Voorraad_Export_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
     
     // Drag and Drop handlers voor Locaties
     const handleDragStart = (e, id) => {
@@ -907,6 +945,41 @@ function App() {
         } else {
             initDelete(item);
         }
+    };
+
+    const handleQuickCart = async (item) => {
+        try {
+            await db.collection('shoppingList').add({
+                naam: item.naam,
+                aantal: 1,
+                eenheid: item.eenheid || 'stuks',
+                winkel: '',
+                checked: false,
+                userId: beheerdeUserId
+            });
+            showNotification(`${item.naam} staat nu op je lijstje!`, 'success');
+        } catch(err) {
+            showNotification("Fout bij toevoegen", "error");
+        }
+    };
+
+    const handleDuplicate = (item) => {
+        setEditingItem(null); // Forceer nieuwe aanmaak
+        const loc = vriezers.find(v => v.id === item.vriezerId);
+        setModalType(loc ? loc.type : 'vriezer');
+
+        setFormData({
+            naam: item.naam + " (Kopie)",
+            aantal: item.aantal,
+            eenheid: item.eenheid,
+            vriezerId: item.vriezerId,
+            ladeId: item.ladeId,
+            categorie: item.categorie,
+            ingevrorenOp: toInputDate(item.ingevrorenOp),
+            houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum),
+            emoji: item.emoji
+        });
+        setShowAddModal(true);
     };
 
     const initDelete = (item) => {
@@ -1372,6 +1445,9 @@ function App() {
                                     <button onClick={() => { setShowShareModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                                         <Icon path={Icons.Share} size={16}/> Delen.
                                     </button>
+                                    <button onClick={exportToCSV} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
+                                        <Icon path={Icons.Download} size={16}/> Exporteer naar Excel.
+                                    </button>
                                     <button onClick={handlePrint} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                                         <Icon path={Icons.Printer} size={16}/> Print.
                                     </button>
@@ -1542,12 +1618,14 @@ function App() {
                                                                             </div>
                                                                         </div>
                                                                     </div>
-                                                                    <div className="flex items-center gap-1 flex-shrink-0 print:hidden ml-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                                                    <div className="flex flex-wrap items-center gap-1 flex-shrink-0 print:hidden ml-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                                                         {parseFloat(item.aantal) > 1 && (
-                                                                            <button onClick={()=>handleQuickDecrease(item)} className="p-2 text-orange-500 bg-orange-50 dark:bg-orange-900/30 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/50" title="Snel -1 wegnemen"><Icon path={Icons.Minus} size={16}/></button>
+                                                                            <button onClick={()=>handleQuickDecrease(item)} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/30 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/50" title="Snel -1 wegnemen"><Icon path={Icons.Minus} size={16}/></button>
                                                                         )}
-                                                                        <button onClick={()=>openEdit(item)} className="p-2 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50" title="Bewerken"><Icon path={Icons.Edit2} size={16}/></button>
-                                                                        <button onClick={()=>initDelete(item)} className="p-2 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50" title="Verwijderen"><Icon path={Icons.Trash2} size={16}/></button>
+                                                                        <button onClick={()=>handleQuickCart(item)} className="p-1.5 text-teal-600 bg-teal-50 dark:bg-teal-900/30 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/50" title="Zet direct op boodschappenlijstje"><Icon path={Icons.ShoppingCart} size={16}/></button>
+                                                                        <button onClick={()=>handleDuplicate(item)} className="p-1.5 text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50" title="Dupliceer (kopie maken)"><Icon path={Icons.Copy} size={16}/></button>
+                                                                        <button onClick={()=>openEdit(item)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50" title="Bewerken"><Icon path={Icons.Edit2} size={16}/></button>
+                                                                        <button onClick={()=>initDelete(item)} className="p-1.5 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50" title="Verwijderen"><Icon path={Icons.Trash2} size={16}/></button>
                                                                     </div>
                                                                 </li>
                                                             );
