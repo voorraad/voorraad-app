@@ -19,10 +19,19 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.10.0'; 
+const APP_VERSION = '8.11.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.11.0', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: Favorieten! Markeer producten met een ster ⭐ om ze altijd bovenaan hun lade te pinnen.',
+            'Nieuw: Boodschappenlijst groepeert nu automatisch op winkel. Perfect voor in de supermarkt!',
+            'Nieuw: "Wis afgevinkt" knop toegevoegd aan de boodschappenlijst om in één klap gekochte items op te ruimen.'
+        ] 
+    },
     { 
         version: '8.10.0', 
         type: 'feature', 
@@ -47,13 +56,6 @@ const VERSION_HISTORY = [
             'Nieuw: Snelle "-1" knop toegevoegd bij producten waarvan je er meer dan 1 hebt.',
             'Nieuw: Slimme Sorteeropties ("THT / Oudste eerst" of "Nieuwste eerst").',
             'Nieuw: Snelle Categorie-filters onder de zoekbalk.'
-        ] 
-    },
-    { 
-        version: '8.7.0', 
-        type: 'feature', 
-        changes: [
-            'Nieuw: Je kunt locaties (bij Instellingen) nu handmatig verslepen (drag-and-drop) om je eigen volgorde te bepalen!'
         ] 
     }
 ];
@@ -171,6 +173,7 @@ const Icons = {
     Lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></g>,
     Fridge: <path d="M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 6h14m-7-6v20"/>,
     Star: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>,
+    StarFilled: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor"/>,
     Zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>, 
     Wrench: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>,
     ShoppingCart: <g><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></g>,
@@ -761,7 +764,7 @@ function App() {
         setShowProfileMenu(false);
         if (items.length === 0) return alert("Geen producten om te exporteren.");
 
-        const headers = ['Naam', 'Aantal', 'Eenheid', 'Categorie', 'Locatie', 'Lade', 'Ingevoerd op', 'Houdbaarheidsdatum (THT)', 'Type'];
+        const headers = ['Naam', 'Aantal', 'Eenheid', 'Categorie', 'Locatie', 'Lade', 'Ingevoerd op', 'Houdbaarheidsdatum (THT)', 'Type', 'Favoriet', 'Notitie'];
         
         const rows = items.map(item => {
             const loc = vriezers.find(v => v.id === item.vriezerId);
@@ -781,7 +784,9 @@ function App() {
                 escapeCSV(ladeNaam),
                 formatDate(item.ingevrorenOp),
                 item.houdbaarheidsDatum ? formatDate(item.houdbaarheidsDatum) : '',
-                escapeCSV(type)
+                escapeCSV(type),
+                item.isFavorite ? 'Ja' : 'Nee',
+                escapeCSV(item.notitie || '')
             ].join(',');
         });
 
@@ -907,6 +912,7 @@ function App() {
                 setEditingItem(null);
                 setShowAddModal(false);
             } else {
+                data.isFavorite = false; // Standaard niet favoriet
                 await db.collection('items').add(data);
                 await logAction('Toevoegen', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
                 showNotification(`${data.naam} is toegevoegd!`, 'success');
@@ -968,6 +974,14 @@ function App() {
             emoji: item.emoji
         });
         setShowAddModal(true);
+    };
+
+    const toggleFavorite = async (item) => {
+        try {
+            await db.collection('items').doc(item.id).update({ isFavorite: !item.isFavorite });
+        } catch(err) {
+            showNotification("Kon favoriet niet updaten.", "error");
+        }
     };
 
     const initDelete = (item) => {
@@ -1053,6 +1067,21 @@ function App() {
 
     const deleteShoppingItem = async (id) => {
         await db.collection('shoppingList').doc(id).delete();
+    };
+
+    const clearCheckedShopping = async () => {
+        if(confirm("Weet je zeker dat je alle afgevinkte boodschappen wilt verwijderen?")) {
+            const batch = db.batch();
+            shoppingList.filter(i => i.checked).forEach(item => {
+                batch.delete(db.collection('shoppingList').doc(item.id));
+            });
+            try {
+                await batch.commit();
+                showNotification("Afgevinkte items opgeruimd!", "success");
+            } catch(e) {
+                showNotification("Fout bij opruimen.", "error");
+            }
+        }
     };
     
     const moveShoppingToStock = async (item) => {
@@ -1374,6 +1403,14 @@ function App() {
 
     const currentVersionData = VERSION_HISTORY.find(v => v.version === APP_VERSION);
 
+    // Boodschappen groeperen per winkel voor weergave
+    const groupedShoppingList = shoppingList.reduce((acc, item) => {
+        const winkelKey = item.winkel || 'Geen winkel gekozen';
+        if(!acc[winkelKey]) acc[winkelKey] = [];
+        acc[winkelKey].push(item);
+        return acc;
+    }, {});
+
     return (
         <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-100 transition-colors duration-300">
              {notification && (
@@ -1592,6 +1629,10 @@ function App() {
 
                                             // Toepassen Sortering
                                             ladeItems.sort((a, b) => {
+                                                // Favorieten altijd bovenaan
+                                                if (a.isFavorite && !b.isFavorite) return -1;
+                                                if (!a.isFavorite && b.isFavorite) return 1;
+
                                                 if (sortBy === 'name') return a.naam.localeCompare(b.naam);
                                                 if (sortBy === 'expiry') {
                                                     const aTHT = getDagenTotTHT(a.houdbaarheidsDatum);
@@ -1625,6 +1666,8 @@ function App() {
                                                                 const dagenTotTHT = getDagenTotTHT(item.houdbaarheidsDatum);
                                                                 const isStockItem = vriezer.type === 'voorraad' || vriezer.type === 'frig';
                                                                 
+                                                                // Geel markeren als favoriet is
+                                                                const bgClass = item.isFavorite ? 'bg-yellow-50/40 dark:bg-yellow-900/10' : 'bg-white dark:bg-gray-800';
                                                                 const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT);
                                                                 const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT);
                                                                 
@@ -1632,7 +1675,7 @@ function App() {
                                                                 const catColor = catObj ? (catObj.color || 'gray') : 'gray';
 
                                                                 return (
-                                                                    <li key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0 group`}>
+                                                                    <li key={item.id} className={`flex items-center justify-between p-3 ${bgClass} ${colorClass} last:border-b-0 group transition-colors`}>
                                                                         <div className="flex items-center gap-3 overflow-hidden min-w-0">
                                                                             <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
                                                                             <div className="min-w-0 flex-grow">
@@ -1640,6 +1683,9 @@ function App() {
                                                                                     <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
                                                                                     {item.categorie && item.categorie !== "Geen" && (
                                                                                         <Badge type={catColor} text={item.categorie} />
+                                                                                    )}
+                                                                                    {item.isFavorite && (
+                                                                                        <Icon path={Icons.StarFilled} size={14} className="text-yellow-400" />
                                                                                     )}
                                                                                 </div>
                                                                                 <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
@@ -1659,6 +1705,7 @@ function App() {
                                                                             {parseFloat(item.aantal) > 1 && (
                                                                                 <button onClick={()=>handleQuickDecrease(item)} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/30 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/50" title="Snel -1 wegnemen"><Icon path={Icons.Minus} size={16}/></button>
                                                                             )}
+                                                                            <button onClick={()=>toggleFavorite(item)} className={`p-1.5 rounded-lg ${item.isFavorite ? 'text-yellow-500 bg-yellow-100 dark:bg-yellow-900/50' : 'text-gray-400 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/30'}`} title={item.isFavorite ? "Verwijder uit favorieten" : "Maak favoriet"}><Icon path={item.isFavorite ? Icons.StarFilled : Icons.Star} size={16}/></button>
                                                                             <button onClick={()=>handleDuplicate(item)} className="p-1.5 text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50" title="Dupliceer (kopie maken)"><Icon path={Icons.Copy} size={16}/></button>
                                                                             <button onClick={()=>openEdit(item)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50" title="Bewerken"><Icon path={Icons.Edit2} size={16}/></button>
                                                                             <button onClick={()=>initDelete(item)} className="p-1.5 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50" title="Verwijderen"><Icon path={Icons.Trash2} size={16}/></button>
@@ -1881,36 +1928,58 @@ function App() {
                         </form>
                     </div>
 
-                    <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-                        {shoppingList.length === 0 && <p className="text-center text-gray-400 py-8">Je boodschappenlijst is leeg.</p>}
-                        {shoppingList.sort((a,b) => a.checked - b.checked).map(item => {
-                            const winkelObj = WINKELS.find(w => w.name === item.winkel);
-                            const winkelColor = winkelObj ? winkelObj.color : 'gray';
+                    <div className="flex justify-between items-end mb-2">
+                        <h4 className="font-bold text-sm text-gray-700 dark:text-gray-300">Jouw Lijstje</h4>
+                        {shoppingList.some(i => i.checked) && (
+                            <button onClick={clearCheckedShopping} className="text-xs flex items-center gap-1 font-bold text-red-500 hover:text-red-600 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded transition-colors">
+                                <Icon path={Icons.Trash2} size={12}/> Wis afgevinkt
+                            </button>
+                        )}
+                    </div>
 
-                            return (
-                                <div key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border ${item.checked ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800' : 'border-gray-200 dark:border-gray-600'}`}>
-                                    <div className="flex items-center gap-3 cursor-pointer overflow-hidden flex-grow" onClick={() => toggleShoppingItem(item)}>
-                                        <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${item.checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-500'}`}>
-                                            {item.checked && <Icon path={Icons.Check} size={14} className="text-white"/>}
+                    <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                        {shoppingList.length === 0 && <p className="text-center text-gray-400 py-8">Je boodschappenlijst is leeg.</p>}
+                        
+                        {Object.entries(groupedShoppingList)
+                            .sort(([winkelA], [winkelB]) => {
+                                // "Geen winkel gekozen" onderaan
+                                if (winkelA === 'Geen winkel gekozen') return 1;
+                                if (winkelB === 'Geen winkel gekozen') return -1;
+                                return winkelA.localeCompare(winkelB);
+                            })
+                            .map(([winkel, lijstItems]) => {
+                                const winkelObj = WINKELS.find(w => w.name === winkel);
+                                const winkelColor = winkelObj ? winkelObj.color : 'gray';
+
+                                return (
+                                    <div key={winkel} className="mb-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className={`w-2 h-2 rounded-full bg-${winkelColor}-500`}></span>
+                                            <h5 className="font-bold text-xs uppercase text-gray-500 dark:text-gray-400 tracking-wider">{winkel}</h5>
                                         </div>
-                                        <div className="flex flex-col min-w-0">
-                                            <span className={`font-medium truncate ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
-                                                {item.aantal > 0 && <span className="font-bold text-blue-600 mr-1">{formatAantal(item.aantal)} {item.eenheid}</span>}
-                                                {item.naam}
-                                            </span>
-                                            {item.winkel && (
-                                                <div className="flex mt-0.5">
-                                                    <Badge type={winkelColor} text={item.winkel} />
+                                        <div className="space-y-2">
+                                            {lijstItems.sort((a,b) => a.checked - b.checked).map(item => (
+                                                <div key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border ${item.checked ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800' : 'border-gray-200 dark:border-gray-600'}`}>
+                                                    <div className="flex items-center gap-3 cursor-pointer overflow-hidden flex-grow" onClick={() => toggleShoppingItem(item)}>
+                                                        <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${item.checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-500'}`}>
+                                                            {item.checked && <Icon path={Icons.Check} size={14} className="text-white"/>}
+                                                        </div>
+                                                        <div className="flex flex-col min-w-0">
+                                                            <span className={`font-medium truncate ${item.checked ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
+                                                                {item.aantal > 0 && <span className="font-bold text-blue-600 mr-1">{formatAantal(item.aantal)} {item.eenheid}</span>}
+                                                                {item.naam}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2 flex-shrink-0 ml-2">
+                                                        <button onClick={() => moveShoppingToStock(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg" title="Naar voorraad"><Icon path={Icons.Box} size={18}/></button>
+                                                        <button onClick={() => deleteShoppingItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg" title="Verwijderen"><Icon path={Icons.Trash2} size={18}/></button>
+                                                    </div>
                                                 </div>
-                                            )}
+                                            ))}
                                         </div>
                                     </div>
-                                    <div className="flex gap-2 flex-shrink-0 ml-2">
-                                        <button onClick={() => moveShoppingToStock(item)} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg" title="Naar voorraad"><Icon path={Icons.Box} size={18}/></button>
-                                        <button onClick={() => deleteShoppingItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"><Icon path={Icons.Trash2} size={18}/></button>
-                                    </div>
-                                </div>
-                            );
+                                );
                         })}
                     </div>
                 </div>
