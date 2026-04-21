@@ -19,10 +19,19 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.11.0'; 
+const APP_VERSION = '8.12.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.12.0', 
+        type: 'update', 
+        changes: [
+            'Update: Categorie-filters passen zich nu slim aan per tabblad (Koelkast, Vriezer, Voorraad) in plaats van alles door elkaar te tonen.',
+            'Update: De zoekbalk, filter-knop en "Ideetje"-knop staan nu strak en compact naast elkaar (super strak op mobiel!).',
+            'Nieuw: Filter & Sorteer zijn samengevoegd in een overzichtelijk pop-up menu.'
+        ] 
+    },
     { 
         version: '8.11.0', 
         type: 'feature', 
@@ -54,8 +63,7 @@ const VERSION_HISTORY = [
         type: 'feature', 
         changes: [
             'Nieuw: Snelle "-1" knop toegevoegd bij producten waarvan je er meer dan 1 hebt.',
-            'Nieuw: Slimme Sorteeropties ("THT / Oudste eerst" of "Nieuwste eerst").',
-            'Nieuw: Snelle Categorie-filters onder de zoekbalk.'
+            'Nieuw: Slimme Sorteeropties ("THT / Oudste eerst" of "Nieuwste eerst").'
         ] 
     }
 ];
@@ -415,6 +423,7 @@ function App() {
     
     // Modals & Menu
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showFilterModal, setShowFilterModal] = useState(false);
     const [showWhatsNew, setShowWhatsNew] = useState(false);
     const [showVersionHistory, setShowVersionHistory] = useState(false);
     const [showSwitchAccount, setShowSwitchAccount] = useState(false);
@@ -468,16 +477,6 @@ function App() {
     
     const [eenheidFilter, setEenheidFilter] = useState('vries'); 
     const [modalType, setModalType] = useState('vriezer');
-
-    const [editingLadeId, setEditingLadeId] = useState(null);
-    const [editingLadeName, setEditingLadeName] = useState('');
-    const [editingUnitName, setEditingUnitName] = useState(null); 
-    const [editUnitInput, setEditUnitInput] = useState('');
-    const [newCatName, setNewCatName] = useState('');
-    const [newCatColor, setNewCatColor] = useState('gray');
-    const [editingCatName, setEditingCatName] = useState(null);
-    const [editCatInputName, setEditCatInputName] = useState('');
-    const [editCatInputColor, setEditCatInputColor] = useState('gray');
 
     const hasCheckedAlerts = useRef(false);
 
@@ -712,6 +711,16 @@ function App() {
             const inHuidig = contextCategorieen.some(c => c.name === cc.name);
             return !inHuidig;
         })
+    ];
+
+    // Categorieën voor het Hoofdscherm (Afhankelijk van actieve tab!)
+    let tabCategorieen = CATEGORIEEN_VRIES;
+    if (activeTab === 'voorraad') tabCategorieen = CATEGORIEEN_VOORRAAD;
+    else if (activeTab === 'frig') tabCategorieen = CATEGORIEEN_FRIG;
+
+    const mainViewCategories = [
+        ...tabCategorieen, 
+        ...customCategories.filter(cc => !tabCategorieen.some(c => c.name === cc.name))
     ];
 
     const gridClass = (() => {
@@ -1522,56 +1531,28 @@ function App() {
                         {filteredLocaties.map(l => <div key={l.id} className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm">{items.filter(i=>i.vriezerId===l.id).length} {l.naam}</div>)}
                     </div>
                     
-                    <div className="flex flex-col gap-3">
-                        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-                            <div className="relative group flex-grow w-full">
+                    <div className="flex flex-col sm:flex-row gap-3 items-stretch">
+                        <div className="flex gap-2 flex-grow">
+                            <div className="relative group flex-grow">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Icon path={Icons.Search} className="text-gray-400"/></div>
                                 <input type="text" className="block w-full pl-10 pr-3 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400" placeholder="Zoek..." value={search} onChange={e=>setSearch(e.target.value)}/>
                             </div>
                             
-                            <div className="flex gap-2 w-full sm:w-auto">
-                                <button onClick={() => setShowSuggestionModal(true)} className="flex-none sm:flex-none w-10 h-10 sm:w-auto sm:h-auto bg-yellow-100 text-yellow-600 sm:p-3 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
-                                    <Icon path={Icons.Utensils}/>
-                                </button>
-                                
-                                <button onClick={toggleAll} className="flex-grow sm:flex-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap text-center">
-                                    {collapsedLades.size > 0 ? "Alles open" : "Alles dicht"}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Quick Filters & Sort Bar */}
-                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide items-center text-sm print:hidden">
-                            <div className="flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full px-3 py-1.5 flex-shrink-0 shadow-sm">
-                                <Icon path={Icons.Filter} size={14} className="text-gray-400" />
-                                <select value={sortBy} onChange={e=>setSortBy(e.target.value)} className="bg-transparent border-none outline-none text-gray-700 dark:text-gray-200 text-xs font-bold cursor-pointer appearance-none pl-1 pr-2">
-                                    <option value="name">A-Z</option>
-                                    <option value="expiry">THT / Oudste eerst</option>
-                                    <option value="newest">Nieuwste eerst</option>
-                                </select>
-                            </div>
-                            
-                            <div className="h-5 w-px bg-gray-300 dark:bg-gray-700 mx-1 flex-shrink-0"></div>
-                            
-                            <button 
-                                onClick={() => setActiveCategoryFilter(null)} 
-                                className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors flex-shrink-0 shadow-sm ${!activeCategoryFilter ? 'bg-blue-600 text-white font-bold border-transparent' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                            >
-                                Alles
+                            <button onClick={() => setShowFilterModal(true)} className={`flex-none w-12 sm:w-auto sm:px-4 rounded-xl border transition-colors flex items-center justify-center gap-2 relative ${activeCategoryFilter || sortBy !== 'name' ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`} title="Filter & Sorteer">
+                                <Icon path={Icons.Filter} size={20} />
+                                <span className="hidden sm:inline font-medium">Filter</span>
+                                {(activeCategoryFilter || sortBy !== 'name') && <span className="absolute top-0 right-0 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-gray-800 sm:hidden translate-x-1 -translate-y-1"></span>}
                             </button>
-                            {actieveCategorieen.map(c => {
-                                const isSelected = activeCategoryFilter === (c.name || c);
-                                return (
-                                    <button 
-                                        key={c.name || c}
-                                        onClick={() => setActiveCategoryFilter(c.name || c)} 
-                                        className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-colors flex-shrink-0 shadow-sm ${isSelected ? 'bg-blue-600 text-white font-bold border-transparent' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                                    >
-                                        {c.name || c}
-                                    </button>
-                                );
-                            })}
+
+                            <button onClick={() => setShowSuggestionModal(true)} className="flex-none w-12 sm:w-auto sm:px-4 bg-yellow-100 text-yellow-600 rounded-xl border border-yellow-200 hover:bg-yellow-200 transition-colors flex items-center justify-center gap-2" title="Wat eten we vandaag?">
+                                <Icon path={Icons.Utensils}/>
+                                <span className="hidden sm:inline font-medium pr-1">Idee</span>
+                            </button>
                         </div>
+                        
+                        <button onClick={toggleAll} className="flex-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap text-center">
+                            {collapsedLades.size > 0 ? "Alles open" : "Alles dicht"}
+                        </button>
                     </div>
                 </div>
 
@@ -1725,6 +1706,58 @@ function App() {
                     </div>
                 )}
             </main>
+
+            {/* Filter Modal */}
+            <Modal isOpen={showFilterModal} onClose={() => setShowFilterModal(false)} title="Filter & Sorteer." color="blue">
+                <div className="space-y-6">
+                    <div>
+                        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3">Sorteer op</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            {[
+                                { id: 'name', label: 'A-Z' },
+                                { id: 'expiry', label: 'THT / Oudste eerst' },
+                                { id: 'newest', label: 'Nieuwste eerst' }
+                            ].map(opt => (
+                                <button key={opt.id} onClick={() => setSortBy(opt.id)} className={`p-3 rounded-xl border text-sm font-medium transition-colors ${sortBy === opt.id ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:border-blue-400 dark:text-blue-300' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'}`}>
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3">Categorie <span className="capitalize">({activeTab})</span></h4>
+                        <div className="flex flex-wrap gap-2">
+                            <button 
+                                onClick={() => setActiveCategoryFilter(null)} 
+                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors border shadow-sm ${!activeCategoryFilter ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'}`}
+                            >
+                                Alles
+                            </button>
+                            {mainViewCategories.map(c => {
+                                const isSelected = activeCategoryFilter === (c.name || c);
+                                const catColor = c.color || 'gray';
+                                return (
+                                    <button 
+                                        key={c.name || c}
+                                        onClick={() => setActiveCategoryFilter(c.name || c)} 
+                                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors border shadow-sm flex items-center gap-2 ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'}`}
+                                    >
+                                        {!isSelected && <span className={`w-2 h-2 rounded-full bg-${catColor}-500`}></span>}
+                                        {c.name || c}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                        <button onClick={() => setShowFilterModal(false)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold w-full transition-colors shadow-md">
+                            Toepassen
+                        </button>
+                    </div>
+                </div>
+            </Modal>
 
             <footer className="bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 py-6 print:hidden transition-colors duration-300">
                 <div className="max-w-7xl mx-auto px-4 text-center">
