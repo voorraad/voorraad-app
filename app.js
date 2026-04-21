@@ -186,6 +186,7 @@ const Icons = {
     LogBook: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></g>,
     Lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></g>,
     Fridge: <path d="M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 6h14m-7-6v20"/>,
+    Star: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>,
     Zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>, 
     Wrench: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>,
     ShoppingCart: <g><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></g>,
@@ -405,7 +406,7 @@ function App() {
     const [savedOpenLades, setSavedOpenLades] = useState(null);
     const [stats, setStats] = useState({ wasted: 0, consumed: 0, wastedValue: 0, consumedValue: 0 });
     
-    // Data Loading States (Fix voor alerts bug)
+    // Data Loading States
     const [isDataLoaded, setIsDataLoaded] = useState(false);
 
     // Data
@@ -498,6 +499,17 @@ function App() {
     
     const [eenheidFilter, setEenheidFilter] = useState('vries'); 
     const [modalType, setModalType] = useState('vriezer');
+
+    // Missing editing states voor Lades, Units en Categorieën (Fix)
+    const [editingLadeId, setEditingLadeId] = useState(null);
+    const [editingLadeName, setEditingLadeName] = useState('');
+    const [editingUnitName, setEditingUnitName] = useState(null);
+    const [editUnitInput, setEditUnitInput] = useState('');
+    const [newCatName, setNewCatName] = useState('');
+    const [newCatColor, setNewCatColor] = useState('gray');
+    const [editingCatName, setEditingCatName] = useState(null);
+    const [editCatInputName, setEditCatInputName] = useState('');
+    const [editCatInputColor, setEditCatInputColor] = useState('gray');
 
     const hasCheckedAlerts = useRef(false);
 
@@ -2890,6 +2902,134 @@ function App() {
                             })}
                         </div>
                     )}
+                </div>
+            </Modal>
+
+            {/* Meldingen Modal (Fix) */}
+            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red">
+                {alerts.length > 0 && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 dark:bg-red-900/20">
+                        <h4 className="font-bold text-red-800 dark:text-red-300">Let op!</h4>
+                        <ul>
+                            {alerts.map(i => {
+                                const loc = vriezers.find(v => v.id === i.vriezerId);
+                                const type = loc ? (loc.type || 'vriezer') : 'vriezer';
+                                const isStock = type === 'voorraad' || type === 'frig';
+                                
+                                return (
+                                    <li key={i.id} className="text-red-700 dark:text-red-300">
+                                        {i.naam} 
+                                        <span className="text-xs ml-1 font-semibold opacity-75">
+                                            {isStock 
+                                                ? `(Verlopen: ${formatDate(i.houdbaarheidsDatum)})` 
+                                                : `(${getDagenOud(i.ingevrorenOp)} dagen oud)`
+                                            }
+                                        </span>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                )}
+                <div className="space-y-4">
+                    {currentVersionData && (
+                        <div>
+                            <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-4 text-lg">Versie {APP_VERSION}</h4>
+                            <ul className="space-y-3">
+                                {currentVersionData.changes.map((change, idx) => {
+                                    const parts = change.split(': ');
+                                    const type = parts[0];
+                                    const text = parts.slice(1).join(': ');
+                                    
+                                    let IconComp = Icons.Zap;
+                                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
+
+                                    if (type.includes('Feature') || type.includes('Nieuw')) {
+                                        IconComp = Icons.Star;
+                                        iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
+                                    } else if (type.includes('Fix') || type.includes('Opgelost') || type.includes('Hersteld')) {
+                                        IconComp = Icons.Wrench;
+                                        iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
+                                    } else if (type.includes('Update')) {
+                                         IconComp = Icons.Zap;
+                                         iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
+                                    }
+
+                                    return (
+                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start">
+                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
+                                                <Icon path={IconComp} size={14} />
+                                            </div>
+                                             <div className="pt-1.5">
+                                                <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span>
+                                                <span className="leading-relaxed">{text || change}</span>
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+            </Modal>
+
+            {/* Versiegeschiedenis Modal (Fix) */}
+            <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Nieuws." color="blue">
+                <div className="mb-8 text-center px-4">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
+                        Ontdek alle updates en verbeteringen aan <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Voorraad.</span>
+                    </h3>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-full border border-blue-100 dark:border-blue-800">
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-300">Huidige versie {APP_VERSION}</span>
+                    </div>
+                </div>
+
+                <div className="space-y-8 relative pl-2">
+                    <div className="absolute left-[19px] top-2 bottom-4 w-0.5 bg-gray-100 dark:bg-gray-700"></div>
+
+                    {VERSION_HISTORY.map((v, i) => (
+                        <div key={v.version} className="relative pl-10">
+                            <div className={`absolute left-[13px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-800 z-10 ${i === 0 ? 'bg-blue-500 shadow-md shadow-blue-200' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
+
+                            <div className="mb-3">
+                                <span className={`text-lg font-bold ${i === 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>v{v.version}</span>
+                            </div>
+                            
+                            <ul className="space-y-3">
+                                {v.changes.map((change, idx) => {
+                                    const parts = change.split(': ');
+                                    const type = parts[0];
+                                    const text = parts.slice(1).join(': ');
+                                    
+                                    let IconComp = Icons.Zap;
+                                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
+
+                                    if (type.includes('Feature') || type.includes('Nieuw')) {
+                                        IconComp = Icons.Star;
+                                        iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
+                                    } else if (type.includes('Fix') || type.includes('Opgelost') || type.includes('Hersteld')) {
+                                        IconComp = Icons.Wrench;
+                                        iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
+                                    } else if (type.includes('Update')) {
+                                         IconComp = Icons.Zap;
+                                         iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
+                                    }
+
+                                    return (
+                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start">
+                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
+                                                <Icon path={IconComp} size={14} />
+                                            </div>
+                                            <div className="pt-1.5">
+                                                <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span>
+                                                <span className="leading-relaxed">{text || change}</span>
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
+                    ))}
                 </div>
             </Modal>
 
