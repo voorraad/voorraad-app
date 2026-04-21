@@ -19,10 +19,20 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.15.0'; 
+const APP_VERSION = '8.16.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.16.0', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: Prijs & Waarde! Voeg de prijs toe aan producten en zie in je statistieken exact de waarde van je voorraad én je besparingen/verspillingen in Euro.',
+            'Nieuw: WhatsApp Delen. Stuur je boodschappenlijstje met één klik mooi opgemaakt door via WhatsApp.',
+            'Nieuw: Receptenzoeker. Selecteer ingrediënten via "Selecteer" en zoek direct naar recepten op Google!',
+            'Fix: Probleem opgelost waarbij startmeldingen niet altijd correct lieten zien welke producten over de datum zijn.'
+        ] 
+    },
     { 
         version: '8.15.0', 
         type: 'update', 
@@ -182,7 +192,9 @@ const Icons = {
     PieChart: <g><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></g>,
     UtensilsCrossed: <g><path d="m3 2 14.5 14.5"/><path d="m3 16.5 14.5-14.5"/><path d="M12.5 11.5 21 20"/><path d="M20 21 11.5 12.5"/><path d="m20 3-8.5 8.5"/><path d="M3 20 11.5 11.5"/></g>,
     Utensils: <g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></g>,
-    CheckSquare: <g><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></g>
+    CheckSquare: <g><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></g>,
+    MessageCircle: <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>,
+    Banknote: <g><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></g>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -391,8 +403,11 @@ function App() {
     const [myHiddenTabs, setMyHiddenTabs] = useState([]);
     const [darkMode, setDarkMode] = useState(false);
     const [savedOpenLades, setSavedOpenLades] = useState(null);
-    const [stats, setStats] = useState({ wasted: 0, consumed: 0 });
+    const [stats, setStats] = useState({ wasted: 0, consumed: 0, wastedValue: 0, consumedValue: 0 });
     
+    // Data Loading States (Fix voor alerts bug)
+    const [isDataLoaded, setIsDataLoaded] = useState(false);
+
     // Data
     const [activeTab, setActiveTab] = useState('vriezer');
     const [items, setItems] = useState([]);
@@ -412,7 +427,6 @@ function App() {
     const [activeCategoryFilter, setActiveCategoryFilter] = useState(null);
     const [collapsedLades, setCollapsedLades] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
-    const [isDataLoaded, setIsDataLoaded] = useState(false);
     const [notification, setNotification] = useState(null);
     const [draggedLocId, setDraggedLocId] = useState(null); 
     
@@ -460,6 +474,7 @@ function App() {
         ladeId: '', 
         categorie: 'Vlees', 
         minimumVoorraad: '',
+        prijs: '',
         ingevrorenOp: new Date().toISOString().split('T')[0], 
         houdbaarheidsDatum: '', 
         notitie: '',
@@ -536,7 +551,12 @@ function App() {
                             setSavedOpenLades([]);
                         }
                         if (data.stats) {
-                            setStats(data.stats);
+                            setStats({
+                                wasted: data.stats.wasted || 0,
+                                consumed: data.stats.consumed || 0,
+                                wastedValue: data.stats.wastedValue || 0,
+                                consumedValue: data.stats.consumedValue || 0
+                            });
                         }
                     } else {
                         db.collection('users').doc(u.uid).set({
@@ -547,7 +567,7 @@ function App() {
                             hiddenTabs: [],
                             darkMode: false,
                             openLades: [],
-                            stats: { wasted: 0, consumed: 0 }
+                            stats: { wasted: 0, consumed: 0, wastedValue: 0, consumedValue: 0 }
                         });
                         setSavedOpenLades([]);
                         setMyHiddenTabs([]);
@@ -587,7 +607,12 @@ function App() {
 
                 setCustomCategories(data.customCategories && data.customCategories.length > 0 ? data.customCategories : CATEGORIEEN_VRIES);
                 if (data.stats) {
-                    setStats(data.stats);
+                    setStats({
+                        wasted: data.stats.wasted || 0,
+                        consumed: data.stats.consumed || 0,
+                        wastedValue: data.stats.wastedValue || 0,
+                        consumedValue: data.stats.consumedValue || 0
+                    });
                 }
             }
         });
@@ -597,24 +622,29 @@ function App() {
     // Data Listeners
     useEffect(() => {
         if (!beheerdeUserId) return;
+        
         const unsubV = db.collection('vriezers').where('userId', '==', beheerdeUserId).onSnapshot(s => setVriezers(s.docs.map(d => ({id: d.id, ...d.data(), type: d.data().type||'vriezer'}))));
+        
         const unsubL = db.collection('lades').where('userId', '==', beheerdeUserId).onSnapshot(s => {
             const loadedLades = s.docs.map(d => ({id: d.id, ...d.data()}));
             setLades(loadedLades);
             
-            if (!isDataLoaded && loadedLades.length > 0 && savedOpenLades !== null) {
-                const initialCollapsed = new Set(loadedLades.map(l => l.id));
-                if (savedOpenLades && savedOpenLades.length > 0) {
-                    savedOpenLades.forEach(id => {
-                        if (initialCollapsed.has(id)) {
-                            initialCollapsed.delete(id);
-                        }
-                    });
+            if (!isDataLoaded && savedOpenLades !== null) {
+                if (loadedLades.length > 0) {
+                    const initialCollapsed = new Set(loadedLades.map(l => l.id));
+                    if (savedOpenLades && savedOpenLades.length > 0) {
+                        savedOpenLades.forEach(id => {
+                            if (initialCollapsed.has(id)) {
+                                initialCollapsed.delete(id);
+                            }
+                        });
+                    }
+                    setCollapsedLades(initialCollapsed);
                 }
-                setCollapsedLades(initialCollapsed);
                 setIsDataLoaded(true);
             }
         });
+        
         const unsubI = db.collection('items').where('userId', '==', beheerdeUserId).onSnapshot(s => setItems(s.docs.map(d => ({id: d.id, ...d.data()}))));
         const unsubS = db.collection('shoppingList').where('userId', '==', beheerdeUserId).onSnapshot(s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()})))); 
 
@@ -753,6 +783,7 @@ function App() {
     });
 
     useEffect(() => {
+        // Zodra data klaar is met inladen in Firebase
         if (isDataLoaded && !hasCheckedAlerts.current) {
             const lastVersion = localStorage.getItem('app_version');
             if (lastVersion !== APP_VERSION || alerts.length > 0) {
@@ -779,7 +810,7 @@ function App() {
         setShowProfileMenu(false);
         if (items.length === 0) return alert("Geen producten om te exporteren.");
 
-        const headers = ['Naam', 'Aantal', 'Eenheid', 'Categorie', 'Locatie', 'Lade', 'Ingevoerd op', 'Houdbaarheidsdatum (THT)', 'Type', 'Min. Voorraad', 'Notitie'];
+        const headers = ['Naam', 'Aantal', 'Eenheid', 'Categorie', 'Locatie', 'Lade', 'Ingevoerd op', 'Houdbaarheidsdatum (THT)', 'Type', 'Min. Voorraad', 'Prijs', 'Notitie'];
         
         const rows = items.map(item => {
             const loc = vriezers.find(v => v.id === item.vriezerId);
@@ -801,6 +832,7 @@ function App() {
                 item.houdbaarheidsDatum ? formatDate(item.houdbaarheidsDatum) : '',
                 escapeCSV(type),
                 item.minimumVoorraad || '',
+                item.prijs || '',
                 escapeCSV(item.notitie || '')
             ].join(',');
         });
@@ -872,13 +904,13 @@ function App() {
         if (!rememberLocation) {
             setFormData({
                 naam: '', aantal: 1, eenheid: 'stuks', vriezerId: defaultLoc, ladeId: '', 
-                categorie: defaultCat, minimumVoorraad: '', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: ''
+                categorie: defaultCat, minimumVoorraad: '', prijs: '', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: ''
             });
         } else {
              setFormData(prev => ({
                 ...prev,
                 vriezerId: defaultLoc,
-                naam: '', aantal: 1, minimumVoorraad: '', categorie: defaultCat, 
+                naam: '', aantal: 1, minimumVoorraad: '', prijs: '', categorie: defaultCat, 
                 ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: ''
             }));
         }
@@ -909,10 +941,14 @@ function App() {
         let safeMinVoorraad = parseFloat(formData.minimumVoorraad);
         if (isNaN(safeMinVoorraad) || safeMinVoorraad < 0) safeMinVoorraad = null;
 
+        let safePrijs = parseFloat(formData.prijs);
+        if (isNaN(safePrijs) || safePrijs < 0) safePrijs = null;
+
         const data = {
             ...formData,
             aantal: safeAantal,
             minimumVoorraad: safeMinVoorraad,
+            prijs: safePrijs,
             ladeNaam: lade ? lade.naam : '',
             notitie: formData.notitie || '',
             ingevrorenOp: new Date(formData.ingevrorenOp),
@@ -934,13 +970,13 @@ function App() {
                 if (rememberLocation) {
                     setFormData(prev => ({
                         ...prev, 
-                        naam: '', aantal: 1, minimumVoorraad: '', notitie: '', emoji: '', 
+                        naam: '', aantal: 1, minimumVoorraad: '', prijs: '', notitie: '', emoji: '', 
                         ingevrorenOp: new Date().toISOString().split('T')[0],
                         houdbaarheidsDatum: ''
                     }));
                 } else {
                     const defaultCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
-                    setFormData(prev => ({...prev, naam: '', aantal: 1, minimumVoorraad: '', notitie: '', emoji: '', categorie: defaultCat})); 
+                    setFormData(prev => ({...prev, naam: '', aantal: 1, minimumVoorraad: '', prijs: '', notitie: '', emoji: '', categorie: defaultCat})); 
                 }
                 setShowAddModal(false);
             }
@@ -975,8 +1011,16 @@ function App() {
             
             if(newAantal > 0) {
                 try {
-                    await db.collection('items').doc(item.id).update({ aantal: newAantal });
-                    await db.collection('users').doc(beheerdeUserId).update({ 'stats.consumed': firebase.firestore.FieldValue.increment(1) });
+                    const fraction = step / currentAantal;
+                    const consumedValue = (item.prijs || 0) * fraction;
+                    const newPrijs = (item.prijs || 0) - consumedValue;
+
+                    await db.collection('items').doc(item.id).update({ aantal: newAantal, prijs: newPrijs });
+                    await db.collection('users').doc(beheerdeUserId).update({ 
+                        'stats.consumed': firebase.firestore.FieldValue.increment(1),
+                        'stats.consumedValue': firebase.firestore.FieldValue.increment(consumedValue)
+                    });
+                    
                     await logAction('Geconsumeerd', item.naam, `- ${step} ${item.eenheid}`, user, beheerdeUserId);
                     showNotification(`1 ${item.eenheid} van ${item.naam} opgegeten!`, 'success');
                     
@@ -1014,15 +1058,14 @@ function App() {
             if (amount >= currentAantal) {
                 // Product is volledig op!
                 await db.collection('items').doc(itemToConsume.id).delete();
-                await db.collection('users').doc(beheerdeUserId).update({ 'stats.consumed': firebase.firestore.FieldValue.increment(1) });
+                await db.collection('users').doc(beheerdeUserId).update({ 
+                    'stats.consumed': firebase.firestore.FieldValue.increment(1),
+                    'stats.consumedValue': firebase.firestore.FieldValue.increment(itemToConsume.prijs || 0)
+                });
                 await logAction('Verwijderd', itemToConsume.naam, 'Volledig opgegeten', user, beheerdeUserId);
                 showNotification(`${itemToConsume.naam} is volledig op!`, 'success');
 
-                // Controleren of er een minimum is. Zo ja, stilletjes toevoegen ipv pop-up (of juist wel pop-up?).
-                // De pop-up is wel zo handig zodat men aantal/winkel kan aanpassen.
                 setItemToShopify(itemToConsume);
-                
-                // Als er een minimum was ingegeven, stel dat aantal dan voor
                 let suggestAmount = 1;
                 if (itemToConsume.minimumVoorraad && itemToConsume.minimumVoorraad > 0) {
                     suggestAmount = itemToConsume.minimumVoorraad;
@@ -1033,10 +1076,17 @@ function App() {
                 setShowShopifyModal(true);
                 setItemToConsume(null);
             } else {
-                // Er blijft nog wat over, dus updaten
+                // Er blijft nog wat over, dus updaten en waarde berekenen
                 const newAantal = currentAantal - amount;
-                await db.collection('items').doc(itemToConsume.id).update({ aantal: newAantal });
-                await db.collection('users').doc(beheerdeUserId).update({ 'stats.consumed': firebase.firestore.FieldValue.increment(1) });
+                const fraction = amount / currentAantal;
+                const consumedValue = (itemToConsume.prijs || 0) * fraction;
+                const newPrijs = (itemToConsume.prijs || 0) - consumedValue;
+
+                await db.collection('items').doc(itemToConsume.id).update({ aantal: newAantal, prijs: newPrijs });
+                await db.collection('users').doc(beheerdeUserId).update({ 
+                    'stats.consumed': firebase.firestore.FieldValue.increment(1),
+                    'stats.consumedValue': firebase.firestore.FieldValue.increment(consumedValue)
+                });
                 await logAction('Geconsumeerd', itemToConsume.naam, `- ${amount} ${itemToConsume.eenheid}`, user, beheerdeUserId);
                 showNotification(`${amount} ${itemToConsume.eenheid} van ${itemToConsume.naam} weggenomen!`, 'success');
                 
@@ -1063,6 +1113,7 @@ function App() {
             ladeId: item.ladeId,
             categorie: item.categorie,
             minimumVoorraad: item.minimumVoorraad || '',
+            prijs: item.prijs || '',
             notitie: item.notitie || '',
             ingevrorenOp: toInputDate(item.ingevrorenOp),
             houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum),
@@ -1085,10 +1136,16 @@ function App() {
             let logDetail = 'Item verwijderd';
             if (reason === 'consumed') {
                 logDetail = 'Opgegeten';
-                await db.collection('users').doc(beheerdeUserId).update({ 'stats.consumed': firebase.firestore.FieldValue.increment(1) });
+                await db.collection('users').doc(beheerdeUserId).update({ 
+                    'stats.consumed': firebase.firestore.FieldValue.increment(1),
+                    'stats.consumedValue': firebase.firestore.FieldValue.increment(itemToDelete.prijs || 0)
+                });
             } else if (reason === 'wasted') {
                 logDetail = 'Weggegooid (Verspild)';
-                await db.collection('users').doc(beheerdeUserId).update({ 'stats.wasted': firebase.firestore.FieldValue.increment(1) });
+                await db.collection('users').doc(beheerdeUserId).update({ 
+                    'stats.wasted': firebase.firestore.FieldValue.increment(1),
+                    'stats.wastedValue': firebase.firestore.FieldValue.increment(itemToDelete.prijs || 0)
+                });
             }
 
             await logAction('Verwijderd', itemToDelete.naam, logDetail, user, beheerdeUserId);
@@ -1176,6 +1233,34 @@ function App() {
         }
     };
     
+    const handleShareWhatsApp = () => {
+        if (shoppingList.length === 0) return;
+        
+        let text = "🛒 *Mijn Boodschappenlijstje*\n\n";
+        
+        const grouped = shoppingList.reduce((acc, item) => {
+            const winkelKey = item.winkel || 'Boodschappen';
+            if(!acc[winkelKey]) acc[winkelKey] = [];
+            acc[winkelKey].push(item);
+            return acc;
+        }, {});
+
+        Object.entries(grouped).forEach(([winkel, lijstItems]) => {
+            const unchecked = lijstItems.filter(i => !i.checked);
+            if (unchecked.length === 0) return;
+            
+            if (winkel !== 'Boodschappen') text += `*${winkel}*\n`;
+            else text += `*Overig*\n`;
+            
+            unchecked.forEach(i => {
+                text += `- ${formatAantal(i.aantal)} ${i.eenheid} ${i.naam}\n`;
+            });
+            text += "\n";
+        });
+        
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    };
+
     const moveShoppingToStock = async (item) => {
         setEditingItem(null);
         setModalType('voorraad'); 
@@ -1189,7 +1274,7 @@ function App() {
         setFormData({
             naam: item.naam, aantal: safeAantal, eenheid: item.eenheid, 
             vriezerId: defaultLoc, ladeId: '', categorie: 'Overig', 
-            minimumVoorraad: '', notitie: '',
+            minimumVoorraad: '', prijs: '', notitie: '',
             ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
         });
         
@@ -1250,6 +1335,7 @@ function App() {
             ladeId: item.ladeId, 
             categorie: item.categorie,
             minimumVoorraad: item.minimumVoorraad || '',
+            prijs: item.prijs || '',
             notitie: item.notitie || '',
             ingevrorenOp: toInputDate(item.ingevrorenOp), 
             houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), 
@@ -1315,6 +1401,23 @@ function App() {
         } catch(e) {
             showNotification("Fout bij bulk verplaatsen.", "error");
         }
+    };
+
+    const handleFindRecipe = () => {
+        if(selectedBulkItems.size === 0) return;
+        
+        const names = Array.from(selectedBulkItems).map(id => {
+            const item = items.find(i => i.id === id);
+            return item ? item.naam : '';
+        }).filter(Boolean);
+        
+        if (names.length === 0) return;
+        
+        const query = "Recept met " + names.join(' en ');
+        window.open('https://www.google.com/search?q=' + encodeURIComponent(query), '_blank');
+        
+        setIsBulkMode(false);
+        setSelectedBulkItems(new Set());
     };
 
     const handleAddLocatie = async (e) => {
@@ -1539,6 +1642,8 @@ function App() {
         }).length;
     }
 
+    const totalStockValue = items.reduce((acc, item) => acc + (parseFloat(item.prijs) || 0), 0);
+
     // --- RENDER ---
     if (!user) return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4 transition-colors duration-300">
@@ -1706,12 +1811,15 @@ function App() {
 
                 {/* Bulk Action Bar (Sticky) */}
                 {isBulkMode && (
-                    <div className="sticky top-2 z-20 bg-indigo-600 text-white p-3 rounded-xl shadow-lg flex items-center justify-between animate-in fade-in slide-in-from-top-4">
+                    <div className="sticky top-2 z-20 bg-indigo-600 text-white p-3 rounded-xl shadow-lg flex items-center justify-between flex-wrap gap-2 animate-in fade-in slide-in-from-top-4">
                         <div className="flex items-center gap-3">
                             <button onClick={() => { setIsBulkMode(false); setSelectedBulkItems(new Set()); }} className="p-2 hover:bg-indigo-500 rounded-lg transition" title="Annuleren"><Icon path={Icons.X}/></button>
                             <span className="font-bold">{selectedBulkItems.size} geselecteerd</span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
+                            <button onClick={handleFindRecipe} disabled={selectedBulkItems.size === 0} className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition ${selectedBulkItems.size > 0 ? 'bg-green-500 hover:bg-green-400 text-white border border-green-400' : 'bg-indigo-400 text-indigo-300 cursor-not-allowed'}`}>
+                                <Icon path={Icons.Utensils} size={16}/> <span className="hidden sm:inline">Zoek Recept</span>
+                            </button>
                             <button onClick={handleBulkDelete} disabled={selectedBulkItems.size === 0} className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition ${selectedBulkItems.size > 0 ? 'bg-red-500 hover:bg-red-400 text-white' : 'bg-indigo-400 text-indigo-300 cursor-not-allowed'}`}>
                                 <Icon path={Icons.Trash2} size={16}/> <span className="hidden sm:inline">Verwijderen</span>
                             </button>
@@ -1843,6 +1951,7 @@ function App() {
                                                                                     {!isStockItem && item.houdbaarheidsDatum && <span className="text-xs text-gray-500 dark:text-gray-400"> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
                                                                                     {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
                                                                                     {item.minimumVoorraad > 0 && <span className="text-[10px] text-orange-500 font-bold px-1.5 py-0.5 rounded bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800">Min: {item.minimumVoorraad}</span>}
+                                                                                    {item.prijs > 0 && <span className="text-[10px] text-green-600 font-bold px-1.5 py-0.5 rounded bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800">€{parseFloat(item.prijs).toFixed(2)}</span>}
                                                                                 </div>
                                                                                 {item.notitie && (
                                                                                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic leading-tight">
@@ -2126,15 +2235,28 @@ function App() {
                           </select>
                       </div>
 
-                      <div className="space-y-1 flex-shrink-0 w-full sm:w-28 mt-2 sm:mt-0">
-                          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Min. (Auto-Koop)</label>
+                      <div className="space-y-1 flex-shrink-0 w-[45%] sm:w-24 mt-2 sm:mt-0">
+                          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Min.</label>
                           <input 
                             type="number" 
-                            placeholder="Optioneel"
+                            placeholder="Minimaal"
                             min="0" 
                             className="w-full h-12 text-center border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" 
                             value={formData.minimumVoorraad} 
                             onChange={e => setFormData({...formData, minimumVoorraad: e.target.value})}
+                          />
+                      </div>
+
+                      <div className="space-y-1 flex-shrink-0 w-[45%] sm:w-28 mt-2 sm:mt-0">
+                          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Totale Prijs (€)</label>
+                          <input 
+                            type="number" 
+                            step="0.01"
+                            placeholder="Optioneel"
+                            min="0" 
+                            className="w-full h-12 text-center border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" 
+                            value={formData.prijs} 
+                            onChange={e => setFormData({...formData, prijs: e.target.value})}
                           />
                       </div>
                     </div>
@@ -2239,11 +2361,16 @@ function App() {
 
                     <div className="flex justify-between items-end mb-2">
                         <h4 className="font-bold text-sm text-gray-700 dark:text-gray-300">Jouw Lijstje</h4>
-                        {shoppingList.some(i => i.checked) && (
-                            <button onClick={clearCheckedShopping} className="text-xs flex items-center gap-1 font-bold text-red-500 hover:text-red-600 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded transition-colors">
-                                <Icon path={Icons.Trash2} size={12}/> Wis afgevinkt
+                        <div className="flex gap-2">
+                            <button onClick={handleShareWhatsApp} className="text-xs flex items-center gap-1 font-bold text-green-600 hover:text-green-700 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded transition-colors" title="Deel via WhatsApp">
+                                <Icon path={Icons.MessageCircle} size={14}/> WhatsApp
                             </button>
-                        )}
+                            {shoppingList.some(i => i.checked) && (
+                                <button onClick={clearCheckedShopping} className="text-xs flex items-center gap-1 font-bold text-red-500 hover:text-red-600 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded transition-colors">
+                                    <Icon path={Icons.Trash2} size={14}/> Wis afgevinkt
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
@@ -2374,14 +2501,21 @@ function App() {
 
             {/* Stats Modal */}
             <Modal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} title="Statistieken." color="purple">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-2xl text-center border border-blue-100 dark:border-blue-800 mb-4 shadow-sm">
+                    <span className="block text-4xl font-black text-blue-600 dark:text-blue-400 mb-1">€{totalStockValue.toFixed(2)}</span>
+                    <span className="text-xs uppercase font-bold tracking-wider text-blue-800 dark:text-blue-200">Totale Voorraadwaarde</span>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4 mb-6">
                     <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl text-center border border-green-100 dark:border-green-800">
                         <span className="block text-3xl font-bold text-green-600 dark:text-green-400">{stats.consumed}</span>
-                        <span className="text-xs uppercase tracking-wide text-green-800 dark:text-green-200">Producten gegeten</span>
+                        <span className="text-xs uppercase tracking-wide text-green-800 dark:text-green-200 block mb-1">Producten gegeten</span>
+                        {stats.consumedValue > 0 && <span className="text-sm font-semibold text-green-700 dark:text-green-300">Waarde: €{(stats.consumedValue || 0).toFixed(2)}</span>}
                     </div>
                     <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl text-center border border-red-100 dark:border-red-800">
                         <span className="block text-3xl font-bold text-red-600 dark:text-red-400">{stats.wasted}</span>
-                        <span className="text-xs uppercase tracking-wide text-red-800 dark:text-red-200">Weggegooid</span>
+                        <span className="text-xs uppercase tracking-wide text-red-800 dark:text-red-200 block mb-1">Weggegooid</span>
+                        {stats.wastedValue > 0 && <span className="text-sm font-semibold text-red-700 dark:text-red-300">Waarde: €{(stats.wastedValue || 0).toFixed(2)}</span>}
                     </div>
                 </div>
                 {stats.consumed + stats.wasted > 0 ? (
@@ -2756,140 +2890,6 @@ function App() {
                             })}
                         </div>
                     )}
-                </div>
-            </Modal>
-
-            <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Voorraad Delen" color="green">
-                <form onSubmit={handleShare} className="space-y-4">
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Nodig iemand uit om je voorraad te beheren.</p>
-                    <input type="email" className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Email adres" value={shareEmail} onChange={e => setShareEmail(e.target.value)} required />
-                    <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">Verstuur Uitnodiging</button>
-                </form>
-            </Modal>
-
-            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red">
-                {alerts.length > 0 && (
-                    <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 dark:bg-red-900/20">
-                        <h4 className="font-bold text-red-800 dark:text-red-300">Let op!</h4>
-                        <ul>
-                            {alerts.map(i => {
-                                const loc = vriezers.find(v => v.id === i.vriezerId);
-                                const type = loc ? (loc.type || 'vriezer') : 'vriezer';
-                                const isStock = type === 'voorraad' || type === 'frig';
-                                
-                                return (
-                                    <li key={i.id} className="text-red-700 dark:text-red-300">
-                                        {i.naam} 
-                                        <span className="text-xs ml-1 font-semibold opacity-75">
-                                            {isStock 
-                                                ? `(Verlopen: ${formatDate(i.houdbaarheidsDatum)})` 
-                                                : `(${getDagenOud(i.ingevrorenOp)} dagen oud)`
-                                            }
-                                        </span>
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    </div>
-                )}
-                <div className="space-y-4">
-                    {currentVersionData && (
-                        <div>
-                            <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-4 text-lg">Versie {APP_VERSION}</h4>
-                            <ul className="space-y-3">
-                                {currentVersionData.changes.map((change, idx) => {
-                                    const parts = change.split(': ');
-                                    const type = parts[0];
-                                    const text = parts.slice(1).join(': ');
-                                    
-                                    let IconComp = Icons.Zap;
-                                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
-
-                                    if (type.includes('Feature') || type.includes('Nieuw')) {
-                                        IconComp = Icons.Star;
-                                        iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
-                                    } else if (type.includes('Fix') || type.includes('Opgelost') || type.includes('Hersteld')) {
-                                        IconComp = Icons.Wrench;
-                                        iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
-                                    } else if (type.includes('Update') || type.includes('Verwijderd')) {
-                                         IconComp = Icons.Zap;
-                                         iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
-                                    }
-
-                                    return (
-                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start">
-                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
-                                                <Icon path={IconComp} size={14} />
-                                            </div>
-                                             <div className="pt-1.5">
-                                                <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span>
-                                                <span className="leading-relaxed">{text || change}</span>
-                                            </div>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        </div>
-                    )}
-                </div>
-            </Modal>
-
-            <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Nieuws." color="blue">
-                <div className="mb-8 text-center px-4">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
-                        Ontdek alle updates en verbeteringen aan <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Voorraad.</span>
-                    </h3>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 rounded-full border border-blue-100 dark:border-blue-800">
-                        <span className="text-xs font-medium text-blue-600 dark:text-blue-300">Huidige versie {APP_VERSION}</span>
-                    </div>
-                </div>
-
-                <div className="space-y-8 relative pl-2">
-                    <div className="absolute left-[19px] top-2 bottom-4 w-0.5 bg-gray-100 dark:bg-gray-700"></div>
-
-                    {VERSION_HISTORY.map((v, i) => (
-                        <div key={v.version} className="relative pl-10">
-                            <div className={`absolute left-[13px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-800 z-10 ${i === 0 ? 'bg-blue-500 shadow-md shadow-blue-200' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
-
-                            <div className="mb-3">
-                                <span className={`text-lg font-bold ${i === 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>v{v.version}</span>
-                            </div>
-                            
-                            <ul className="space-y-3">
-                                {v.changes.map((change, idx) => {
-                                    const parts = change.split(': ');
-                                    const type = parts[0];
-                                    const text = parts.slice(1).join(': ');
-                                    
-                                    let IconComp = Icons.Zap;
-                                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
-
-                                    if (type.includes('Feature') || type.includes('Nieuw')) {
-                                        IconComp = Icons.Star;
-                                        iconColor = "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300";
-                                    } else if (type.includes('Fix') || type.includes('Opgelost') || type.includes('Hersteld')) {
-                                        IconComp = Icons.Wrench;
-                                        iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
-                                    } else if (type.includes('Update') || type.includes('Verwijderd')) {
-                                         IconComp = Icons.Zap;
-                                         iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
-                                    }
-
-                                    return (
-                                        <li key={idx} className="flex gap-3 text-sm text-gray-600 dark:text-gray-300 items-start">
-                                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColor}`}>
-                                                <Icon path={IconComp} size={14} />
-                                            </div>
-                                            <div className="pt-1.5">
-                                                <span className="font-semibold block text-gray-800 dark:text-gray-200 text-xs uppercase tracking-wide mb-0.5 opacity-75">{type}</span>
-                                                <span className="leading-relaxed">{text || change}</span>
-                                            </div>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        </div>
-                    ))}
                 </div>
             </Modal>
 
