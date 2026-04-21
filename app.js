@@ -19,17 +19,23 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.14.0'; 
+const APP_VERSION = '8.15.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.15.0', 
+        type: 'update', 
+        changes: [
+            'Verwijderd: Barcode scanner functie is weggehaald om de app strak en overzichtelijk te houden.'
+        ] 
+    },
     { 
         version: '8.14.0', 
         type: 'feature', 
         changes: [
             'Nieuw: Minimale Voorraad (Auto-Koop). Stel een minimum in, en de app zet het product automatisch op je lijstje als het (bijna) op is!',
-            'Nieuw: Bulk Acties! Klik op "Selecteer" om meerdere producten tegelijk te verwijderen of te verplaatsen.',
-            'Nieuw: Barcode Zoeker toegevoegd in het toevoeg-scherm. Scan of typ een barcode om de productnaam automatisch op te halen via OpenFoodFacts.'
+            'Nieuw: Bulk Acties! Klik op "Selecteer" om meerdere producten tegelijk te verwijderen of te verplaatsen.'
         ] 
     },
     { 
@@ -176,8 +182,7 @@ const Icons = {
     PieChart: <g><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></g>,
     UtensilsCrossed: <g><path d="m3 2 14.5 14.5"/><path d="m3 16.5 14.5-14.5"/><path d="M12.5 11.5 21 20"/><path d="M20 21 11.5 12.5"/><path d="m20 3-8.5 8.5"/><path d="M3 20 11.5 11.5"/></g>,
     Utensils: <g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></g>,
-    CheckSquare: <g><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></g>,
-    BarcodeScan: <g><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M8 7v10M12 7v10M16 7v10"/></g>
+    CheckSquare: <g><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></g>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -434,8 +439,6 @@ function App() {
     const [showStatsModal, setShowStatsModal] = useState(false);
     const [showSuggestionModal, setShowSuggestionModal] = useState(false);
     const [showShoppingModal, setShowShoppingModal] = useState(false); 
-    const [showBarcodeModal, setShowBarcodeModal] = useState(false);
-    const [barcodeInput, setBarcodeInput] = useState('');
     const [beheerTab, setBeheerTab] = useState('locaties');
 
     // Shopping / Consume Flow States
@@ -1314,34 +1317,6 @@ function App() {
         }
     };
 
-    // Barcode Functie
-    const fetchBarcodeData = async (e) => {
-        e.preventDefault();
-        if (!barcodeInput.trim()) return;
-
-        try {
-            const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcodeInput.trim()}.json`);
-            const data = await response.json();
-
-            if (data.status === 1 && data.product) {
-                const productName = data.product.product_name_nl || data.product.product_name || '';
-                if (productName) {
-                    setFormData(prev => ({ ...prev, naam: productName, emoji: '📦' }));
-                    showNotification("Product gevonden en ingevuld!", "success");
-                    setShowBarcodeModal(false);
-                    setBarcodeInput('');
-                } else {
-                    showNotification("Naam niet gevonden in barcode database.", "error");
-                }
-            } else {
-                showNotification("Barcode niet gevonden in database.", "error");
-            }
-        } catch(error) {
-            showNotification("Fout bij ophalen barcode.", "error");
-        }
-    };
-
-
     const handleAddLocatie = async (e) => {
         e.preventDefault();
         await db.collection('vriezers').add({ 
@@ -1931,32 +1906,6 @@ function App() {
                 </form>
             </Modal>
 
-            {/* Barcode Modal */}
-            <Modal isOpen={showBarcodeModal} onClose={() => setShowBarcodeModal(false)} title="Scan Barcode." color="teal">
-                <form onSubmit={fetchBarcodeData} className="space-y-4 text-center">
-                    <div className="w-16 h-16 bg-teal-50 dark:bg-teal-900/30 text-teal-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                        <Icon path={Icons.BarcodeScan} size={32} />
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 px-4 mb-4">
-                        Voer de streepjescode (EAN) in om productgegevens op te halen. Als je op mobiel zit kun je een scanner-toetsenbord gebruiken.
-                    </p>
-                    
-                    <input 
-                        type="number" 
-                        placeholder="Bijv. 5410013110202" 
-                        className="w-full h-14 text-center text-xl tracking-widest px-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
-                        value={barcodeInput} 
-                        onChange={e => setBarcodeInput(e.target.value)} 
-                        autoFocus
-                        required 
-                    />
-
-                    <button type="submit" className="w-full bg-teal-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-teal-700 transition">
-                        Zoek Product
-                    </button>
-                </form>
-            </Modal>
-
             {/* Verbruik (Consume) Modal */}
             <Modal isOpen={showConsumeModal} onClose={() => setShowConsumeModal(false)} title="Product verwerken." color="orange">
                 {itemToConsume && (
@@ -2108,11 +2057,8 @@ function App() {
                     <div className="flex gap-2">
                         <button type="button" onClick={() => setShowEmojiPicker(true)} className="w-12 h-12 flex-shrink-0 border border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center text-2xl bg-gray-50 dark:bg-gray-700">{formData.emoji || '🏷️'}</button>
                         
-                        <div className="relative flex-grow flex items-center border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus-within:ring-2 focus-within:ring-blue-500">
-                            <input type="text" placeholder="Productnaam" className="w-full h-12 px-3 outline-none bg-transparent dark:text-white dark:placeholder-gray-400" value={formData.naam} onChange={e => setFormData({...formData, naam: e.target.value})} required />
-                            <button type="button" onClick={() => setShowBarcodeModal(true)} className="p-2 text-gray-400 hover:text-blue-500 transition-colors mr-1" title="Scan Barcode voor auto-aanvullen">
-                                <Icon path={Icons.BarcodeScan} size={20}/>
-                            </button>
+                        <div className="relative flex-grow">
+                            <input type="text" placeholder="Productnaam" className="w-full h-12 px-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400" value={formData.naam} onChange={e => setFormData({...formData, naam: e.target.value})} required />
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
