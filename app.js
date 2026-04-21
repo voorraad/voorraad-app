@@ -19,15 +19,23 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.9.0'; 
+const APP_VERSION = '8.10.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
     { 
+        version: '8.10.0', 
+        type: 'feature', 
+        changes: [
+            'Verwijderd: Quick-Cart knop is eruit gehaald (dubbelop met de verwijder/opgegeten-flow).',
+            'Nieuw: Notities! Je kan nu een extra opmerking (bijv. "Voor de BBQ" of "Restje") toevoegen aan een product.',
+            'Nieuw: Slim Zoeken. Zoek je een product maar is het op? Dan krijg je direct een knop om je zoekterm op de boodschappenlijst te zetten!'
+        ] 
+    },
+    { 
         version: '8.9.0', 
         type: 'feature', 
         changes: [
-            'Nieuw: "Snel op Boodschappenlijst" knop bij elk product. Zet producten met 1 klik op je kooplijstje!',
             'Nieuw: "Dupliceer" knop. Kopieer een bestaand item razendsnel om typwerk te besparen.',
             'Nieuw: Exporteer naar Excel (CSV) toegevoegd aan het profielmenu. Maak eenvoudig een back-up van al je data.'
         ] 
@@ -36,9 +44,9 @@ const VERSION_HISTORY = [
         version: '8.8.0', 
         type: 'feature', 
         changes: [
-            'Nieuw: Snelle "-1" knop toegevoegd bij producten waarvan je er meer dan 1 hebt. Zo kun je razendsnel je voorraad updaten zonder pop-ups!',
-            'Nieuw: Slimme Sorteeropties! Sorteer nu op "THT / Oudste eerst" of "Nieuwste eerst" om verspilling beter tegen te gaan.',
-            'Nieuw: Snelle Categorie-filters. Onder de zoekbalk kun je nu direct op categorie klikken (bijv. Vlees of Vis) om supersnel te filteren.'
+            'Nieuw: Snelle "-1" knop toegevoegd bij producten waarvan je er meer dan 1 hebt.',
+            'Nieuw: Slimme Sorteeropties ("THT / Oudste eerst" of "Nieuwste eerst").',
+            'Nieuw: Snelle Categorie-filters onder de zoekbalk.'
         ] 
     },
     { 
@@ -46,13 +54,6 @@ const VERSION_HISTORY = [
         type: 'feature', 
         changes: [
             'Nieuw: Je kunt locaties (bij Instellingen) nu handmatig verslepen (drag-and-drop) om je eigen volgorde te bepalen!'
-        ] 
-    },
-    { 
-        version: '8.6.0', 
-        type: 'feature', 
-        changes: [
-            'Update: Dashboard layout volledig vernieuwd! Locaties staan nu onder elkaar, maar de lades daarin kun je horizontaal swipen (als een carrousel) voor een perfect overzicht.'
         ] 
     }
 ];
@@ -443,6 +444,7 @@ function App() {
         categorie: 'Vlees', 
         ingevrorenOp: new Date().toISOString().split('T')[0], 
         houdbaarheidsDatum: '', 
+        notitie: '',
         emoji: ''
     });
     
@@ -851,14 +853,14 @@ function App() {
         if (!rememberLocation) {
             setFormData({
                 naam: '', aantal: 1, eenheid: 'stuks', vriezerId: defaultLoc, ladeId: '', 
-                categorie: defaultCat, ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
+                categorie: defaultCat, ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: ''
             });
         } else {
              setFormData(prev => ({
                 ...prev,
                 vriezerId: defaultLoc,
                 naam: '', aantal: 1, categorie: defaultCat, 
-                ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
+                ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: ''
             }));
         }
         setShowAddModal(true);
@@ -891,6 +893,7 @@ function App() {
             ...formData,
             aantal: safeAantal,
             ladeNaam: lade ? lade.naam : '',
+            notitie: formData.notitie || '',
             ingevrorenOp: new Date(formData.ingevrorenOp),
             houdbaarheidsDatum: formData.houdbaarheidsDatum ? new Date(formData.houdbaarheidsDatum) : null,
             userId: beheerdeUserId,
@@ -910,13 +913,13 @@ function App() {
                 if (rememberLocation) {
                     setFormData(prev => ({
                         ...prev, 
-                        naam: '', aantal: 1, emoji: '', 
+                        naam: '', aantal: 1, notitie: '', emoji: '', 
                         ingevrorenOp: new Date().toISOString().split('T')[0],
                         houdbaarheidsDatum: ''
                     }));
                 } else {
                     const defaultCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
-                    setFormData(prev => ({...prev, naam: '', aantal: 1, emoji: '', categorie: defaultCat})); 
+                    setFormData(prev => ({...prev, naam: '', aantal: 1, notitie: '', emoji: '', categorie: defaultCat})); 
                 }
                 setShowAddModal(false);
             }
@@ -947,22 +950,6 @@ function App() {
         }
     };
 
-    const handleQuickCart = async (item) => {
-        try {
-            await db.collection('shoppingList').add({
-                naam: item.naam,
-                aantal: 1,
-                eenheid: item.eenheid || 'stuks',
-                winkel: '',
-                checked: false,
-                userId: beheerdeUserId
-            });
-            showNotification(`${item.naam} staat nu op je lijstje!`, 'success');
-        } catch(err) {
-            showNotification("Fout bij toevoegen", "error");
-        }
-    };
-
     const handleDuplicate = (item) => {
         setEditingItem(null); // Forceer nieuwe aanmaak
         const loc = vriezers.find(v => v.id === item.vriezerId);
@@ -975,6 +962,7 @@ function App() {
             vriezerId: item.vriezerId,
             ladeId: item.ladeId,
             categorie: item.categorie,
+            notitie: item.notitie || '',
             ingevrorenOp: toInputDate(item.ingevrorenOp),
             houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum),
             emoji: item.emoji
@@ -1080,6 +1068,7 @@ function App() {
         setFormData({
             naam: item.naam, aantal: safeAantal, eenheid: item.eenheid, 
             vriezerId: defaultLoc, ladeId: '', categorie: 'Overig', 
+            notitie: '',
             ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', emoji: ''
         });
         
@@ -1139,6 +1128,7 @@ function App() {
             vriezerId: item.vriezerId, 
             ladeId: item.ladeId, 
             categorie: item.categorie,
+            notitie: item.notitie || '',
             ingevrorenOp: toInputDate(item.ingevrorenOp), 
             houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), 
             emoji: item.emoji
@@ -1357,6 +1347,17 @@ function App() {
         }
     };
 
+    // Bepaal of we in "Zoek" modus zitten en of er iets is gevonden in de actieve tab
+    const isSearching = search.trim().length > 0;
+    let totalFoundItemsInActiveTab = 0;
+    if (isSearching) {
+        totalFoundItemsInActiveTab = activeItems.filter(i => {
+            if (!i.naam.toLowerCase().includes(search.toLowerCase())) return false;
+            if (activeCategoryFilter && i.categorie !== activeCategoryFilter) return false;
+            return true;
+        }).length;
+    }
+
     // --- RENDER ---
     if (!user) return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4 transition-colors duration-300">
@@ -1537,109 +1538,145 @@ function App() {
                     </div>
                 </div>
 
-                <div className={`grid gap-6 items-start ${gridClass}`}>
-                    {filteredLocaties.map(vriezer => {
-                        const gradientKeys = Object.keys(GRADIENTS);
-                        let hash = 0;
-                        for (let i = 0; i < vriezer.id.length; i++) hash = (hash << 5) - hash + vriezer.id.charCodeAt(i);
-                        
-                        const colorKey = vriezer.color || gradientKeys[Math.abs(hash) % gradientKeys.length];
-                        const gradientClass = GRADIENTS[colorKey] || GRADIENTS.blue;
+                {/* Slim zoeken fallback als er niks is gevonden */}
+                {isSearching && totalFoundItemsInActiveTab === 0 ? (
+                    <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 text-center animate-in fade-in">
+                        <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Icon path={Icons.Search} size={32} />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">Niks gevonden voor "{search}"</h3>
+                        <p className="text-gray-500 dark:text-gray-400 mb-6">
+                            Je hebt dit product niet meer op voorraad in de sectie <span className="font-bold capitalize">{activeTab}</span>.
+                        </p>
+                        <button onClick={async () => {
+                            try {
+                                await db.collection('shoppingList').add({ 
+                                    naam: search, 
+                                    aantal: 1, 
+                                    eenheid: 'stuks', 
+                                    winkel: '', 
+                                    checked: false, 
+                                    userId: beheerdeUserId 
+                                });
+                                showNotification(`"${search}" toegevoegd aan je boodschappenlijst!`, 'success');
+                                setSearch('');
+                            } catch(err) {
+                                showNotification("Kon product niet toevoegen.", "error");
+                            }
+                        }} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold inline-flex items-center gap-2 shadow-md hover:bg-blue-700 transition hover:-translate-y-1">
+                            <Icon path={Icons.ShoppingCart} size={20} />
+                            Zet "{search}" op het lijstje
+                        </button>
+                    </div>
+                ) : (
+                    <div className={`grid gap-6 items-start ${gridClass}`}>
+                        {filteredLocaties.map(vriezer => {
+                            const gradientKeys = Object.keys(GRADIENTS);
+                            let hash = 0;
+                            for (let i = 0; i < vriezer.id.length; i++) hash = (hash << 5) - hash + vriezer.id.charCodeAt(i);
+                            
+                            const colorKey = vriezer.color || gradientKeys[Math.abs(hash) % gradientKeys.length];
+                            const gradientClass = GRADIENTS[colorKey] || GRADIENTS.blue;
 
-                        return (
-                            <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
-                                <h2 className={`text-lg font-bold mb-3 flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{vriezer.naam}</h2>
-                                <div className="space-y-4">
-                                    {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(lade => {
-                                        let ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
-                                        
-                                        // Toepassen Categorie Filter
-                                        if (activeCategoryFilter) {
-                                            ladeItems = ladeItems.filter(i => i.categorie === activeCategoryFilter);
-                                        }
-
-                                        // Toepassen Sortering
-                                        ladeItems.sort((a, b) => {
-                                            if (sortBy === 'name') return a.naam.localeCompare(b.naam);
-                                            if (sortBy === 'expiry') {
-                                                const aTHT = getDagenTotTHT(a.houdbaarheidsDatum);
-                                                const bTHT = getDagenTotTHT(b.houdbaarheidsDatum);
-                                                if (aTHT !== bTHT) return aTHT - bTHT; // Kleine THT eerst
-                                                // Fallback to age if no THT
-                                                return getDagenOud(b.ingevrorenOp) - getDagenOud(a.ingevrorenOp); 
+                            return (
+                                <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
+                                    <h2 className={`text-lg font-bold mb-3 flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{vriezer.naam}</h2>
+                                    <div className="space-y-4">
+                                        {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(lade => {
+                                            let ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
+                                            
+                                            // Toepassen Categorie Filter
+                                            if (activeCategoryFilter) {
+                                                ladeItems = ladeItems.filter(i => i.categorie === activeCategoryFilter);
                                             }
-                                            if (sortBy === 'newest') {
-                                                return getDagenOud(a.ingevrorenOp) - getDagenOud(b.ingevrorenOp); // Minste dagen oud eerst
-                                            }
-                                            return 0;
-                                        });
 
-                                        if (ladeItems.length === 0 && (search || activeCategoryFilter)) return null;
-                                        const isCollapsed = collapsedLades.has(lade.id) && !search && !activeCategoryFilter;
-                                        
-                                        return (
-                                            <div key={lade.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden page-break-inside-avoid transition-colors">
-                                                <div className="bg-gray-50/50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 print:bg-white" onClick={() => toggleLade(lade.id)}>
-                                                    <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-sm flex items-center gap-2">
-                                                        {isCollapsed ? <Icon path={Icons.ChevronRight} className="print:hidden"/> : <Icon path={Icons.ChevronDown} className="print:hidden"/>} 
-                                                        {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
-                                                    </h3>
-                                                </div>
-                                                {!isCollapsed && (
-                                                    <ul className="block"> 
-                                                        {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
-                                                        ladeItems.map(item => {
-                                                            const dagenOud = getDagenOud(item.ingevrorenOp);
-                                                            const dagenTotTHT = getDagenTotTHT(item.houdbaarheidsDatum);
-                                                            const isStockItem = vriezer.type === 'voorraad' || vriezer.type === 'frig';
-                                                            
-                                                            const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT);
-                                                            const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT);
-                                                            
-                                                            const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
-                                                            const catColor = catObj ? (catObj.color || 'gray') : 'gray';
+                                            // Toepassen Sortering
+                                            ladeItems.sort((a, b) => {
+                                                if (sortBy === 'name') return a.naam.localeCompare(b.naam);
+                                                if (sortBy === 'expiry') {
+                                                    const aTHT = getDagenTotTHT(a.houdbaarheidsDatum);
+                                                    const bTHT = getDagenTotTHT(b.houdbaarheidsDatum);
+                                                    if (aTHT !== bTHT) return aTHT - bTHT; // Kleine THT eerst
+                                                    // Fallback to age if no THT
+                                                    return getDagenOud(b.ingevrorenOp) - getDagenOud(a.ingevrorenOp); 
+                                                }
+                                                if (sortBy === 'newest') {
+                                                    return getDagenOud(a.ingevrorenOp) - getDagenOud(b.ingevrorenOp); // Minste dagen oud eerst
+                                                }
+                                                return 0;
+                                            });
 
-                                                            return (
-                                                                <li key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0 group`}>
-                                                                    <div className="flex items-center gap-3 overflow-hidden min-w-0">
-                                                                        <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
-                                                                        <div className="min-w-0 flex-grow">
-                                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                                <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
-                                                                                {item.categorie && item.categorie !== "Geen" && (
-                                                                                    <Badge type={catColor} text={item.categorie} />
+                                            if (ladeItems.length === 0 && (search || activeCategoryFilter)) return null;
+                                            const isCollapsed = collapsedLades.has(lade.id) && !search && !activeCategoryFilter;
+                                            
+                                            return (
+                                                <div key={lade.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden page-break-inside-avoid transition-colors">
+                                                    <div className="bg-gray-50/50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 print:bg-white" onClick={() => toggleLade(lade.id)}>
+                                                        <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-sm flex items-center gap-2">
+                                                            {isCollapsed ? <Icon path={Icons.ChevronRight} className="print:hidden"/> : <Icon path={Icons.ChevronDown} className="print:hidden"/>} 
+                                                            {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
+                                                        </h3>
+                                                    </div>
+                                                    {!isCollapsed && (
+                                                        <ul className="block"> 
+                                                            {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
+                                                            ladeItems.map(item => {
+                                                                const dagenOud = getDagenOud(item.ingevrorenOp);
+                                                                const dagenTotTHT = getDagenTotTHT(item.houdbaarheidsDatum);
+                                                                const isStockItem = vriezer.type === 'voorraad' || vriezer.type === 'frig';
+                                                                
+                                                                const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT);
+                                                                const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT);
+                                                                
+                                                                const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
+                                                                const catColor = catObj ? (catObj.color || 'gray') : 'gray';
+
+                                                                return (
+                                                                    <li key={item.id} className={`flex items-center justify-between p-3 bg-white dark:bg-gray-800 ${colorClass} last:border-b-0 group`}>
+                                                                        <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                                                                            <span className="text-2xl flex-shrink-0">{item.emoji||'📦'}</span>
+                                                                            <div className="min-w-0 flex-grow">
+                                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                                    <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
+                                                                                    {item.categorie && item.categorie !== "Geen" && (
+                                                                                        <Badge type={catColor} text={item.categorie} />
+                                                                                    )}
+                                                                                </div>
+                                                                                <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
+                                                                                    <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
+                                                                                    {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
+                                                                                    {!isStockItem && item.houdbaarheidsDatum && <span className="text-xs text-gray-500 dark:text-gray-400"> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
+                                                                                    {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
+                                                                                </div>
+                                                                                {item.notitie && (
+                                                                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic leading-tight">
+                                                                                        {item.notitie}
+                                                                                    </div>
                                                                                 )}
                                                                             </div>
-                                                                            <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
-                                                                                <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
-                                                                                {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
-                                                                                {!isStockItem && item.houdbaarheidsDatum && <span className="text-xs text-gray-500 dark:text-gray-400"> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
-                                                                                {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
-                                                                            </div>
                                                                         </div>
-                                                                    </div>
-                                                                    <div className="flex flex-wrap items-center gap-1 flex-shrink-0 print:hidden ml-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                                        {parseFloat(item.aantal) > 1 && (
-                                                                            <button onClick={()=>handleQuickDecrease(item)} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/30 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/50" title="Snel -1 wegnemen"><Icon path={Icons.Minus} size={16}/></button>
-                                                                        )}
-                                                                        <button onClick={()=>handleQuickCart(item)} className="p-1.5 text-teal-600 bg-teal-50 dark:bg-teal-900/30 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/50" title="Zet direct op boodschappenlijstje"><Icon path={Icons.ShoppingCart} size={16}/></button>
-                                                                        <button onClick={()=>handleDuplicate(item)} className="p-1.5 text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50" title="Dupliceer (kopie maken)"><Icon path={Icons.Copy} size={16}/></button>
-                                                                        <button onClick={()=>openEdit(item)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50" title="Bewerken"><Icon path={Icons.Edit2} size={16}/></button>
-                                                                        <button onClick={()=>initDelete(item)} className="p-1.5 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50" title="Verwijderen"><Icon path={Icons.Trash2} size={16}/></button>
-                                                                    </div>
-                                                                </li>
-                                                            );
-                                                        })}
-                                                    </ul>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+                                                                        <div className="flex flex-wrap items-center gap-1 flex-shrink-0 print:hidden ml-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                                                            {parseFloat(item.aantal) > 1 && (
+                                                                                <button onClick={()=>handleQuickDecrease(item)} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/30 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/50" title="Snel -1 wegnemen"><Icon path={Icons.Minus} size={16}/></button>
+                                                                            )}
+                                                                            <button onClick={()=>handleDuplicate(item)} className="p-1.5 text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50" title="Dupliceer (kopie maken)"><Icon path={Icons.Copy} size={16}/></button>
+                                                                            <button onClick={()=>openEdit(item)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50" title="Bewerken"><Icon path={Icons.Edit2} size={16}/></button>
+                                                                            <button onClick={()=>initDelete(item)} className="p-1.5 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50" title="Verwijderen"><Icon path={Icons.Trash2} size={16}/></button>
+                                                                        </div>
+                                                                    </li>
+                                                                );
+                                                            })}
+                                                        </ul>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </main>
 
             <footer className="bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 py-6 print:hidden transition-colors duration-300">
@@ -1744,6 +1781,11 @@ function App() {
                           </option>
                         ))}
                       </select>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Notitie (Optioneel).</label>
+                        <input type="text" className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={formData.notitie} onChange={e => setFormData({...formData, notitie: e.target.value})} placeholder="Bijv. Voor de BBQ, Restje van gisteren..." />
                     </div>
 
                     {modalType === 'vriezer' && (
@@ -2306,7 +2348,10 @@ function App() {
                                                                                     <li key={i.id} className="text-sm flex justify-between items-center bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-600 shadow-sm transition-colors hover:border-blue-300 dark:hover:border-blue-700 group">
                                                                                         <span className="truncate mr-2 flex items-center gap-2 text-gray-800 dark:text-gray-200">
                                                                                             <span className="text-lg">{i.emoji}</span>
-                                                                                            <span className="truncate">{i.naam}</span>
+                                                                                            <div className="truncate">
+                                                                                                <span>{i.naam}</span>
+                                                                                                {i.notitie && <span className="block text-xs italic text-gray-500 mt-0.5">{i.notitie}</span>}
+                                                                                            </div>
                                                                                         </span>
                                                                                         <div className="flex items-center gap-3">
                                                                                             <span className="font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 whitespace-nowrap">
@@ -2388,7 +2433,7 @@ function App() {
                                     } else if (type.includes('Fix') || type.includes('Opgelost') || type.includes('Hersteld')) {
                                         IconComp = Icons.Wrench;
                                         iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
-                                    } else if (type.includes('Update')) {
+                                    } else if (type.includes('Update') || type.includes('Verwijderd')) {
                                          IconComp = Icons.Zap;
                                          iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
                                     }
@@ -2447,7 +2492,7 @@ function App() {
                                     } else if (type.includes('Fix') || type.includes('Opgelost') || type.includes('Hersteld')) {
                                         IconComp = Icons.Wrench;
                                         iconColor = "text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-300";
-                                    } else if (type.includes('Update')) {
+                                    } else if (type.includes('Update') || type.includes('Verwijderd')) {
                                          IconComp = Icons.Zap;
                                          iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300";
                                     }
