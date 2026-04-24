@@ -1733,7 +1733,7 @@ function App() {
         {
             title: "TEST",
             content: "Rechtsonder zie je altijd de zwevende '+' knop. Hiermee voeg je razendsnel nieuwe producten toe aan je vriezer, koelkast of voorraadkast. Je kunt zelfs een Emoji instellen!",
-            icon: Icons.Consume,
+            icon: Icons.Minus,
             colorName: "yellow"
         },        
         {
