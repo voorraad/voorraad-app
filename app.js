@@ -1731,6 +1731,12 @@ function App() {
             colorName: "orange"
         },
         {
+            title: "TEST",
+            content: "Rechtsonder zie je altijd de zwevende '+' knop. Hiermee voeg je razendsnel nieuwe producten toe aan je vriezer, koelkast of voorraadkast. Je kunt zelfs een Emoji instellen!",
+            icon: Icons.Consume,
+            colorName: "yellow"
+        },        
+        {
             title: "Slimme Boodschappenlijst",
             content: "Stel een minimum voorraad in! Zodra een product bijna op is, zet de app dit automatisch op je boodschappenlijstje. Super handig voor in de supermarkt.",
             icon: Icons.ShoppingCart,
