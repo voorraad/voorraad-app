@@ -334,15 +334,20 @@ const Toast = ({ message, type = "success", onClose }) => {
     );
 };
 
-const Modal = ({ isOpen, onClose, title, children, color = "blue", size = "md" }) => {
+// Modals kunnen nu position="center", "left" of "right" meegegeven krijgen
+const Modal = ({ isOpen, onClose, title, children, color = "blue", size = "md", position = "center", hideBackdrop = false }) => {
     if (!isOpen) return null;
     
     const gradientClass = GRADIENTS[color] || GRADIENTS.blue;
     const sizeClass = size === "xl" ? "max-w-6xl" : size === "lg" ? "max-w-4xl" : "max-w-lg";
 
+    let alignmentClass = "items-center justify-center";
+    if (position === "left") alignmentClass = "items-center justify-center lg:justify-start lg:pl-8 xl:pl-24";
+    if (position === "right") alignmentClass = "items-center justify-center lg:justify-end lg:pr-8 xl:pr-24";
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden" onClick={onClose}>
-            <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full ${sizeClass} max-h-[90vh] overflow-y-auto modal-animate flex flex-col`} onClick={e => e.stopPropagation()}>
+        <div className={`fixed inset-0 z-50 flex ${alignmentClass} p-4 ${hideBackdrop ? 'pointer-events-none' : 'bg-black/60 backdrop-blur-sm'} print:hidden`} onClick={!hideBackdrop ? onClose : undefined}>
+            <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full ${sizeClass} max-h-[90vh] overflow-y-auto modal-animate flex flex-col pointer-events-auto`} onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
                     <h3 className={`text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{title}</h3>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"><Icon path={Icons.X} className="text-gray-500 dark:text-gray-400" /></button>
@@ -1711,6 +1716,15 @@ function App() {
         }
     };
 
+    const triggerTourForUser = async (userId) => {
+        try {
+            await db.collection('users').doc(userId).update({ hasSeenTutorial: false });
+            showNotification("Tour staat klaar voor deze gebruiker!", "success");
+        } catch (e) {
+            showNotification("Fout bij updaten van tour status.", "error");
+        }
+    };
+
     const tourSteps = [
         {
             title: "Welkom bij Voorraad! 🎉",
@@ -2902,6 +2916,12 @@ function App() {
                                     />
                                     <span>Verberg 'Stock.' tabblad</span>
                                 </div>
+                                
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mt-2 border-t border-gray-100 dark:border-gray-700 pt-2">
+                                    <button onClick={() => triggerTourForUser(u.id)} className="px-2 py-1 bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300 rounded text-xs font-bold hover:bg-purple-200 transition">
+                                        Zet Tour (Rondleiding) opnieuw klaar
+                                    </button>
+                                </div>
                             </div>
                             <p className="text-xs text-gray-400 mt-1">
                                 Laatst gezien: {u.laatstGezien ? formatDateTime(u.laatstGezien) : 'Nooit'}
@@ -2911,145 +2931,8 @@ function App() {
                 </ul>
             </Modal>
 
-            {/* De Onboarding Tour Modal */}
-            {tourSteps[onboardingStep] && (
-                <Modal isOpen={showOnboarding} onClose={() => {}} title={`Rondleiding (${onboardingStep + 1}/${tourSteps.length})`} color={tourSteps[onboardingStep].colorName}>
-                    <div className="flex flex-col items-center text-center py-4 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className={`w-20 h-20 flex items-center justify-center rounded-full bg-${tourSteps[onboardingStep].colorName}-100 dark:bg-${tourSteps[onboardingStep].colorName}-900/30 text-${tourSteps[onboardingStep].colorName}-600 dark:text-${tourSteps[onboardingStep].colorName}-400 mb-2`}>
-                            <Icon path={tourSteps[onboardingStep].icon} size={40} />
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-800 dark:text-white">{tourSteps[onboardingStep].title}</h3>
-                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed max-w-sm">{tourSteps[onboardingStep].content}</p>
-
-                        <div className="flex gap-2 py-4">
-                            {tourSteps.map((_, i) => (
-                                <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${i === onboardingStep ? 'bg-blue-600 dark:bg-blue-500 scale-110' : 'bg-gray-200 dark:bg-gray-600'}`}></div>
-                            ))}
-                        </div>
-
-                        <div className="flex w-full gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
-                            <button onClick={finishTutorial} className="flex-1 py-3 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition">Overslaan</button>
-                            <button onClick={nextTourStep} className={`flex-[2] py-3 text-white rounded-xl font-bold transition shadow-md bg-${tourSteps[onboardingStep].colorName}-600 hover:bg-${tourSteps[onboardingStep].colorName}-700`}>
-                                {onboardingStep === tourSteps.length - 1 ? 'Aan de slag!' : 'Volgende'}
-                            </button>
-                        </div>
-                    </div>
-                </Modal>
-            )}
-
-            <Modal isOpen={showDashboardModal} onClose={() => setShowDashboardModal(false)} title="Dashboard." color="blue" size="xl">
-                <div className="space-y-4 min-h-[50vh]">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Selecteer een gebruiker om direct in hun voorraad te kijken zonder in te loggen op hun account.</p>
-                    <select 
-                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={dashboardUser} 
-                        onChange={e => setDashboardUser(e.target.value)}
-                    >
-                        <option value="">Kies een gebruiker...</option>
-                        {usersList.map(u => (
-                            <option key={u.id} value={u.id}>{u.email || u.displayName} ({u.id.substring(0,6)}...)</option>
-                        ))}
-                    </select>
-
-                    {dashboardData.loading ? (
-                        <div className="text-center py-8 text-gray-500 dark:text-gray-400 flex flex-col items-center">
-                            <Icon path={Icons.Box} className="animate-bounce mb-2" size={32} />
-                            Laden van voorraad...
-                        </div>
-                    ) : dashboardUser && dashboardData.vriezers.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                            Deze gebruiker heeft nog geen locaties aangemaakt.
-                        </div>
-                    ) : (
-                        <div className="space-y-8 mt-4">
-                            {['vriezer', 'frig', 'voorraad'].map(type => {
-                                const typeLocaties = sortLocaties(dashboardData.vriezers.filter(v => (v.type || 'vriezer') === type));
-                                if (typeLocaties.length === 0) return null;
-                                
-                                const typeNames = { vriezer: 'Vriezer', frig: 'Koelkast', voorraad: 'Voorraad' };
-
-                                return (
-                                    <div key={type} className="animate-in fade-in duration-300">
-                                        <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">
-                                            {typeNames[type]}
-                                        </h3>
-                                        
-                                        <div className="flex flex-col gap-6">
-                                            {typeLocaties.map(v => (
-                                                <div key={v.id} className="bg-gray-50 dark:bg-gray-800/80 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                                                    <h4 className="font-bold text-lg mb-3 text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                                                        <span className={`w-3 h-3 rounded-full bg-${v.color || 'blue'}-500 inline-block`}></span>
-                                                        {v.naam}
-                                                    </h4>
-                                                    
-                                                    {/* Lades in een grid (max 3 naast elkaar), klikken om te openen */}
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start mt-2">
-                                                        {dashboardData.lades.filter(l => l.vriezerId === v.id).sort((a,b) => a.naam.localeCompare(b.naam)).map(l => {
-                                                            const ladeItems = dashboardData.items.filter(i => i.ladeId === l.id).sort((a,b) => a.naam.localeCompare(b.naam));
-                                                            const isLadeOpen = openDashboardLades.has(l.id);
-                                                            
-                                                            return (
-                                                                <div key={l.id} className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 flex flex-col transition-all">
-                                                                    <button 
-                                                                        onClick={() => {
-                                                                            const newSet = new Set(openDashboardLades);
-                                                                            if(newSet.has(l.id)) newSet.delete(l.id);
-                                                                            else newSet.add(l.id);
-                                                                            setOpenDashboardLades(newSet);
-                                                                        }}
-                                                                        className="w-full text-left font-semibold text-sm text-gray-700 dark:text-gray-300 p-3 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-700 z-10 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                                                                    >
-                                                                        <span className="flex items-center gap-2">
-                                                                            <Icon path={isLadeOpen ? Icons.ChevronDown : Icons.ChevronRight} size={16}/>
-                                                                            {l.naam}
-                                                                        </span>
-                                                                        <span className="text-xs font-normal text-gray-500 bg-gray-100 dark:bg-gray-600 px-2 py-0.5 rounded-full">{ladeItems.length} items</span>
-                                                                    </button>
-                                                                    
-                                                                    {isLadeOpen && (
-                                                                        <ul className="p-2 space-y-2 overflow-y-auto flex-grow max-h-[50vh] border-t border-gray-100 dark:border-gray-600">
-                                                                            {ladeItems.length === 0 ? (
-                                                                                <li className="text-xs italic text-gray-400 text-center py-4">Lade is leeg</li>
-                                                                            ) : (
-                                                                                ladeItems.map(i => (
-                                                                                    <li key={i.id} className="text-sm flex justify-between items-center bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-600 shadow-sm transition-colors hover:border-blue-300 dark:hover:border-blue-700 group">
-                                                                                        <span className="truncate mr-2 flex items-center gap-2 text-gray-800 dark:text-gray-200">
-                                                                                            <span className="text-lg">{i.emoji}</span>
-                                                                                            <div className="truncate">
-                                                                                                <span>{i.naam}</span>
-                                                                                                {i.notitie && <span className="block text-xs italic text-gray-500 mt-0.5">{i.notitie}</span>}
-                                                                                            </div>
-                                                                                        </span>
-                                                                                        <div className="flex items-center gap-3">
-                                                                                            <span className="font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 whitespace-nowrap">
-                                                                                                {formatAantal(i.aantal)} <span className="text-xs font-normal">{i.eenheid}</span>
-                                                                                            </span>
-                                                                                            <button onClick={() => openEditFromDashboard(i)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded flex-shrink-0 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity" title="Bewerken">
-                                                                                                <Icon path={Icons.Edit2} size={14}/>
-                                                                                            </button>
-                                                                                        </div>
-                                                                                    </li>
-                                                                                ))
-                                                                            )}
-                                                                        </ul>
-                                                                    )}
-                                                                </div>
-                                                            )
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-            </Modal>
-
-            {/* Meldingen Modal (Fix) */}
-            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red">
+            {/* Meldingen Modal (Links uitgelijnd indien onboarding ook open is) */}
+            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red" position={showOnboarding ? "left" : "center"}>
                 {alerts.length > 0 && (
                     <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 dark:bg-red-900/20">
                         <h4 className="font-bold text-red-800 dark:text-red-300">Let op!</h4>
@@ -3116,7 +2999,33 @@ function App() {
                 </div>
             </Modal>
 
-            {/* Versiegeschiedenis Modal (Fix) */}
+            {/* De Onboarding Tour Modal (Rechts uitgelijnd indien Meldingen ook open zijn) */}
+            {tourSteps[onboardingStep] && (
+                <Modal isOpen={showOnboarding} onClose={() => {}} title={`Rondleiding (${onboardingStep + 1}/${tourSteps.length})`} color={tourSteps[onboardingStep].colorName} position={showWhatsNew ? "right" : "center"} hideBackdrop={showWhatsNew}>
+                    <div className="flex flex-col items-center text-center py-4 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className={`w-20 h-20 flex items-center justify-center rounded-full bg-${tourSteps[onboardingStep].colorName}-100 dark:bg-${tourSteps[onboardingStep].colorName}-900/30 text-${tourSteps[onboardingStep].colorName}-600 dark:text-${tourSteps[onboardingStep].colorName}-400 mb-2`}>
+                            <Icon path={tourSteps[onboardingStep].icon} size={40} />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white">{tourSteps[onboardingStep].title}</h3>
+                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed max-w-sm">{tourSteps[onboardingStep].content}</p>
+
+                        <div className="flex gap-2 py-4">
+                            {tourSteps.map((_, i) => (
+                                <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${i === onboardingStep ? 'bg-blue-600 dark:bg-blue-500 scale-110' : 'bg-gray-200 dark:bg-gray-600'}`}></div>
+                            ))}
+                        </div>
+
+                        <div className="flex w-full gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                            <button onClick={finishTutorial} className="flex-1 py-3 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition">Overslaan</button>
+                            <button onClick={nextTourStep} className={`flex-[2] py-3 text-white rounded-xl font-bold transition shadow-md bg-${tourSteps[onboardingStep].colorName}-600 hover:bg-${tourSteps[onboardingStep].colorName}-700`}>
+                                {onboardingStep === tourSteps.length - 1 ? 'Aan de slag!' : 'Volgende'}
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
+
+            {/* Versiegeschiedenis Modal (Los) */}
             <Modal isOpen={showVersionHistory} onClose={() => setShowVersionHistory(false)} title="Nieuws." color="blue">
                 <div className="mb-8 text-center px-4">
                     <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">
