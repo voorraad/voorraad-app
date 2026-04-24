@@ -195,7 +195,8 @@ const Icons = {
     Utensils: <g><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></g>,
     CheckSquare: <g><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></g>,
     MessageCircle: <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>,
-    Banknote: <g><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></g>
+    Banknote: <g><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></g>,
+    BookOpen: <g><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></g>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -406,6 +407,11 @@ function App() {
     const [savedOpenLades, setSavedOpenLades] = useState(null);
     const [stats, setStats] = useState({ wasted: 0, consumed: 0, wastedValue: 0, consumedValue: 0 });
     
+    // Onboarding Tour States
+    const [showOnboarding, setShowOnboarding] = useState(false);
+    const [onboardingStep, setOnboardingStep] = useState(0);
+    const [globalOnboardingActive, setGlobalOnboardingActive] = useState(true);
+
     // Data Loading States
     const [isDataLoaded, setIsDataLoaded] = useState(false);
 
@@ -600,6 +606,32 @@ function App() {
         });
         return () => unsubscribe();
     }, []);
+
+    // Global Onboarding Setting
+    useEffect(() => {
+        const unsub = db.collection('settings').doc('onboarding').onSnapshot(doc => {
+            if (doc.exists) {
+                setGlobalOnboardingActive(doc.data().isActive);
+            } else {
+                db.collection('settings').doc('onboarding').set({ isActive: true });
+            }
+        });
+        return () => unsub();
+    }, []);
+
+    // Show Onboarding if user hasn't seen it
+    useEffect(() => {
+        if (user && globalOnboardingActive) {
+            const checkTour = async () => {
+                const doc = await db.collection('users').doc(user.uid).get();
+                if (doc.exists && !doc.data().hasSeenTutorial) {
+                    setShowOnboarding(true);
+                }
+            };
+            checkTour();
+        }
+    }, [user, globalOnboardingActive]);
+
 
     // Sync Data
     useEffect(() => {
@@ -1642,6 +1674,69 @@ function App() {
             } catch(e) { console.error("Kon lade status niet opslaan", e); }
         }
     };
+
+    // Onboarding Handlers
+    const finishTutorial = async () => {
+        setShowOnboarding(false);
+        if (user) {
+            await db.collection('users').doc(user.uid).set({ hasSeenTutorial: true }, { merge: true });
+        }
+        setOnboardingStep(0);
+    };
+
+    const nextTourStep = () => {
+        if (onboardingStep < tourSteps.length - 1) {
+            setOnboardingStep(onboardingStep + 1);
+        } else {
+            finishTutorial();
+        }
+    };
+
+    const toggleGlobalOnboardingStatus = async () => {
+        await db.collection('settings').doc('onboarding').set({ isActive: !globalOnboardingActive }, { merge: true });
+        showNotification(`Tour staat nu ${!globalOnboardingActive ? 'Aan' : 'Uit'} voor iedereen.`, 'success');
+    };
+
+    const resetTutorialForEveryone = async () => {
+        if(confirm("Weet je zeker dat je de tour voor IEDEREEN wilt resetten? Ze krijgen deze dan weer te zien bij de volgende login.")) {
+            try {
+                const usersSnap = await db.collection('users').get();
+                const batch = db.batch();
+                usersSnap.docs.forEach(u => batch.update(u.ref, { hasSeenTutorial: false }));
+                await batch.commit();
+                showNotification("Tutorial succesvol gereset voor alle gebruikers!", "success");
+            } catch (e) {
+                showNotification("Fout bij resetten van tutorial.", "error");
+            }
+        }
+    };
+
+    const tourSteps = [
+        {
+            title: "Welkom bij Voorraad! 🎉",
+            content: "Wat leuk dat je de app gebruikt! In deze korte rondleiding leggen we je de belangrijkste functies uit zodat je direct aan de slag kunt met het besparen van voedsel.",
+            icon: Icons.Box,
+            colorName: "blue"
+        },
+        {
+            title: "Snel Toevoegen",
+            content: "Rechtsonder zie je altijd de zwevende '+' knop. Hiermee voeg je razendsnel nieuwe producten toe aan je vriezer, koelkast of voorraadkast. Je kunt zelfs een Emoji instellen!",
+            icon: Icons.Plus,
+            colorName: "green"
+        },
+        {
+            title: "Houdbaarheid Checken",
+            content: "De app helpt je onthouden wat je moet opeten. Producten kleuren automatisch Oranje of Rood als ze de houdbaarheidsdatum naderen, of als ze te lang in de vriezer liggen.",
+            icon: Icons.Alert,
+            colorName: "orange"
+        },
+        {
+            title: "Slimme Boodschappenlijst",
+            content: "Stel een minimum voorraad in! Zodra een product bijna op is, zet de app dit automatisch op je boodschappenlijstje. Super handig voor in de supermarkt.",
+            icon: Icons.ShoppingCart,
+            colorName: "purple"
+        }
+    ];
 
     // Bepaal of we in "Zoek" modus zitten en of er iets is gevonden in de actieve tab
     const isSearching = search.trim().length > 0;
@@ -2756,6 +2851,22 @@ function App() {
             </Modal>
             
             <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers." color="pink">
+                <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 mb-6">
+                    <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2">
+                        <Icon path={Icons.BookOpen} size={18} /> Rondleiding (Tour) Instellingen
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Beheer de automatische onboarding tour voor nieuwe en bestaande gebruikers.</p>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <button onClick={toggleGlobalOnboardingStatus} className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold flex justify-center items-center gap-2 transition-colors ${globalOnboardingActive ? 'bg-green-100 text-green-700 border border-green-200 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-200 text-gray-600 border border-gray-300 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600'}`}>
+                            <Icon path={globalOnboardingActive ? Icons.Check : Icons.X} size={16} /> 
+                            {globalOnboardingActive ? 'Tour is AAN' : 'Tour is UIT'}
+                        </button>
+                        <button onClick={resetTutorialForEveryone} className="flex-1 py-2 px-3 bg-red-100 text-red-700 border border-red-200 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 rounded-lg text-sm font-bold transition-colors">
+                            Reset Tour voor Iedereen
+                        </button>
+                    </div>
+                </div>
+
                 <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                     {usersList.map(u => (
                         <li key={u.id} className="py-3 flex flex-col gap-2">
@@ -2793,6 +2904,32 @@ function App() {
                     ))}
                 </ul>
             </Modal>
+
+            {/* De Onboarding Tour Modal */}
+            {tourSteps[onboardingStep] && (
+                <Modal isOpen={showOnboarding} onClose={() => {}} title={`Rondleiding (${onboardingStep + 1}/${tourSteps.length})`} color={tourSteps[onboardingStep].colorName}>
+                    <div className="flex flex-col items-center text-center py-4 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className={`w-20 h-20 flex items-center justify-center rounded-full bg-${tourSteps[onboardingStep].colorName}-100 dark:bg-${tourSteps[onboardingStep].colorName}-900/30 text-${tourSteps[onboardingStep].colorName}-600 dark:text-${tourSteps[onboardingStep].colorName}-400 mb-2`}>
+                            <Icon path={tourSteps[onboardingStep].icon} size={40} />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white">{tourSteps[onboardingStep].title}</h3>
+                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed max-w-sm">{tourSteps[onboardingStep].content}</p>
+
+                        <div className="flex gap-2 py-4">
+                            {tourSteps.map((_, i) => (
+                                <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${i === onboardingStep ? 'bg-blue-600 dark:bg-blue-500 scale-110' : 'bg-gray-200 dark:bg-gray-600'}`}></div>
+                            ))}
+                        </div>
+
+                        <div className="flex w-full gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                            <button onClick={finishTutorial} className="flex-1 py-3 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition">Overslaan</button>
+                            <button onClick={nextTourStep} className={`flex-[2] py-3 text-white rounded-xl font-bold transition shadow-md bg-${tourSteps[onboardingStep].colorName}-600 hover:bg-${tourSteps[onboardingStep].colorName}-700`}>
+                                {onboardingStep === tourSteps.length - 1 ? 'Aan de slag!' : 'Volgende'}
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
 
             <Modal isOpen={showDashboardModal} onClose={() => setShowDashboardModal(false)} title="Dashboard." color="blue" size="xl">
                 <div className="space-y-4 min-h-[50vh]">
