@@ -74,6 +74,34 @@ const VERSION_HISTORY = [
     }
 ];
 
+// Standaard Onboarding Tour (Als fallback)
+const DEFAULT_TOUR_STEPS = [
+    {
+        title: "Welkom bij Voorraad! 🎉",
+        content: "Wat leuk dat je de app gebruikt! In deze korte rondleiding leggen we je de belangrijkste functies uit zodat je direct aan de slag kunt met het besparen van voedsel.",
+        icon: "Box",
+        colorName: "blue"
+    },
+    {
+        title: "Snel Toevoegen",
+        content: "Rechtsonder zie je altijd de zwevende '+' knop. Hiermee voeg je razendsnel nieuwe producten toe aan je vriezer, koelkast of voorraadkast. Je kunt zelfs een Emoji instellen!",
+        icon: "Plus",
+        colorName: "green"
+    },
+    {
+        title: "Houdbaarheid Checken",
+        content: "De app helpt je onthouden wat je moet opeten. Producten kleuren automatisch Oranje of Rood als ze de houdbaarheidsdatum naderen, of als ze te lang in de vriezer liggen.",
+        icon: "Alert",
+        colorName: "orange"
+    },      
+    {
+        title: "Slimme Boodschappenlijst",
+        content: "Stel een minimum voorraad in! Zodra een product bijna op is, zet de app dit automatisch op je boodschappenlijstje. Super handig voor in de supermarkt.",
+        icon: "ShoppingCart",
+        colorName: "purple"
+    }
+];
+
 // Standaard kleuren voor badges
 const BADGE_COLORS = {
     gray: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600",
@@ -98,6 +126,8 @@ const GRADIENTS = {
     teal: "from-teal-600 to-emerald-400",
     indigo: "from-indigo-600 to-blue-500"
 };
+
+const TOUR_COLORS = ['blue', 'green', 'orange', 'yellow', 'purple', 'red', 'pink', 'indigo', 'gray'];
 
 const WINKELS = [
     { name: "AH", color: "blue" },
@@ -413,9 +443,14 @@ function App() {
     const [stats, setStats] = useState({ wasted: 0, consumed: 0, wastedValue: 0, consumedValue: 0 });
     
     // Onboarding Tour States
+    const [tourSteps, setTourSteps] = useState(DEFAULT_TOUR_STEPS);
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [onboardingStep, setOnboardingStep] = useState(0);
     const [globalOnboardingActive, setGlobalOnboardingActive] = useState(true);
+    
+    // Tour Admin States
+    const [showTourAdminModal, setShowTourAdminModal] = useState(false);
+    const [editingTourSteps, setEditingTourSteps] = useState([]);
 
     // Data Loading States
     const [isDataLoaded, setIsDataLoaded] = useState(false);
@@ -511,7 +546,7 @@ function App() {
     const [eenheidFilter, setEenheidFilter] = useState('vries'); 
     const [modalType, setModalType] = useState('vriezer');
 
-    // Missing editing states voor Lades, Units en Categorieën (Fix)
+    // Editing states voor Lades, Units en Categorieën
     const [editingLadeId, setEditingLadeId] = useState(null);
     const [editingLadeName, setEditingLadeName] = useState('');
     const [editingUnitName, setEditingUnitName] = useState(null);
@@ -612,25 +647,37 @@ function App() {
         return () => unsubscribe();
     }, []);
 
-    // Global Onboarding Setting
+    // Global Onboarding Settings & Tour Steps
     useEffect(() => {
         const unsub = db.collection('settings').doc('onboarding').onSnapshot(doc => {
             if (doc.exists) {
-                setGlobalOnboardingActive(doc.data().isActive);
+                setGlobalOnboardingActive(doc.data().isActive !== false); // default true if not strictly false
             } else {
                 db.collection('settings').doc('onboarding').set({ isActive: true });
             }
         });
-        return () => unsub();
+        
+        const unsubSteps = db.collection('settings').doc('tourSteps').onSnapshot(doc => {
+            if (doc.exists && doc.data().steps && doc.data().steps.length > 0) {
+                setTourSteps(doc.data().steps);
+            } else {
+                setTourSteps(DEFAULT_TOUR_STEPS);
+            }
+        });
+        
+        return () => { unsub(); unsubSteps(); };
     }, []);
 
-    // Show Onboarding if user hasn't seen it
+    // Show Onboarding if user hasn't seen it and hasn't been explicitly disabled
     useEffect(() => {
         if (user && globalOnboardingActive) {
             const checkTour = async () => {
                 const doc = await db.collection('users').doc(user.uid).get();
-                if (doc.exists && !doc.data().hasSeenTutorial) {
-                    setShowOnboarding(true);
+                if (doc.exists) {
+                    const data = doc.data();
+                    if (!data.hasSeenTutorial && !data.tourDisabled) {
+                        setShowOnboarding(true);
+                    }
                 }
             };
             checkTour();
@@ -1650,6 +1697,16 @@ function App() {
         await db.collection('users').doc(userId).set({ hiddenTabs: newTabs }, { merge: true });
     };
 
+    // Onboarding User Toggle
+    const toggleUserTourDisabled = async (userId, currentStatus) => {
+        try {
+            await db.collection('users').doc(userId).set({ tourDisabled: !currentStatus }, { merge: true });
+            showNotification(`Tour is nu ${!currentStatus ? 'uitgeschakeld' : 'ingeschakeld'} voor deze gebruiker.`, "success");
+        } catch(e) {
+            showNotification("Fout bij aanpassen van instelling.", "error");
+        }
+    };
+
     const toggleLade = async (id) => {
         const newSet = new Set(collapsedLades);
         if(newSet.has(id)) newSet.delete(id); 
@@ -1680,7 +1737,7 @@ function App() {
         }
     };
 
-    // Onboarding Handlers
+    // --- Onboarding Handlers ---
     const finishTutorial = async () => {
         setShowOnboarding(false);
         if (user) {
@@ -1707,7 +1764,7 @@ function App() {
             try {
                 const usersSnap = await db.collection('users').get();
                 const batch = db.batch();
-                usersSnap.docs.forEach(u => batch.update(u.ref, { hasSeenTutorial: false }));
+                usersSnap.docs.forEach(u => batch.update(u.ref, { hasSeenTutorial: false, tourDisabled: false }));
                 await batch.commit();
                 showNotification("Tutorial succesvol gereset voor alle gebruikers!", "success");
             } catch (e) {
@@ -1718,45 +1775,55 @@ function App() {
 
     const triggerTourForUser = async (userId) => {
         try {
-            await db.collection('users').doc(userId).update({ hasSeenTutorial: false });
+            await db.collection('users').doc(userId).set({ hasSeenTutorial: false, tourDisabled: false }, { merge: true });
             showNotification("Tour staat klaar voor deze gebruiker!", "success");
         } catch (e) {
             showNotification("Fout bij updaten van tour status.", "error");
         }
     };
 
-    const tourSteps = [
-        {
-            title: "Welkom bij Voorraad! 🎉",
-            content: "Wat leuk dat je de app gebruikt! In deze korte rondleiding leggen we je de belangrijkste functies uit zodat je direct aan de slag kunt met het besparen van voedsel.",
-            icon: Icons.Box,
-            colorName: "blue"
-        },
-        {
-            title: "Snel Toevoegen",
-            content: "Rechtsonder zie je altijd de zwevende '+' knop. Hiermee voeg je razendsnel nieuwe producten toe aan je vriezer, koelkast of voorraadkast. Je kunt zelfs een Emoji instellen!",
-            icon: Icons.Plus,
-            colorName: "green"
-        },
-        {
-            title: "Houdbaarheid Checken",
-            content: "De app helpt je onthouden wat je moet opeten. Producten kleuren automatisch Oranje of Rood als ze de houdbaarheidsdatum naderen, of als ze te lang in de vriezer liggen.",
-            icon: Icons.Alert,
-            colorName: "orange"
-        },
-        {
-            title: "TEST",
-            content: "Rechtsonder zie je altijd de zwevende '+' knop. Hiermee voeg je razendsnel nieuwe producten toe aan je vriezer, koelkast of voorraadkast. Je kunt zelfs een Emoji instellen!",
-            icon: Icons.Minus,
-            colorName: "yellow"
-        },        
-        {
-            title: "Slimme Boodschappenlijst",
-            content: "Stel een minimum voorraad in! Zodra een product bijna op is, zet de app dit automatisch op je boodschappenlijstje. Super handig voor in de supermarkt.",
-            icon: Icons.ShoppingCart,
-            colorName: "purple"
+    // --- Admin Tour Editing ---
+    const openTourAdmin = () => {
+        setEditingTourSteps([...tourSteps]);
+        setShowTourAdminModal(true);
+    };
+
+    const saveTourStepsToDb = async () => {
+        try {
+            await db.collection('settings').doc('tourSteps').set({ steps: editingTourSteps }, { merge: true });
+            setShowTourAdminModal(false);
+            showNotification("Nieuwe tour succesvol opgeslagen!", "success");
+        } catch (e) {
+            showNotification("Fout bij opslaan van de tour.", "error");
         }
-    ];
+    };
+
+    const handleUpdateEditStep = (index, field, value) => {
+        const newSteps = [...editingTourSteps];
+        newSteps[index] = { ...newSteps[index], [field]: value };
+        setEditingTourSteps(newSteps);
+    };
+
+    const handleAddEditStep = () => {
+        setEditingTourSteps([...editingTourSteps, { title: 'Nieuwe Stap', content: '', icon: 'Info', colorName: 'blue' }]);
+    };
+
+    const handleDeleteEditStep = (index) => {
+        if(confirm("Weet je zeker dat je deze stap wilt verwijderen?")) {
+            setEditingTourSteps(editingTourSteps.filter((_, i) => i !== index));
+        }
+    };
+
+    const moveEditStep = (index, direction) => {
+        const newSteps = [...editingTourSteps];
+        if (direction === 'up' && index > 0) {
+            [newSteps[index - 1], newSteps[index]] = [newSteps[index], newSteps[index - 1]];
+        } else if (direction === 'down' && index < newSteps.length - 1) {
+            [newSteps[index + 1], newSteps[index]] = [newSteps[index], newSteps[index + 1]];
+        }
+        setEditingTourSteps(newSteps);
+    };
+
 
     // Bepaal of we in "Zoek" modus zitten en of er iets is gevonden in de actieve tab
     const isSearching = search.trim().length > 0;
@@ -1854,9 +1921,14 @@ function App() {
                                     </button>
 
                                     {isAdmin && (
-                                        <button onClick={() => { setShowUserAdminModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
-                                            <Icon path={Icons.Users} size={16}/> Gebruikers.
-                                        </button>
+                                        <>
+                                            <button onClick={() => { setShowUserAdminModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                <Icon path={Icons.Users} size={16}/> Gebruikers.
+                                            </button>
+                                            <button onClick={() => { openTourAdmin(); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                <Icon path={Icons.Edit2} size={16}/> Tour Aanpassen.
+                                            </button>
+                                        </>
                                     )}
                                     <button onClick={() => { setShowStatsModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                                         <Icon path={Icons.PieChart} size={16}/> Statistieken.
@@ -2873,13 +2945,13 @@ function App() {
             <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers." color="pink">
                 <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 mb-6">
                     <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2">
-                        <Icon path={Icons.BookOpen} size={18} /> Rondleiding (Tour) Instellingen
+                        <Icon path={Icons.BookOpen} size={18} /> Algemene Rondleiding (Tour)
                     </h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Beheer de automatische onboarding tour voor nieuwe en bestaande gebruikers.</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Stel in of nieuwe gebruikers standaard de tour te zien krijgen.</p>
                     <div className="flex flex-col sm:flex-row gap-3">
                         <button onClick={toggleGlobalOnboardingStatus} className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold flex justify-center items-center gap-2 transition-colors ${globalOnboardingActive ? 'bg-green-100 text-green-700 border border-green-200 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-200 text-gray-600 border border-gray-300 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600'}`}>
                             <Icon path={globalOnboardingActive ? Icons.Check : Icons.X} size={16} /> 
-                            {globalOnboardingActive ? 'Tour is AAN' : 'Tour is UIT'}
+                            {globalOnboardingActive ? 'Tour staat AAN' : 'Tour is UIT'}
                         </button>
                         <button onClick={resetTutorialForEveryone} className="flex-1 py-2 px-3 bg-red-100 text-red-700 border border-red-200 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 rounded-lg text-sm font-bold transition-colors">
                             Reset Tour voor Iedereen
@@ -2899,12 +2971,13 @@ function App() {
                                     {u.disabled ? 'Geblokkeerd' : 'Actief'}
                                 </button>
                             </div>
-                            <div className="flex flex-col gap-1 mt-1">
+                            <div className="flex flex-col gap-1 mt-1 bg-gray-50 dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
                                 <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                                     <input 
                                         type="checkbox" 
                                         checked={(u.hiddenTabs || []).includes('frig')} 
                                         onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'frig')}
+                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                     />
                                     <span>Verberg 'Frig.' tabblad</span>
                                 </div>
@@ -2913,13 +2986,23 @@ function App() {
                                         type="checkbox" 
                                         checked={(u.hiddenTabs || []).includes('voorraad')} 
                                         onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'voorraad')}
+                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                     />
                                     <span>Verberg 'Stock.' tabblad</span>
                                 </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 border-t border-gray-200 dark:border-gray-600 pt-2 mt-1">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={u.tourDisabled || false} 
+                                        onChange={() => toggleUserTourDisabled(u.id, u.tourDisabled)}
+                                        className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                    />
+                                    <span className="font-medium text-orange-700 dark:text-orange-400">Rondleiding uitzetten voor deze gebruiker</span>
+                                </div>
                                 
-                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mt-2 border-t border-gray-100 dark:border-gray-700 pt-2">
-                                    <button onClick={() => triggerTourForUser(u.id)} className="px-2 py-1 bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300 rounded text-xs font-bold hover:bg-purple-200 transition">
-                                        Zet Tour (Rondleiding) opnieuw klaar
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mt-2">
+                                    <button onClick={() => triggerTourForUser(u.id)} className="w-full py-1.5 bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300 rounded text-xs font-bold hover:bg-purple-200 transition">
+                                        Zet Tour opnieuw klaar
                                     </button>
                                 </div>
                             </div>
@@ -2931,8 +3014,70 @@ function App() {
                 </ul>
             </Modal>
 
+            {/* Tour Admin Modal (Om de inhoud aan te passen) */}
+            <Modal isOpen={showTourAdminModal} onClose={() => setShowTourAdminModal(false)} title="Tour Aanpassen." color="purple" size="lg">
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">Hier kun je de inhoud van de rondleiding stap-voor-stap aanpassen. Gebruik de pijltjes om de volgorde te veranderen.</p>
+                <div className="space-y-4">
+                    {editingTourSteps.map((step, index) => (
+                        <div key={index} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 relative">
+                            <div className="absolute top-3 right-3 flex gap-1">
+                                <button onClick={() => moveEditStep(index, 'up')} disabled={index === 0} className={`p-1 rounded ${index === 0 ? 'text-gray-300' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+                                    <Icon path={Icons.ChevronDown} className="rotate-180" size={16}/>
+                                </button>
+                                <button onClick={() => moveEditStep(index, 'down')} disabled={index === editingTourSteps.length - 1} className={`p-1 rounded ${index === editingTourSteps.length - 1 ? 'text-gray-300' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+                                    <Icon path={Icons.ChevronDown} size={16}/>
+                                </button>
+                                <button onClick={() => handleDeleteEditStep(index)} className="p-1 rounded text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40">
+                                    <Icon path={Icons.Trash2} size={16}/>
+                                </button>
+                            </div>
+                            
+                            <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-3">Stap {index + 1}</h4>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Titel</label>
+                                    <input type="text" className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600" value={step.title} onChange={e => handleUpdateEditStep(index, 'title', e.target.value)} />
+                                </div>
+                                <div className="flex gap-2">
+                                    <div className="flex-grow">
+                                        <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Icoon</label>
+                                        <select className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600" value={step.icon} onChange={e => handleUpdateEditStep(index, 'icon', e.target.value)}>
+                                            {Object.keys(Icons).map(iconName => <option key={iconName} value={iconName}>{iconName}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="flex-shrink-0 w-10 flex items-end justify-center pb-2 text-gray-600 dark:text-gray-300">
+                                        <Icon path={Icons[step.icon] || Icons.Box} size={24}/>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="mb-3">
+                                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Tekst (Content)</label>
+                                <textarea className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600 h-20" value={step.content} onChange={e => handleUpdateEditStep(index, 'content', e.target.value)} />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Kleur (Thema)</label>
+                                <select className="w-full p-2 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600" value={step.colorName} onChange={e => handleUpdateEditStep(index, 'colorName', e.target.value)}>
+                                    {TOUR_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    ))}
+                    
+                    <button onClick={handleAddEditStep} className="w-full py-3 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-xl font-bold border-2 border-dashed border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                        + Nieuwe Stap Toevoegen
+                    </button>
+                    
+                    <button onClick={saveTourStepsToDb} className="w-full py-3 bg-purple-600 text-white rounded-xl font-bold shadow-md hover:bg-purple-700 transition">
+                        Tour Opslaan
+                    </button>
+                </div>
+            </Modal>
+
             {/* Meldingen Modal (Links uitgelijnd indien onboarding ook open is) */}
-            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red" position={showOnboarding ? "left" : "center"}>
+            <Modal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} title="Meldingen." color="red" position={showOnboarding && tourSteps.length > 0 ? "left" : "center"}>
                 {alerts.length > 0 && (
                     <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 dark:bg-red-900/20">
                         <h4 className="font-bold text-red-800 dark:text-red-300">Let op!</h4>
@@ -3000,14 +3145,14 @@ function App() {
             </Modal>
 
             {/* De Onboarding Tour Modal (Rechts uitgelijnd indien Meldingen ook open zijn) */}
-            {tourSteps[onboardingStep] && (
-                <Modal isOpen={showOnboarding} onClose={() => {}} title={`Rondleiding (${onboardingStep + 1}/${tourSteps.length})`} color={tourSteps[onboardingStep].colorName} position={showWhatsNew ? "right" : "center"} hideBackdrop={showWhatsNew}>
+            {tourSteps && tourSteps[onboardingStep] && (
+                <Modal isOpen={showOnboarding} onClose={() => {}} title={`Rondleiding (${onboardingStep + 1}/${tourSteps.length})`} color={tourSteps[onboardingStep].colorName || 'blue'} position={showWhatsNew ? "right" : "center"} hideBackdrop={showWhatsNew}>
                     <div className="flex flex-col items-center text-center py-4 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className={`w-20 h-20 flex items-center justify-center rounded-full bg-${tourSteps[onboardingStep].colorName}-100 dark:bg-${tourSteps[onboardingStep].colorName}-900/30 text-${tourSteps[onboardingStep].colorName}-600 dark:text-${tourSteps[onboardingStep].colorName}-400 mb-2`}>
-                            <Icon path={tourSteps[onboardingStep].icon} size={40} />
+                        <div className={`w-20 h-20 flex items-center justify-center rounded-full bg-${tourSteps[onboardingStep].colorName || 'blue'}-100 dark:bg-${tourSteps[onboardingStep].colorName || 'blue'}-900/30 text-${tourSteps[onboardingStep].colorName || 'blue'}-600 dark:text-${tourSteps[onboardingStep].colorName || 'blue'}-400 mb-2`}>
+                            <Icon path={Icons[tourSteps[onboardingStep].icon] || Icons.Box} size={40} />
                         </div>
                         <h3 className="text-xl font-bold text-gray-800 dark:text-white">{tourSteps[onboardingStep].title}</h3>
-                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed max-w-sm">{tourSteps[onboardingStep].content}</p>
+                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed max-w-sm whitespace-pre-line">{tourSteps[onboardingStep].content}</p>
 
                         <div className="flex gap-2 py-4">
                             {tourSteps.map((_, i) => (
@@ -3017,7 +3162,7 @@ function App() {
 
                         <div className="flex w-full gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
                             <button onClick={finishTutorial} className="flex-1 py-3 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition">Overslaan</button>
-                            <button onClick={nextTourStep} className={`flex-[2] py-3 text-white rounded-xl font-bold transition shadow-md bg-${tourSteps[onboardingStep].colorName}-600 hover:bg-${tourSteps[onboardingStep].colorName}-700`}>
+                            <button onClick={nextTourStep} className={`flex-[2] py-3 text-white rounded-xl font-bold transition shadow-md bg-${tourSteps[onboardingStep].colorName || 'blue'}-600 hover:bg-${tourSteps[onboardingStep].colorName || 'blue'}-700`}>
                                 {onboardingStep === tourSteps.length - 1 ? 'Aan de slag!' : 'Volgende'}
                             </button>
                         </div>
