@@ -3230,6 +3230,117 @@ function App() {
                 </div>
             </Modal>
 
+            <Modal isOpen={showDashboardModal} onClose={() => setShowDashboardModal(false)} title="Dashboard." color="blue" size="xl">
+                <div className="space-y-4 min-h-[50vh]">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Selecteer een gebruiker om direct in hun voorraad te kijken zonder in te loggen op hun account.</p>
+                    <select 
+                        className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                        value={dashboardUser} 
+                        onChange={e => setDashboardUser(e.target.value)}
+                    >
+                        <option value="">Kies een gebruiker...</option>
+                        {usersList.map(u => (
+                            <option key={u.id} value={u.id}>{u.email || u.displayName} ({u.id.substring(0,6)}...)</option>
+                        ))}
+                    </select>
+
+                    {dashboardData.loading ? (
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-400 flex flex-col items-center">
+                            <Icon path={Icons.Box} className="animate-bounce mb-2" size={32} />
+                            Laden van voorraad...
+                        </div>
+                    ) : dashboardUser && dashboardData.vriezers.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                            Deze gebruiker heeft nog geen locaties aangemaakt.
+                        </div>
+                    ) : (
+                        <div className="space-y-8 mt-4">
+                            {['vriezer', 'frig', 'voorraad'].map(type => {
+                                const typeLocaties = sortLocaties(dashboardData.vriezers.filter(v => (v.type || 'vriezer') === type));
+                                if (typeLocaties.length === 0) return null;
+                                
+                                const typeNames = { vriezer: 'Vriezer', frig: 'Koelkast', voorraad: 'Voorraad' };
+
+                                return (
+                                    <div key={type} className="animate-in fade-in duration-300">
+                                        <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">
+                                            {typeNames[type]}
+                                        </h3>
+                                        
+                                        <div className="flex flex-col gap-6">
+                                            {typeLocaties.map(v => (
+                                                <div key={v.id} className="bg-gray-50 dark:bg-gray-800/80 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                                                    <h4 className="font-bold text-lg mb-3 text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                                                        <span className={`w-3 h-3 rounded-full bg-${v.color || 'blue'}-500 inline-block`}></span>
+                                                        {v.naam}
+                                                    </h4>
+                                                    
+                                                    {/* Lades in een grid (max 3 naast elkaar), klikken om te openen */}
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start mt-2">
+                                                        {dashboardData.lades.filter(l => l.vriezerId === v.id).sort((a,b) => a.naam.localeCompare(b.naam)).map(l => {
+                                                            const ladeItems = dashboardData.items.filter(i => i.ladeId === l.id).sort((a,b) => a.naam.localeCompare(b.naam));
+                                                            const isLadeOpen = openDashboardLades.has(l.id);
+                                                            
+                                                            return (
+                                                                <div key={l.id} className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 flex flex-col transition-all">
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            const newSet = new Set(openDashboardLades);
+                                                                            if(newSet.has(l.id)) newSet.delete(l.id);
+                                                                            else newSet.add(l.id);
+                                                                            setOpenDashboardLades(newSet);
+                                                                        }}
+                                                                        className="w-full text-left font-semibold text-sm text-gray-700 dark:text-gray-300 p-3 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-700 z-10 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                                                    >
+                                                                        <span className="flex items-center gap-2">
+                                                                            <Icon path={isLadeOpen ? Icons.ChevronDown : Icons.ChevronRight} size={16}/>
+                                                                            {l.naam}
+                                                                        </span>
+                                                                        <span className="text-xs font-normal text-gray-500 bg-gray-100 dark:bg-gray-600 px-2 py-0.5 rounded-full">{ladeItems.length} items</span>
+                                                                    </button>
+                                                                    
+                                                                    {isLadeOpen && (
+                                                                        <ul className="p-2 space-y-2 overflow-y-auto flex-grow max-h-[50vh] border-t border-gray-100 dark:border-gray-600">
+                                                                            {ladeItems.length === 0 ? (
+                                                                                <li className="text-xs italic text-gray-400 text-center py-4">Lade is leeg</li>
+                                                                            ) : (
+                                                                                ladeItems.map(i => (
+                                                                                    <li key={i.id} className="text-sm flex justify-between items-center bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-600 shadow-sm transition-colors hover:border-blue-300 dark:hover:border-blue-700 group">
+                                                                                        <span className="truncate mr-2 flex items-center gap-2 text-gray-800 dark:text-gray-200">
+                                                                                            <span className="text-lg">{i.emoji}</span>
+                                                                                            <div className="truncate">
+                                                                                                <span>{i.naam}</span>
+                                                                                                {i.notitie && <span className="block text-xs italic text-gray-500 mt-0.5">{i.notitie}</span>}
+                                                                                            </div>
+                                                                                        </span>
+                                                                                        <div className="flex items-center gap-3">
+                                                                                            <span className="font-bold text-gray-600 dark:text-gray-300 flex-shrink-0 whitespace-nowrap">
+                                                                                                {formatAantal(i.aantal)} <span className="text-xs font-normal">{i.eenheid}</span>
+                                                                                            </span>
+                                                                                            <button onClick={() => openEditFromDashboard(i)} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded flex-shrink-0 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity" title="Bewerken">
+                                                                                                <Icon path={Icons.Edit2} size={14}/>
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    </li>
+                                                                                ))
+                                                                            )}
+                                                                        </ul>
+                                                                    )}
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </Modal>
+
             <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel account." color="gray">
                 <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                     {usersList.map(u => (
