@@ -1887,12 +1887,6 @@ function App() {
                             )}
                         </button>
                         
-                        {isAdmin && (
-                            <>
-                                <button onClick={() => setShowDashboardModal(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition-colors" title="Dashboard"><Icon path={Icons.LayoutDashboard}/></button>
-                            </>
-                        )}
-                        
                         <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 relative hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" title="Meldingen"><Icon path={Icons.Info}/>{alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>}</button>
                         
                         <div className="relative">
@@ -2960,7 +2954,7 @@ function App() {
                 <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                     {usersList.map(u => (
                         <li key={u.id} className="py-3 flex flex-col gap-2">
-                            <div className="flex justify-between items-center">
+                            <div className="flex flex-col sm:flex-row justify-between sm:items-center items-start">
                                 <div>
                                     <p className="font-bold dark:text-white">
                                         {u.email || u.displayName}
@@ -2968,7 +2962,10 @@ function App() {
                                     </p>
                                     <p className="text-xs text-gray-500">{u.id}</p>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0 justify-end">
+                                    <button onClick={() => { setDashboardUser(u.id); setShowUserAdminModal(false); setShowDashboardModal(true); }} className="px-3 py-1 rounded text-xs font-bold bg-indigo-100 text-indigo-600 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300 dark:hover:bg-indigo-800 transition shadow-sm flex items-center gap-1">
+                                        <Icon path={Icons.LayoutDashboard} size={12}/> Dashboard
+                                    </button>
                                     {u.id !== beheerdeUserId && (
                                         <button onClick={() => { setBeheerdeUserId(u.id); setShowUserAdminModal(false); showNotification(`Ingelogd als ${u.email || 'gebruiker'}`, 'success'); }} className="px-3 py-1 rounded text-xs font-bold bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-800 transition shadow-sm">
                                             Wissel
