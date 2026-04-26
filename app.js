@@ -226,7 +226,8 @@ const Icons = {
     CheckSquare: <g><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></g>,
     MessageCircle: <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>,
     Banknote: <g><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></g>,
-    BookOpen: <g><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></g>
+    BookOpen: <g><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></g>,
+    HelpCircle: <g><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></g>
 };
 
 // --- 4. HULPFUNCTIES ---
@@ -439,6 +440,7 @@ function App() {
     const [managedUserHiddenTabs, setManagedUserHiddenTabs] = useState([]);
     const [myHiddenTabs, setMyHiddenTabs] = useState([]);
     const [darkMode, setDarkMode] = useState(false);
+    const [myShowHelpButton, setMyShowHelpButton] = useState(false);
     const [savedOpenLades, setSavedOpenLades] = useState(null);
     const [stats, setStats] = useState({ wasted: 0, consumed: 0, wastedValue: 0, consumedValue: 0 });
     
@@ -601,6 +603,7 @@ function App() {
                             setDarkMode(data.darkMode);
                         }
                         setMyHiddenTabs(data.hiddenTabs || []);
+                        setMyShowHelpButton(data.showHelpButton === true);
 
                         if (data.openLades && Array.isArray(data.openLades)) {
                             setSavedOpenLades(data.openLades);
@@ -623,11 +626,13 @@ function App() {
                             customUnitsVoorraad: [],
                             hiddenTabs: [],
                             darkMode: false,
+                            showHelpButton: false,
                             openLades: [],
                             stats: { wasted: 0, consumed: 0, wastedValue: 0, consumedValue: 0 }
                         });
                         setSavedOpenLades([]);
                         setMyHiddenTabs([]);
+                        setMyShowHelpButton(false);
                     }
                 });
 
@@ -1706,6 +1711,15 @@ function App() {
         }
     };
 
+    const toggleUserHelpButton = async (userId, currentStatus) => {
+        try {
+            await db.collection('users').doc(userId).set({ showHelpButton: !currentStatus }, { merge: true });
+            showNotification(`Hulp knop is nu ${!currentStatus ? 'zichtbaar' : 'verborgen'} voor deze gebruiker.`, "success");
+        } catch(e) {
+            showNotification("Fout bij aanpassen van instelling.", "error");
+        }
+    };
+
     const toggleLade = async (id) => {
         const newSet = new Set(collapsedLades);
         if(newSet.has(id)) newSet.delete(id); 
@@ -1886,6 +1900,12 @@ function App() {
                                 </span>
                             )}
                         </button>
+                        
+                        {myShowHelpButton && (
+                            <button onClick={() => { setOnboardingStep(0); setShowOnboarding(true); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-red-50 text-red-500 border border-red-200 relative hover:bg-red-100 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/50 transition-colors shadow-sm" title="Hulp & Rondleiding">
+                                <Icon path={Icons.HelpCircle}/>
+                            </button>
+                        )}
                         
                         <button onClick={() => setShowWhatsNew(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 relative hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" title="Meldingen"><Icon path={Icons.Info}/>{alerts.length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>}</button>
                         
@@ -3003,6 +3023,15 @@ function App() {
                                         className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                                     />
                                     <span className="font-medium text-orange-700 dark:text-orange-400">Rondleiding uitzetten voor deze gebruiker</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mt-1">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={u.showHelpButton || false} 
+                                        onChange={() => toggleUserHelpButton(u.id, u.showHelpButton)}
+                                        className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                                    />
+                                    <span className="font-medium text-red-700 dark:text-red-400">Toon lichtrode 'Hulp' knop in hoofdmenu</span>
                                 </div>
                                 
                                 <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mt-2">
