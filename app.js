@@ -487,7 +487,6 @@ function App() {
     const [showFilterModal, setShowFilterModal] = useState(false);
     const [showWhatsNew, setShowWhatsNew] = useState(false);
     const [showVersionHistory, setShowVersionHistory] = useState(false);
-    const [showSwitchAccount, setShowSwitchAccount] = useState(false);
     const [showDashboardModal, setShowDashboardModal] = useState(false);
     const [showBeheerModal, setShowBeheerModal] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -1891,7 +1890,6 @@ function App() {
                         {isAdmin && (
                             <>
                                 <button onClick={() => setShowDashboardModal(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition-colors" title="Dashboard"><Icon path={Icons.LayoutDashboard}/></button>
-                                <button onClick={() => setShowSwitchAccount(true)} className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors" title="Wissel Account"><Icon path={Icons.Users}/></button>
                             </>
                         )}
                         
@@ -1923,7 +1921,7 @@ function App() {
                                     {isAdmin && (
                                         <>
                                             <button onClick={() => { setShowUserAdminModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
-                                                <Icon path={Icons.Users} size={16}/> Gebruikers.
+                                                <Icon path={Icons.Users} size={16}/> Gebruikers & Wisselen.
                                             </button>
                                             <button onClick={() => { openTourAdmin(); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                                                 <Icon path={Icons.Edit2} size={16}/> Tour Aanpassen.
@@ -2964,12 +2962,22 @@ function App() {
                         <li key={u.id} className="py-3 flex flex-col gap-2">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <p className="font-bold dark:text-white">{u.email || u.displayName}</p>
+                                    <p className="font-bold dark:text-white">
+                                        {u.email || u.displayName}
+                                        {u.id === beheerdeUserId && <span className="ml-2 text-[10px] bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded-full uppercase tracking-wide border border-blue-200 dark:border-blue-700">Huidig</span>}
+                                    </p>
                                     <p className="text-xs text-gray-500">{u.id}</p>
                                 </div>
-                                <button onClick={() => toggleUserStatus(u.id, u.disabled)} className={`px-3 py-1 rounded text-xs font-bold ${u.disabled ? 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-200' : 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-200'}`}>
-                                    {u.disabled ? 'Geblokkeerd' : 'Actief'}
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    {u.id !== beheerdeUserId && (
+                                        <button onClick={() => { setBeheerdeUserId(u.id); setShowUserAdminModal(false); showNotification(`Ingelogd als ${u.email || 'gebruiker'}`, 'success'); }} className="px-3 py-1 rounded text-xs font-bold bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-800 transition shadow-sm">
+                                            Wissel
+                                        </button>
+                                    )}
+                                    <button onClick={() => toggleUserStatus(u.id, u.disabled)} className={`px-3 py-1 rounded text-xs font-bold shadow-sm ${u.disabled ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300 hover:bg-red-200' : 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-300 hover:bg-green-200'}`}>
+                                        {u.disabled ? 'Geblokkeerd' : 'Actief'}
+                                    </button>
+                                </div>
                             </div>
                             <div className="flex flex-col gap-1 mt-1 bg-gray-50 dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
                                 <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
@@ -3341,16 +3349,6 @@ function App() {
                 </div>
             </Modal>
 
-            <Modal isOpen={showSwitchAccount} onClose={() => setShowSwitchAccount(false)} title="Wissel account." color="gray">
-                <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {usersList.map(u => (
-                        <li key={u.id} className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer flex justify-between" onClick={() => { setBeheerdeUserId(u.id); setShowSwitchAccount(false); }}>
-                            <span className="font-medium dark:text-white">{u.email || u.displayName}</span>
-                            {u.id === beheerdeUserId && <Icon path={Icons.Check} className="text-blue-500"/>}
-                        </li>
-                    ))}
-                </ul>
-            </Modal>
         </div>
     );
 }
