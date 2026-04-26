@@ -84,7 +84,7 @@ const DEFAULT_TOUR_STEPS = [
     },
     {
         title: "Snel Toevoegen",
-        content: "Rechtsonder zie je altijd de zwevende '+' knop. Hiermee voeg je razendsnel nieuwe producten toe aan je vriezer, koelkast of voorraadkast. Je kunt zelfs een Emoji instellen!",
+        content: "Rechtsonder zie je always de zwevende '+' knop. Hiermee voeg je razendsnel nieuwe producten toe aan je vriezer, koelkast of voorraadkast. Je kunt zelfs een Emoji instellen!",
         icon: "Plus",
         colorName: "green"
     },
@@ -441,6 +441,8 @@ function App() {
     const [myHiddenTabs, setMyHiddenTabs] = useState([]);
     const [darkMode, setDarkMode] = useState(false);
     const [myShowHelpButton, setMyShowHelpButton] = useState(false);
+    const [myTourDisabled, setMyTourDisabled] = useState(false);
+    const [myHasSeenTutorial, setMyHasSeenTutorial] = useState(true);
     const [savedOpenLades, setSavedOpenLades] = useState(null);
     const [stats, setStats] = useState({ wasted: 0, consumed: 0, wastedValue: 0, consumedValue: 0 });
     
@@ -604,6 +606,8 @@ function App() {
                         }
                         setMyHiddenTabs(data.hiddenTabs || []);
                         setMyShowHelpButton(data.showHelpButton === true);
+                        setMyTourDisabled(data.tourDisabled === true);
+                        setMyHasSeenTutorial(data.hasSeenTutorial === true);
 
                         if (data.openLades && Array.isArray(data.openLades)) {
                             setSavedOpenLades(data.openLades);
@@ -627,12 +631,16 @@ function App() {
                             hiddenTabs: [],
                             darkMode: false,
                             showHelpButton: false,
+                            tourDisabled: false,
+                            hasSeenTutorial: false,
                             openLades: [],
                             stats: { wasted: 0, consumed: 0, wastedValue: 0, consumedValue: 0 }
                         });
                         setSavedOpenLades([]);
                         setMyHiddenTabs([]);
                         setMyShowHelpButton(false);
+                        setMyTourDisabled(false);
+                        setMyHasSeenTutorial(false);
                     }
                 });
 
@@ -674,19 +682,14 @@ function App() {
 
     // Show Onboarding if user hasn't seen it and hasn't been explicitly disabled
     useEffect(() => {
-        if (user && globalOnboardingActive) {
-            const checkTour = async () => {
-                const doc = await db.collection('users').doc(user.uid).get();
-                if (doc.exists) {
-                    const data = doc.data();
-                    if (!data.hasSeenTutorial && !data.tourDisabled) {
-                        setShowOnboarding(true);
-                    }
-                }
-            };
-            checkTour();
+        if (user) {
+            if (myTourDisabled) {
+                setShowOnboarding(false); // Forceer sluiten als admin het live uitschakelt
+            } else if (globalOnboardingActive && !myHasSeenTutorial) {
+                setShowOnboarding(true);
+            }
         }
-    }, [user, globalOnboardingActive]);
+    }, [user, globalOnboardingActive, myTourDisabled, myHasSeenTutorial]);
 
 
     // Sync Data
@@ -1777,7 +1780,8 @@ function App() {
             try {
                 const usersSnap = await db.collection('users').get();
                 const batch = db.batch();
-                usersSnap.docs.forEach(u => batch.update(u.ref, { hasSeenTutorial: false, tourDisabled: false }));
+                // Wijzigen hier: We laten tourDisabled met rust, zodat geblokkeerde mensen niet ineens de tour toch krijgen.
+                usersSnap.docs.forEach(u => batch.update(u.ref, { hasSeenTutorial: false }));
                 await batch.commit();
                 showNotification("Tutorial succesvol gereset voor alle gebruikers!", "success");
             } catch (e) {
