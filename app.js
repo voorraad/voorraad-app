@@ -19,10 +19,18 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.16.0'; 
+const APP_VERSION = '8.17.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '8.17.0', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: Uitgebreid Logboek! Je ziet nu exact wát er is gewijzigd (bijv. "Aantal: 5 ➔ 3" of "Lade: Lade 1 ➔ Lade 2").',
+            'Update: Bulk acties (meerdere items tegelijk verplaatsen of verwijderen) worden nu ook per product in het logboek opgeslagen.'
+        ] 
+    },
     { 
         version: '8.16.0', 
         type: 'feature', 
@@ -768,7 +776,7 @@ function App() {
 
         let query;
         if (isAdmin) {
-            query = db.collection('logs').orderBy('timestamp', 'desc').limit(50);
+            query = db.collection('logs').orderBy('timestamp', 'desc').limit(100);
         } else {
             query = db.collection('logs').where('targetUserId', '==', beheerdeUserId).orderBy('timestamp', 'desc').limit(50);
         }
@@ -1061,8 +1069,21 @@ function App() {
         };
         try {
             if(editingItem) {
+                // Uitgebreide logica om verschillen bij te houden
+                let changes = [];
+                if (editingItem.naam !== data.naam) changes.push(`Naam: ${editingItem.naam} ➔ ${data.naam}`);
+                if (parseFloat(editingItem.aantal) !== parseFloat(data.aantal)) changes.push(`Aantal: ${editingItem.aantal} ➔ ${data.aantal}`);
+                if (editingItem.eenheid !== data.eenheid) changes.push(`Eenheid: ${editingItem.eenheid} ➔ ${data.eenheid}`);
+                if (editingItem.categorie !== data.categorie) changes.push(`Categorie: ${editingItem.categorie} ➔ ${data.categorie}`);
+                if (editingItem.ladeId !== data.ladeId) changes.push(`Lade: ${editingItem.ladeNaam || '?'} ➔ ${data.ladeNaam || '?'}`);
+                if ((editingItem.prijs || '') != (data.prijs || '')) changes.push(`Prijs: ${editingItem.prijs || '0'} ➔ ${data.prijs || '0'}`);
+                if ((editingItem.minimumVoorraad || '') != (data.minimumVoorraad || '')) changes.push(`Min: ${editingItem.minimumVoorraad || '0'} ➔ ${data.minimumVoorraad || '0'}`);
+                if ((editingItem.notitie || '') !== (data.notitie || '')) changes.push(`Notitie aangepast`);
+                
+                const detailsString = changes.length > 0 ? changes.join(', ') : 'Geen velden gewijzigd';
+
                 await db.collection('items').doc(editingItem.id).update(data);
-                await logAction('Bewerkt', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
+                await logAction('Bewerkt', data.naam, detailsString, user, beheerdeUserId);
                 showNotification(`${data.naam} is bijgewerkt!`, 'success');
                 setEditingItem(null);
                 setShowAddModal(false);
@@ -1462,6 +1483,12 @@ function App() {
         const batch = db.batch();
         selectedBulkItems.forEach(id => {
             batch.delete(db.collection('items').doc(id));
+            
+            // Log de bulk delete individueel in het logboek
+            const item = items.find(i => i.id === id);
+            if (item) {
+                logAction('Verwijderd', item.naam, 'Via Bulk Actie', user, beheerdeUserId);
+            }
         });
 
         try {
@@ -1493,6 +1520,12 @@ function App() {
                 ladeId: bulkMoveTarget.ladeId,
                 ladeNaam: targetLade ? targetLade.naam : ''
             });
+
+            // Log de bulk move in het logboek
+            const item = items.find(i => i.id === id);
+            if (item) {
+                logAction('Bewerkt', item.naam, `Verplaatst via Bulk naar Lade: ${targetLade ? targetLade.naam : '?'}`, user, beheerdeUserId);
+            }
         });
 
         try {
@@ -2800,7 +2833,7 @@ function App() {
                                             <Icon path={Icons.User} size={12}/> {log.actorName}
                                         </div>
                                     </div>
-                                    {log.details && <p className="text-xs text-gray-400 mt-1 pl-1 border-l-2 border-gray-200 dark:border-gray-600">{log.details}</p>}
+                                    {log.details && <p className="text-xs text-gray-400 mt-1 pl-1 border-l-2 border-gray-200 dark:border-gray-600 leading-relaxed">{log.details}</p>}
                                 </li>
                             );
                         })}
