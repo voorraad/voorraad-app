@@ -28,7 +28,8 @@ const VERSION_HISTORY = [
         type: 'feature', 
         changes: [
             'Nieuw: Uitgebreid Logboek! Je ziet nu exact wát er is gewijzigd (bijv. "Aantal: 5 ➔ 3" of "Lade: Lade 1 ➔ Lade 2").',
-            'Update: Bulk acties (meerdere items tegelijk verplaatsen of verwijderen) worden nu ook per product in het logboek opgeslagen.'
+            'Update: Bulk acties (meerdere items tegelijk verplaatsen of verwijderen) worden nu ook per product in het logboek opgeslagen.',
+            'Update: Bij het toevoegen van een product zie je in het logboek nu ook in welke locatie en lade dit is gebeurd.'
         ] 
     },
     { 
@@ -1045,6 +1046,7 @@ function App() {
     const handleSaveItem = async (e) => {
         e.preventDefault();
         const lade = lades.find(l => l.id === formData.ladeId);
+        const loc = vriezers.find(v => v.id === formData.vriezerId);
         
         let safeAantal = parseFloat(formData.aantal);
         if (isNaN(safeAantal) || safeAantal <= 0) safeAantal = 1;
@@ -1089,7 +1091,9 @@ function App() {
                 setShowAddModal(false);
             } else {
                 await db.collection('items').add(data);
-                await logAction('Toevoegen', data.naam, `${data.aantal} ${data.eenheid}`, user, beheerdeUserId);
+                const locNaam = loc ? loc.naam : 'Onbekende locatie';
+                const ladeNaam = lade ? lade.naam : 'Onbekende lade';
+                await logAction('Toevoegen', data.naam, `${data.aantal} ${data.eenheid} in ${locNaam} (${ladeNaam})`, user, beheerdeUserId);
                 showNotification(`${data.naam} is toegevoegd!`, 'success');
                 if (rememberLocation) {
                     setFormData(prev => ({
