@@ -3261,10 +3261,14 @@ function App() {
             {tourSteps && tourSteps[onboardingStep] && (
                 <Modal isOpen={showOnboarding} onClose={() => {}} title={`Rondleiding (${onboardingStep + 1}/${tourSteps.length})`} color={tourSteps[onboardingStep].colorName || 'blue'} position={showWhatsNew ? "right" : "center"} hideBackdrop={showWhatsNew} hideCloseButton={true}>
                     <div 
-                        className="flex flex-col items-center text-center py-4 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300 select-none touch-pan-y"
-                        onTouchStart={handleTourTouchStart}
-                        onTouchMove={handleTourTouchMove}
-                        onTouchEnd={handleTourTouchEnd}
+                        className="flex flex-col items-center text-center py-4 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300 select-none touch-pan-y cursor-grab active:cursor-grabbing"
+                        onTouchStart={handleSwipeStart}
+                        onTouchMove={handleSwipeMove}
+                        onTouchEnd={handleSwipeEnd}
+                        onMouseDown={handleSwipeStart}
+                        onMouseMove={handleSwipeMove}
+                        onMouseUp={handleSwipeEnd}
+                        onMouseLeave={handleSwipeEnd}
                     >
                         <div className={`w-20 h-20 flex items-center justify-center rounded-full bg-${tourSteps[onboardingStep].colorName || 'blue'}-100 dark:bg-${tourSteps[onboardingStep].colorName || 'blue'}-900/30 text-${tourSteps[onboardingStep].colorName || 'blue'}-600 dark:text-${tourSteps[onboardingStep].colorName || 'blue'}-400 mb-2 pointer-events-none`}>
                             <Icon path={Icons[tourSteps[onboardingStep].icon] || Icons.Box} size={40} />
