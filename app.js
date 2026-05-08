@@ -375,7 +375,7 @@ const Toast = ({ message, type = "success", onClose }) => {
 };
 
 // Modals kunnen nu position="center", "left" of "right" meegegeven krijgen
-const Modal = ({ isOpen, onClose, title, children, color = "blue", size = "md", position = "center", hideBackdrop = false }) => {
+const Modal = ({ isOpen, onClose, title, children, color = "blue", size = "md", position = "center", hideBackdrop = false, hideCloseButton = false }) => {
     if (!isOpen) return null;
     
     const gradientClass = GRADIENTS[color] || GRADIENTS.blue;
@@ -390,7 +390,9 @@ const Modal = ({ isOpen, onClose, title, children, color = "blue", size = "md", 
             <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full ${sizeClass} max-h-[90vh] overflow-y-auto modal-animate flex flex-col pointer-events-auto`} onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
                     <h3 className={`text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{title}</h3>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"><Icon path={Icons.X} className="text-gray-500 dark:text-gray-400" /></button>
+                    {!hideCloseButton && (
+                        <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"><Icon path={Icons.X} className="text-gray-500 dark:text-gray-400" /></button>
+                    )}
                 </div>
                 <div className="p-4 space-y-4 flex-grow overflow-y-auto text-gray-800 dark:text-gray-200">{children}</div>
             </div>
@@ -461,6 +463,10 @@ function App() {
     const [onboardingStep, setOnboardingStep] = useState(0);
     const [globalOnboardingActive, setGlobalOnboardingActive] = useState(true);
     
+    // Touch States for swipe
+    const [touchStart, setTouchStart] = useState(null);
+    const [touchEnd, setTouchEnd] = useState(null);
+
     // Tour Admin States
     const [showTourAdminModal, setShowTourAdminModal] = useState(false);
     const [editingTourSteps, setEditingTourSteps] = useState([]);
@@ -1805,6 +1811,34 @@ function App() {
         } else {
             finishTutorial();
         }
+    };
+
+    const handleTourTouchStart = (e) => {
+        setTouchEnd(null);
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const handleTourTouchMove = (e) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const handleTourTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+        const distance = touchStart - touchEnd;
+        const minSwipeDistance = 50;
+
+        if (distance > minSwipeDistance) {
+            // Swipe links -> Volgende stap
+            nextTourStep();
+        } else if (distance < -minSwipeDistance) {
+            // Swipe rechts -> Vorige stap
+            if (onboardingStep > 0) {
+                setOnboardingStep(onboardingStep - 1);
+            }
+        }
+        // Reset touches
+        setTouchStart(null);
+        setTouchEnd(null);
     };
 
     const toggleGlobalOnboardingStatus = async () => {
@@ -3221,24 +3255,40 @@ function App() {
 
             {/* De Onboarding Tour Modal (Rechts uitgelijnd indien Meldingen ook open zijn) */}
             {tourSteps && tourSteps[onboardingStep] && (
-                <Modal isOpen={showOnboarding} onClose={() => {}} title={`Rondleiding (${onboardingStep + 1}/${tourSteps.length})`} color={tourSteps[onboardingStep].colorName || 'blue'} position={showWhatsNew ? "right" : "center"} hideBackdrop={showWhatsNew}>
-                    <div className="flex flex-col items-center text-center py-4 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className={`w-20 h-20 flex items-center justify-center rounded-full bg-${tourSteps[onboardingStep].colorName || 'blue'}-100 dark:bg-${tourSteps[onboardingStep].colorName || 'blue'}-900/30 text-${tourSteps[onboardingStep].colorName || 'blue'}-600 dark:text-${tourSteps[onboardingStep].colorName || 'blue'}-400 mb-2`}>
+                <Modal isOpen={showOnboarding} onClose={() => {}} title={`Rondleiding (${onboardingStep + 1}/${tourSteps.length})`} color={tourSteps[onboardingStep].colorName || 'blue'} position={showWhatsNew ? "right" : "center"} hideBackdrop={showWhatsNew} hideCloseButton={true}>
+                    <div 
+                        className="flex flex-col items-center text-center py-4 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300 select-none touch-pan-y"
+                        onTouchStart={handleTourTouchStart}
+                        onTouchMove={handleTourTouchMove}
+                        onTouchEnd={handleTourTouchEnd}
+                    >
+                        <div className={`w-20 h-20 flex items-center justify-center rounded-full bg-${tourSteps[onboardingStep].colorName || 'blue'}-100 dark:bg-${tourSteps[onboardingStep].colorName || 'blue'}-900/30 text-${tourSteps[onboardingStep].colorName || 'blue'}-600 dark:text-${tourSteps[onboardingStep].colorName || 'blue'}-400 mb-2 pointer-events-none`}>
                             <Icon path={Icons[tourSteps[onboardingStep].icon] || Icons.Box} size={40} />
                         </div>
-                        <h3 className="text-xl font-bold text-gray-800 dark:text-white">{tourSteps[onboardingStep].title}</h3>
-                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed max-w-sm whitespace-pre-line">{tourSteps[onboardingStep].content}</p>
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white pointer-events-none">{tourSteps[onboardingStep].title}</h3>
+                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed max-w-sm whitespace-pre-line pointer-events-none">{tourSteps[onboardingStep].content}</p>
 
-                        <div className="flex gap-2 py-4">
+                        <div className="flex gap-2 py-4 pointer-events-none">
                             {tourSteps.map((_, i) => (
                                 <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${i === onboardingStep ? 'bg-blue-600 dark:bg-blue-500 scale-110' : 'bg-gray-200 dark:bg-gray-600'}`}></div>
                             ))}
                         </div>
 
-                        <div className="flex w-full gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
-                            <button onClick={finishTutorial} className="flex-1 py-3 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition">Overslaan</button>
-                            <button onClick={nextTourStep} className={`flex-[2] py-3 text-white rounded-xl font-bold transition shadow-md bg-${tourSteps[onboardingStep].colorName || 'blue'}-600 hover:bg-${tourSteps[onboardingStep].colorName || 'blue'}-700`}>
-                                {onboardingStep === tourSteps.length - 1 ? 'Aan de slag!' : 'Volgende'}
+                        <div className="flex flex-col w-full items-center gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                            <p className="text-xs text-gray-400 italic flex items-center gap-2 mb-2 animate-pulse">
+                                <Icon path={Icons.ChevronRight} className="rotate-180" size={14} /> 
+                                Swipe om verder te gaan 
+                                <Icon path={Icons.ChevronRight} size={14} />
+                            </p>
+
+                            {onboardingStep === tourSteps.length - 1 && (
+                                <button onClick={finishTutorial} className={`w-full py-3 text-white rounded-xl font-bold transition shadow-md bg-${tourSteps[onboardingStep].colorName || 'blue'}-600 hover:bg-${tourSteps[onboardingStep].colorName || 'blue'}-700`}>
+                                    Aan de slag!
+                                </button>
+                            )}
+
+                            <button onClick={finishTutorial} className="mt-2 text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition opacity-50 hover:opacity-100 uppercase tracking-widest cursor-pointer">
+                                Overslaan
                             </button>
                         </div>
                     </div>
