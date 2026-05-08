@@ -466,6 +466,7 @@ function App() {
     // Touch States for swipe
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
+    const isDragging = useRef(false);
 
     // Tour Admin States
     const [showTourAdminModal, setShowTourAdminModal] = useState(false);
@@ -1813,17 +1814,20 @@ function App() {
         }
     };
 
-    const handleTourTouchStart = (e) => {
+    const handleSwipeStart = (e) => {
+        isDragging.current = true;
         setTouchEnd(null);
-        setTouchStart(e.targetTouches[0].clientX);
+        setTouchStart(e.type.includes('mouse') ? e.clientX : e.targetTouches[0].clientX);
     };
 
-    const handleTourTouchMove = (e) => {
-        setTouchEnd(e.targetTouches[0].clientX);
+    const handleSwipeMove = (e) => {
+        if (!isDragging.current) return;
+        setTouchEnd(e.type.includes('mouse') ? e.clientX : e.targetTouches[0].clientX);
     };
 
-    const handleTourTouchEnd = () => {
-        if (!touchStart || !touchEnd) return;
+    const handleSwipeEnd = () => {
+        isDragging.current = false;
+        if (touchStart === null || touchEnd === null) return;
         const distance = touchStart - touchEnd;
         const minSwipeDistance = 50;
 
