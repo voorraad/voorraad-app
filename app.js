@@ -2092,7 +2092,7 @@ const openEdit = (item) => {
                     )}
                     {(!myHiddenTabs.includes('weekmenu') || isAdmin) && (
                         <button onClick={() => { setActiveTab('weekmenu'); setActiveCategoryFilter(null); setIsBulkMode(false); setSelectedBulkItems(new Set()); setWeekOffset(0); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='weekmenu' ? 'border-pink-500 text-pink-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
-                            <Icon path={Icons.Calendar}/> Menu.
+                            <Icon path={Icons.Calendar}/> Week.
                             {isAdmin && managedUserHiddenTabs.includes('weekmenu') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
                     )}
@@ -3570,7 +3570,7 @@ onKeyDown={async (e) => {
                                         onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'weekmenu')}
                                         className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
                                     />
-                                    <span className="font-medium text-pink-700 dark:text-pink-400">Verberg 'Menu.' tabblad</span>
+                                    <span className="font-medium text-pink-700 dark:text-pink-400">Verberg 'Week.' tabblad</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 border-t border-gray-200 dark:border-gray-600 pt-2 mt-1">
                                     <input 
