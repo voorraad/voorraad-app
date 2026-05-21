@@ -506,6 +506,8 @@ function App() {
     // UI filters, Sort & Bulk Mode
     const [search, setSearch] = useState('');
     const [sortBy, setSortBy] = useState('name');
+    const [showRapidEntry, setShowRapidEntry] = useState(false);
+    const [rapidEntryText, setRapidEntryText] = useState('');
     const [activeCategoryFilter, setActiveCategoryFilter] = useState(null);
     const [collapsedLades, setCollapsedLades] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
@@ -2106,6 +2108,9 @@ function App() {
                                 <Icon path={Icons.Utensils}/>
                                 <span className="hidden sm:inline font-medium pr-1">Idee</span>
                             </button>
+                            <button onClick={() => setShowRapidEntry(!showRapidEntry)} className={`flex-none w-12 sm:w-auto sm:px-4 rounded-xl border transition-colors flex items-center justify-center gap-2 ${showRapidEntry ? 'bg-yellow-100 border-yellow-300 text-yellow-600 dark:bg-yellow-900/50 dark:border-yellow-500 dark:text-yellow-300' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`} title="Snelle Invoer">
+                                <Icon path={Icons.Lightning} size={20} />
+                            </button>        
                         </div>
                         
                         <button onClick={toggleAll} className="flex-none bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap text-center">
@@ -2113,7 +2118,74 @@ function App() {
                         </button>
                     </div>
                 </div>
+{/* Snelle Invoer Balk */}
+                {showRapidEntry && (
+                    <div className="w-full bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-300 dark:border-yellow-600 rounded-xl p-3 flex items-center gap-3 shadow-sm animate-in fade-in slide-in-from-top-2">
+                        <Icon path={Icons.Lightning} size={20} className="text-yellow-500 flex-shrink-0" />
+                        <input 
+                            autoFocus
+                            type="text" 
+                            placeholder="Typ een product en druk op Enter (bijv. 'Kip' of 'Melk')..." 
+                            className="flex-grow bg-transparent outline-none font-bold text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                            value={rapidEntryText}
+                            onChange={(e) => setRapidEntryText(e.target.value)}
+                            onKeyDown={async (e) => {
+                                if (e.key === 'Enter' && rapidEntryText.trim()) {
+                                    e.preventDefault();
+                                    
+                                    // 1. Haal de slimme data op
+                                    const info = analyzeProductName(rapidEntryText.trim()) || { cat: null, emoji: null, dagenHoudbaar: null };
+                                    
+                                    // 2. Bepaal de standaard locatie op basis van de actieve tab
+                                    const defaultLoc = filteredLocaties.length > 0 ? filteredLocaties[0].id : '';
+                                    const fallbackCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
+                                    
+                                    // 3. Bereken THT als we niet in de vriezer zitten
+                                    let tht = null;
+                                    if (info.dagenHoudbaar && (activeTab === 'frig' || activeTab === 'voorraad')) {
+                                        const d = new Date();
+                                        d.setDate(d.getDate() + info.dagenHoudbaar);
+                                        tht = d;
+                                    }
 
+                                    // 4. Opslaan in Firebase
+                                    try {
+                                        await db.collection('items').add({
+                                            naam: rapidEntryText.trim(),
+                                            aantal: 1,
+                                            eenheid: 'stuks',
+                                            categorie: info.cat || fallbackCat,
+                                            emoji: info.emoji || '📦',
+                                            vriezerId: defaultLoc,
+                                            ladeId: '',
+                                            minimumVoorraad: null,
+                                            prijs: null,
+                                            ingevrorenOp: new Date(),
+                                            houdbaarheidsDatum: tht,
+                                            notitie: '',
+                                            userId: beheerdeUserId
+                                        });
+                                        
+                                        // 5. Logboek actie en notificatie
+                                        const loc = vriezers.find(v => v.id === defaultLoc);
+                                        const locNaam = loc ? loc.naam : 'Onbekende locatie';
+                                        await logAction('Toevoegen', rapidEntryText.trim(), `Snel ingevoerd in ${locNaam}`, user, beheerdeUserId);
+                                        
+                                        showNotification(`${rapidEntryText.trim()} razendsnel toegevoegd!`, 'success');
+                                        setRapidEntryText(''); // Leegmaken voor de volgende invoer
+                                    } catch (err) {
+                                        showNotification("Fout bij snel toevoegen: " + err.message, "error");
+                                    }
+                                }
+                            }}
+                        />
+                        {rapidEntryText && (
+                            <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 mr-2 flex-shrink-0 animate-pulse">
+                                Druk Enter
+                            </span>
+                        )}
+                    </div>
+                )}
                 {/* Bulk Action Bar (Sticky) */}
                 {isBulkMode && (
                     <div className="sticky top-2 z-20 bg-indigo-600 text-white p-3 rounded-xl shadow-lg flex items-center justify-between flex-wrap gap-2 animate-in fade-in slide-in-from-top-4">
