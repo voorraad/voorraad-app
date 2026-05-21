@@ -520,6 +520,7 @@ function App() {
     const [viewMode, setViewMode] = useState('list'); // 'list' of 'calendar'
     const [draggedMenuItem, setDraggedMenuItem] = useState(null);
     const [weekOffset, setWeekOffset] = useState(0);
+    const [menuSearch, setMenuSearch] = useState('');    
     const [activeCategoryFilter, setActiveCategoryFilter] = useState(null);
     const [collapsedLades, setCollapsedLades] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
@@ -573,7 +574,8 @@ function App() {
         ingevrorenOp: new Date().toISOString().split('T')[0], 
         houdbaarheidsDatum: '', 
         notitie: '',
-        emoji: ''
+        emoji: '',
+        geplandeDatum: ''
     });
     
     const [shoppingFormData, setShoppingFormData] = useState({ 
@@ -1041,7 +1043,7 @@ function App() {
     };
 
     // Item CRUD
-    const handleOpenAdd = () => {
+const handleOpenAdd = () => {
         setEditingItem(null);
         setModalType(activeTab); 
         
@@ -1052,14 +1054,14 @@ function App() {
         if (!rememberLocation) {
             setFormData({
                 naam: '', aantal: 1, eenheid: 'stuks', vriezerId: defaultLoc, ladeId: '', 
-                categorie: defaultCat, minimumVoorraad: '', prijs: '', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: ''
+                categorie: defaultCat, minimumVoorraad: '', prijs: '', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: '', geplandeDatum: ''
             });
         } else {
              setFormData(prev => ({
                 ...prev,
                 vriezerId: defaultLoc,
                 naam: '', aantal: 1, minimumVoorraad: '', prijs: '', categorie: defaultCat, 
-                ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: ''
+                ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: '', geplandeDatum: ''
             }));
         }
         setShowAddModal(true);
@@ -1480,7 +1482,7 @@ function App() {
         openEdit(item);
     };
 
-    const openEdit = (item) => {
+const openEdit = (item) => {
         setEditingItem(item);
         const loc = vriezers.find(v => v.id === item.vriezerId);
         const itemType = loc ? loc.type : 'vriezer';
@@ -1503,7 +1505,8 @@ function App() {
             notitie: item.notitie || '',
             ingevrorenOp: toInputDate(item.ingevrorenOp), 
             houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), 
-            emoji: item.emoji
+            emoji: item.emoji,
+            geplandeDatum: item.geplandeDatum || ''
         });
         setShowAddModal(true);
     };
