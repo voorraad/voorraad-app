@@ -19,10 +19,19 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '8.17.0'; 
+const APP_VERSION = '9.0.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
+    { 
+        version: '9.0.0', 
+        type: 'feature', 
+        changes: [
+            'Nieuw: Snelle Invoer (Rapid Entry)! Klik op het bliksem-icoon (⚡) om een balk te openen waarmee je razendsnel producten toevoegt door simpelweg op Enter te drukken.',
+            'Nieuw: Slimme Auto-invul! Typ je woorden zoals "Gehakt", "Kip", "Melk" of "Brood"? De app kiest nu helemaal zelf de juiste categorie, emoji én een logische houdbaarheidsdatum.',
+            'Nieuw: Kalender Weergave! Wissel met de kalenderknop naar een prachtig chronologisch overzicht van je producten om in één oogopslag te zien wat (bijna) over de datum is.'
+        ] 
+    },
     { 
         version: '8.17.0', 
         type: 'feature', 
