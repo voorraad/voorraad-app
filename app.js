@@ -518,6 +518,7 @@ function App() {
     const [showRapidEntry, setShowRapidEntry] = useState(false);
     const [rapidEntryText, setRapidEntryText] = useState('');
     const [viewMode, setViewMode] = useState('list'); // 'list' of 'calendar'
+    const [draggedMenuItem, setDraggedMenuItem] = useState(null);
     const [activeCategoryFilter, setActiveCategoryFilter] = useState(null);
     const [collapsedLades, setCollapsedLades] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
@@ -2085,11 +2086,14 @@ function App() {
                             {isAdmin && managedUserHiddenTabs.includes('voorraad') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
                     )}
+                        <button onClick={() => { setActiveTab('weekmenu'); setActiveCategoryFilter(null); setIsBulkMode(false); setSelectedBulkItems(new Set()); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='weekmenu' ? 'border-pink-500 text-pink-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
+                        <Icon path={Icons.Calendar}/> Menu.
+                    </button>
                 </div>
             </header>
 
             <main className="max-w-7xl mx-auto p-4 space-y-6 flex-grow w-full pb-32 relative">
-                
+                {activeTab !== 'weekmenu' && (
                 <div className="flex flex-col gap-4 print:hidden">
                     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide items-center">
                         <div className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm font-bold">{activeItems.length} items</div>
@@ -2134,6 +2138,7 @@ function App() {
                         </button>
                     </div>
                 </div>
+)}
 {/* Snelle Invoer Balk */}
                 {showRapidEntry && (
                     <div className="w-full bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-300 dark:border-yellow-600 rounded-xl p-3 flex items-center gap-3 shadow-sm animate-in fade-in slide-in-from-top-2">
@@ -2227,8 +2232,103 @@ onKeyDown={async (e) => {
                     </div>
                 )}
 
-                {/* Slim zoeken fallback als er niks is gevonden */}
-                {isSearching && totalFoundItemsInActiveTab === 0 ? (
+{/* Het Weekmenu of de Normale weergave */}
+                {activeTab === 'weekmenu' ? (
+                    <div className="flex flex-col lg:flex-row gap-6 animate-in fade-in duration-300">
+                        
+                        {/* Kolom 1: Het Weekmenu (Dagen) */}
+                        <div className="flex-1 space-y-4">
+                            <div className="mb-2">
+                                <h2 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-rose-500">Deze Week.</h2>
+                                <p className="text-gray-500 dark:text-gray-400 text-sm">Sleep producten vanuit je voorraad naar een dag om je maaltijden te plannen.</p>
+                            </div>
+                            
+                            {['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'].map(dag => {
+                                const itemsOpDag = items.filter(i => i.geplandeDag === dag);
+                                
+                                return (
+                                    <div 
+                                        key={dag}
+                                        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+                                        onDrop={async (e) => {
+                                            e.preventDefault();
+                                            if (draggedMenuItem) {
+                                                await db.collection('items').doc(draggedMenuItem).update({ geplandeDag: dag });
+                                                setDraggedMenuItem(null);
+                                            }
+                                        }}
+                                        className="bg-white dark:bg-gray-800 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 min-h-[100px] transition-colors hover:border-pink-300 dark:hover:border-pink-600/50"
+                                    >
+                                        <h4 className="font-bold text-gray-700 dark:text-gray-200 mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">{dag}</h4>
+                                        <div className="space-y-2">
+                                            {itemsOpDag.length === 0 ? (
+                                                <p className="text-xs text-gray-400 italic">Niks gepland...</p>
+                                            ) : (
+                                                itemsOpDag.map(item => (
+                                                    <div key={item.id} className="flex items-center justify-between p-2 bg-pink-50 dark:bg-pink-900/20 rounded-lg border border-pink-100 dark:border-pink-800/50 shadow-sm">
+                                                        <div className="flex items-center gap-2 truncate">
+                                                            <span className="text-lg">{item.emoji || '📦'}</span>
+                                                            <div>
+                                                                <p className="font-semibold text-sm text-gray-800 dark:text-gray-100 truncate">{item.naam}</p>
+                                                                <p className="text-[10px] text-gray-500">{formatAantal(item.aantal)} {item.eenheid}</p>
+                                                            </div>
+                                                        </div>
+                                                        <button 
+                                                            onClick={async () => {
+                                                                await db.collection('items').doc(item.id).update({ geplandeDag: null });
+                                                            }} 
+                                                            className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                                                            title="Verwijder van planning"
+                                                        >
+                                                            <Icon path={Icons.X} size={16}/>
+                                                        </button>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+
+                        {/* Kolom 2: Beschikbare Voorraad (Sleep-bron) */}
+                        <div className="w-full lg:w-1/3 bg-gray-50 dark:bg-gray-800/80 p-4 rounded-xl border border-gray-200 dark:border-gray-700 h-fit sticky top-20 shadow-sm">
+                            <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-1">Beschikbaar</h3>
+                            <p className="text-xs text-gray-500 mb-4">Vriezer & Koelkast</p>
+                            
+                            <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+                                {items
+                                    .filter(i => !i.geplandeDag) 
+                                    .filter(i => {
+                                        const loc = vriezers.find(v => v.id === i.vriezerId);
+                                        return loc && (loc.type === 'vriezer' || loc.type === 'frig');
+                                    })
+                                    .sort((a, b) => a.naam.localeCompare(b.naam))
+                                    .map(item => (
+                                        <div 
+                                            key={item.id}
+                                            draggable
+                                            onDragStart={(e) => {
+                                                setDraggedMenuItem(item.id);
+                                                e.dataTransfer.effectAllowed = "move";
+                                            }}
+                                            onDragEnd={() => setDraggedMenuItem(null)}
+                                            className="flex items-center gap-3 p-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 cursor-grab active:cursor-grabbing hover:border-pink-400 transition-colors shadow-sm"
+                                        >
+                                            <div className="text-gray-400 cursor-grab">
+                                                <Icon path={Icons.GripVertical} size={16}/>
+                                            </div>
+                                            <span className="text-xl">{item.emoji || '📦'}</span>
+                                            <div className="truncate">
+                                                <p className="font-medium text-sm text-gray-800 dark:text-gray-200 truncate">{item.naam}</p>
+                                                <p className="text-[10px] text-gray-500">{formatAantal(item.aantal)} {item.eenheid}</p>
+                                            </div>
+                                        </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                ) : isSearching && totalFoundItemsInActiveTab === 0 ? (
                     <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 text-center animate-in fade-in">
                         <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Icon path={Icons.Search} size={32} />
