@@ -3000,7 +3000,7 @@ onKeyDown={async (e) => {
                     {!myHiddenTabs.includes('weekmenu') && (
                         <div className="space-y-1 p-3 bg-pink-50/40 dark:bg-pink-950/10 border border-pink-200/60 dark:border-pink-800/40 rounded-xl mt-2 animate-in fade-in duration-200">
                             <label className="text-xs font-bold text-pink-700 dark:text-pink-400 uppercase flex items-center gap-1.5">
-                                <Icon path={Icons.Calendar} size={14} /> Direct inplannen in menu (Optioneel)
+                                <Icon path={Icons.Calendar} size={14} /> Inplannen in Week. (Optioneel)
                             </label>
                             <select 
                                 className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-pink-500 outline-none"
