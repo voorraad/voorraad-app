@@ -519,6 +519,7 @@ function App() {
     const [rapidEntryText, setRapidEntryText] = useState('');
     const [viewMode, setViewMode] = useState('list'); // 'list' of 'calendar'
     const [draggedMenuItem, setDraggedMenuItem] = useState(null);
+    const [weekOffset, setWeekOffset] = useState(0);
     const [activeCategoryFilter, setActiveCategoryFilter] = useState(null);
     const [collapsedLades, setCollapsedLades] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
@@ -2086,9 +2087,12 @@ function App() {
                             {isAdmin && managedUserHiddenTabs.includes('voorraad') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
                     )}
-                        <button onClick={() => { setActiveTab('weekmenu'); setActiveCategoryFilter(null); setIsBulkMode(false); setSelectedBulkItems(new Set()); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='weekmenu' ? 'border-pink-500 text-pink-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
-                        <Icon path={Icons.Calendar}/> Menu.
-                    </button>
+                    {(!myHiddenTabs.includes('weekmenu') || isAdmin) && (
+                        <button onClick={() => { setActiveTab('weekmenu'); setActiveCategoryFilter(null); setIsBulkMode(false); setSelectedBulkItems(new Set()); setWeekOffset(0); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='weekmenu' ? 'border-pink-500 text-pink-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
+                            <Icon path={Icons.Calendar}/> Menu.
+                            {isAdmin && managedUserHiddenTabs.includes('weekmenu') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
+                        </button>
+                    )}
                 </div>
             </header>
 
@@ -2233,102 +2237,146 @@ onKeyDown={async (e) => {
                 )}
 
 {/* Het Weekmenu of de Normale weergave */}
-                {activeTab === 'weekmenu' ? (
-                    <div className="flex flex-col lg:flex-row gap-6 animate-in fade-in duration-300">
-                        
-                        {/* Kolom 1: Het Weekmenu (Dagen) */}
-                        <div className="flex-1 space-y-4">
-                            <div className="mb-2">
-                                <h2 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-rose-500">Deze Week.</h2>
-                                <p className="text-gray-500 dark:text-gray-400 text-sm">Sleep producten vanuit je voorraad naar een dag om je maaltijden te plannen.</p>
-                            </div>
-                            
-                            {['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'].map(dag => {
-                                const itemsOpDag = items.filter(i => i.geplandeDag === dag);
-                                
-                                return (
-                                    <div 
-                                        key={dag}
-                                        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
-                                        onDrop={async (e) => {
-                                            e.preventDefault();
-                                            if (draggedMenuItem) {
-                                                await db.collection('items').doc(draggedMenuItem).update({ geplandeDag: dag });
-                                                setDraggedMenuItem(null);
-                                            }
-                                        }}
-                                        className="bg-white dark:bg-gray-800 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 min-h-[100px] transition-colors hover:border-pink-300 dark:hover:border-pink-600/50"
-                                    >
-                                        <h4 className="font-bold text-gray-700 dark:text-gray-200 mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">{dag}</h4>
-                                        <div className="space-y-2">
-                                            {itemsOpDag.length === 0 ? (
-                                                <p className="text-xs text-gray-400 italic">Niks gepland...</p>
-                                            ) : (
-                                                itemsOpDag.map(item => (
-                                                    <div key={item.id} className="flex items-center justify-between p-2 bg-pink-50 dark:bg-pink-900/20 rounded-lg border border-pink-100 dark:border-pink-800/50 shadow-sm">
-                                                        <div className="flex items-center gap-2 truncate">
-                                                            <span className="text-lg">{item.emoji || '📦'}</span>
-                                                            <div>
-                                                                <p className="font-semibold text-sm text-gray-800 dark:text-gray-100 truncate">{item.naam}</p>
-                                                                <p className="text-[10px] text-gray-500">{formatAantal(item.aantal)} {item.eenheid}</p>
-                                                            </div>
-                                                        </div>
-                                                        <button 
-                                                            onClick={async () => {
-                                                                await db.collection('items').doc(item.id).update({ geplandeDag: null });
-                                                            }} 
-                                                            className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                                                            title="Verwijder van planning"
-                                                        >
-                                                            <Icon path={Icons.X} size={16}/>
-                                                        </button>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
-                                )
-                            })}
-                        </div>
+                {activeTab === 'weekmenu' ? (() => {
+                    // Bereken de exacte datums voor de gekozen week
+                    const baseDate = new Date();
+                    const dayNum = baseDate.getDay() || 7; 
+                    baseDate.setHours(0,0,0,0);
+                    baseDate.setDate(baseDate.getDate() - dayNum + 1 + (weekOffset * 7));
+                    
+                    const weekDays = Array.from({length: 7}).map((_, i) => {
+                        const d = new Date(baseDate);
+                        d.setDate(baseDate.getDate() + i);
+                        return d;
+                    });
 
-                        {/* Kolom 2: Beschikbare Voorraad (Sleep-bron) */}
-                        <div className="w-full lg:w-1/3 bg-gray-50 dark:bg-gray-800/80 p-4 rounded-xl border border-gray-200 dark:border-gray-700 h-fit sticky top-20 shadow-sm">
-                            <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-1">Beschikbaar</h3>
-                            <p className="text-xs text-gray-500 mb-4">Vriezer & Koelkast</p>
-                            
-                            <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
-                                {items
-                                    .filter(i => !i.geplandeDag) 
-                                    .filter(i => {
-                                        const loc = vriezers.find(v => v.id === i.vriezerId);
-                                        return loc && (loc.type === 'vriezer' || loc.type === 'frig');
-                                    })
-                                    .sort((a, b) => a.naam.localeCompare(b.naam))
-                                    .map(item => (
+                    return (
+                        <div className="flex flex-col lg:flex-row gap-6 animate-in fade-in duration-300">
+                            {/* Kolom 1: Het Weekmenu (Dagen) */}
+                            <div className="flex-1 space-y-4">
+                                <div className="flex items-center justify-between mb-2 border-b border-gray-200 dark:border-gray-700 pb-4">
+                                    <div>
+                                        <h2 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-rose-500">
+                                            {weekOffset === 0 ? 'Deze Week.' : weekOffset === 1 ? 'Volgende Week.' : `Week ${weekOffset}`}
+                                        </h2>
+                                        <p className="text-gray-500 dark:text-gray-400 text-sm">Sleep producten vanuit je voorraad naar een datum.</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setWeekOffset(weekOffset - 1)} className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition" title="Vorige Week">
+                                            <Icon path={Icons.ChevronRight} size={20} className="rotate-180 text-gray-600 dark:text-gray-300" />
+                                        </button>
+                                        <button onClick={() => setWeekOffset(0)} className="px-3 rounded-xl font-bold text-sm bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400 hover:bg-pink-200 transition">
+                                            Vandaag
+                                        </button>
+                                        <button onClick={() => setWeekOffset(weekOffset + 1)} className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition" title="Volgende Week">
+                                            <Icon path={Icons.ChevronRight} size={20} className="text-gray-600 dark:text-gray-300" />
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {weekDays.map(dateObj => {
+                                    // Formatteer als YYYY-MM-DD om in de database op te slaan
+                                    const dateString = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+                                    const itemsOpDag = items.filter(i => i.geplandeDatum === dateString);
+                                    
+                                    // UI Tekst (bijv. Maandag 25/05)
+                                    const dayName = dateObj.toLocaleDateString('nl-BE', { weekday: 'long' });
+                                    const dayNameCap = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+                                    const visualDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+                                    
+                                    const isToday = new Date().toDateString() === dateObj.toDateString();
+                                    
+                                    return (
                                         <div 
-                                            key={item.id}
-                                            draggable
-                                            onDragStart={(e) => {
-                                                setDraggedMenuItem(item.id);
-                                                e.dataTransfer.effectAllowed = "move";
+                                            key={dateString}
+                                            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+                                            onDrop={async (e) => {
+                                                e.preventDefault();
+                                                if (draggedMenuItem) {
+                                                    await db.collection('items').doc(draggedMenuItem).update({ geplandeDatum: dateString });
+                                                    setDraggedMenuItem(null);
+                                                }
                                             }}
-                                            onDragEnd={() => setDraggedMenuItem(null)}
-                                            className="flex items-center gap-3 p-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 cursor-grab active:cursor-grabbing hover:border-pink-400 transition-colors shadow-sm"
+                                            className={`bg-white dark:bg-gray-800 p-4 rounded-xl border-2 border-dashed ${isToday ? 'border-pink-400 dark:border-pink-500 bg-pink-50/30 dark:bg-pink-900/10' : 'border-gray-200 dark:border-gray-700'} min-h-[100px] transition-colors hover:border-pink-300 dark:hover:border-pink-600/50`}
                                         >
-                                            <div className="text-gray-400 cursor-grab">
-                                                <Icon path={Icons.GripVertical} size={16}/>
+                                            <div className="flex justify-between items-center mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
+                                                <h4 className={`font-bold ${isToday ? 'text-pink-600 dark:text-pink-400' : 'text-gray-700 dark:text-gray-200'}`}>
+                                                    {dayNameCap}
+                                                </h4>
+                                                <span className={`text-sm font-semibold ${isToday ? 'bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full dark:bg-pink-900/30 dark:text-pink-400' : 'text-gray-400'}`}>
+                                                    {isToday ? `Vandaag (${visualDate})` : visualDate}
+                                                </span>
                                             </div>
-                                            <span className="text-xl">{item.emoji || '📦'}</span>
-                                            <div className="truncate">
-                                                <p className="font-medium text-sm text-gray-800 dark:text-gray-200 truncate">{item.naam}</p>
-                                                <p className="text-[10px] text-gray-500">{formatAantal(item.aantal)} {item.eenheid}</p>
+                                            <div className="space-y-2">
+                                                {itemsOpDag.length === 0 ? (
+                                                    <p className="text-xs text-gray-400 italic">Niks gepland...</p>
+                                                ) : (
+                                                    itemsOpDag.map(item => (
+                                                        <div key={item.id} className="flex items-center justify-between p-2 bg-pink-50 dark:bg-pink-900/20 rounded-lg border border-pink-100 dark:border-pink-800/50 shadow-sm">
+                                                            <div className="flex items-center gap-2 truncate">
+                                                                <span className="text-lg">{item.emoji || '📦'}</span>
+                                                                <div>
+                                                                    <p className="font-semibold text-sm text-gray-800 dark:text-gray-100 truncate">{item.naam}</p>
+                                                                    <p className="text-[10px] text-gray-500">{formatAantal(item.aantal)} {item.eenheid}</p>
+                                                                </div>
+                                                            </div>
+                                                            <button 
+                                                                onClick={async () => {
+                                                                    await db.collection('items').doc(item.id).update({ geplandeDatum: null });
+                                                                }} 
+                                                                className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                                                                title="Verwijder van planning"
+                                                            >
+                                                                <Icon path={Icons.X} size={16}/>
+                                                            </button>
+                                                        </div>
+                                                    ))
+                                                )}
                                             </div>
                                         </div>
-                                ))}
+                                    )
+                                })}
+                            </div>
+
+                            {/* Kolom 2: Beschikbare Voorraad */}
+                            <div className="w-full lg:w-1/3 bg-gray-50 dark:bg-gray-800/80 p-4 rounded-xl border border-gray-200 dark:border-gray-700 h-fit sticky top-20 shadow-sm">
+                                <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-1">Beschikbaar</h3>
+                                <p className="text-xs text-gray-500 mb-4">Vriezer & Koelkast</p>
+                                
+                                <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+                                    {items
+                                        .filter(i => !i.geplandeDatum) // Nu gebaseerd op échte datum!
+                                        .filter(i => {
+                                            const loc = vriezers.find(v => v.id === i.vriezerId);
+                                            return loc && (loc.type === 'vriezer' || loc.type === 'frig');
+                                        })
+                                        .sort((a, b) => a.naam.localeCompare(b.naam))
+                                        .map(item => (
+                                            <div 
+                                                key={item.id}
+                                                draggable
+                                                onDragStart={(e) => {
+                                                    setDraggedMenuItem(item.id);
+                                                    e.dataTransfer.effectAllowed = "move";
+                                                }}
+                                                onDragEnd={() => setDraggedMenuItem(null)}
+                                                className="flex items-center gap-3 p-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 cursor-grab active:cursor-grabbing hover:border-pink-400 transition-colors shadow-sm"
+                                            >
+                                                <div className="text-gray-400 cursor-grab">
+                                                    <Icon path={Icons.GripVertical} size={16}/>
+                                                </div>
+                                                <span className="text-xl">{item.emoji || '📦'}</span>
+                                                <div className="truncate">
+                                                    <p className="font-medium text-sm text-gray-800 dark:text-gray-200 truncate">{item.naam}</p>
+                                                    <p className="text-[10px] text-gray-500">{formatAantal(item.aantal)} {item.eenheid}</p>
+                                                </div>
+                                            </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                ) : isSearching && totalFoundItemsInActiveTab === 0 ? (
+                    );
+                })() : isSearching && totalFoundItemsInActiveTab === 0 ? (
                     <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 text-center animate-in fade-in">
                         <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Icon path={Icons.Search} size={32} />
@@ -2546,6 +2594,10 @@ onKeyDown={async (e) => {
                                                                                         <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
                                                                                         {item.categorie && item.categorie !== "Geen" && (
                                                                                             <Badge type={catColor} text={item.categorie} />
+)}
+                                                                                        {/* DIT IS DE NIEUWE WEEKMENU BADGE: */}
+                                                                                        {item.geplandeDatum && (
+                                                                                            <Badge type="pink" text={`Menu: ${new Date(item.geplandeDatum).toLocaleDateString('nl-BE', {weekday: 'short', day: '2-digit', month: '2-digit'})}`} />
                                                                                         )}
                                                                                     </div>
                                                                                     <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
@@ -3438,6 +3490,15 @@ onKeyDown={async (e) => {
                                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                     />
                                     <span>Verberg 'Stock.' tabblad</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mt-1 border-t border-gray-100 dark:border-gray-700 pt-1">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={(u.hiddenTabs || []).includes('weekmenu')} 
+                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'weekmenu')}
+                                        className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                                    />
+                                    <span className="font-medium text-pink-700 dark:text-pink-400">Verberg 'Menu.' tabblad</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 border-t border-gray-200 dark:border-gray-600 pt-2 mt-1">
                                     <input 
