@@ -19,12 +19,12 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. CONFIGURATIE DATA ---
-const APP_VERSION = '9.0.0'; 
+const APP_VERSION = '9.0'; 
 
 // Versie Geschiedenis Data
 const VERSION_HISTORY = [
     { 
-        version: '9.0.0', 
+        version: '9.0', 
         type: 'feature', 
         changes: [
             'Nieuw: Snelle Invoer (Rapid Entry)! Klik op het bliksem-icoon (⚡) om een balk te openen waarmee je razendsnel producten toevoegt door simpelweg op Enter te drukken.',
@@ -33,7 +33,7 @@ const VERSION_HISTORY = [
         ] 
     },
     { 
-        version: '8.17.0', 
+        version: '8.17', 
         type: 'feature', 
         changes: [
             'Nieuw: Uitgebreid Logboek! Je ziet nu exact wát er is gewijzigd (bijv. "Aantal: 5 ➔ 3" of "Lade: Lade 1 ➔ Lade 2").',
@@ -42,7 +42,7 @@ const VERSION_HISTORY = [
         ] 
     },
     { 
-        version: '8.16.0', 
+        version: '8.16', 
         type: 'feature', 
         changes: [
             'Nieuw: Prijs & Waarde! Voeg de prijs toe aan producten en zie in je statistieken exact de waarde van je voorraad én je besparingen/verspillingen in Euro.',
@@ -52,14 +52,14 @@ const VERSION_HISTORY = [
         ] 
     },
     { 
-        version: '8.15.0', 
+        version: '8.15', 
         type: 'update', 
         changes: [
             'Verwijderd: Barcode scanner functie is weggehaald om de app strak en overzichtelijk te houden.'
         ] 
     },
     { 
-        version: '8.14.0', 
+        version: '8.14', 
         type: 'feature', 
         changes: [
             'Nieuw: Minimale Voorraad (Auto-Koop). Stel een minimum in, en de app zet het product automatisch op je lijstje als het (bijna) op is!',
@@ -67,7 +67,7 @@ const VERSION_HISTORY = [
         ] 
     },
     { 
-        version: '8.13.0', 
+        version: '8.13', 
         type: 'feature', 
         changes: [
             'Nieuw: Verbeterde Verbruik-knop (-)! Je kan nu exact kiezen hoeveel je wegneemt en dit wordt perfect in het logboek geregistreerd.',
@@ -75,7 +75,7 @@ const VERSION_HISTORY = [
         ] 
     },
     { 
-        version: '8.12.0', 
+        version: '8.12', 
         type: 'update', 
         changes: [
             'Update: Categorie-filters passen zich nu slim aan per tabblad.',
@@ -83,7 +83,7 @@ const VERSION_HISTORY = [
         ] 
     },
     { 
-        version: '8.11.0', 
+        version: '8.11', 
         type: 'feature', 
         changes: [
             'Nieuw: Boodschappenlijst groepeert nu automatisch op winkel.',
