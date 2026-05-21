@@ -2077,17 +2077,17 @@ const openEdit = (item) => {
                     </div>
                 </div>
                 <div className="max-w-7xl mx-auto px-4 flex space-x-6 border-b border-gray-100 dark:border-gray-700 overflow-x-auto">
-                    <button onClick={() => { setActiveTab('vriez.'); setActiveCategoryFilter(null); setIsBulkMode(false); setSelectedBulkItems(new Set()); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='vriez.' ? 'border-purple-400 text-purple-500' : 'border-transparent text-gray-500 dark:text-gray-400'}`}><Icon path={Icons.Snowflake}/> Vriez.</button>
+                    <button onClick={() => { setActiveTab('vriezer'); setActiveCategoryFilter(null); setIsBulkMode(false); setSelectedBulkItems(new Set()); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='vriezer' ? 'border-purple-400 text-purple-500' : 'border-transparent text-gray-500 dark:text-gray-400'}`}><Icon path={Icons.Snowflake}/> Vriez.</button>
                     {(!myHiddenTabs.includes('frig') || isAdmin) && (
-                        <button onClick={() => { setActiveTab('frig.'); setActiveCategoryFilter(null); setIsBulkMode(false); setSelectedBulkItems(new Set()); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='frig' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
+                        <button onClick={() => { setActiveTab('frig'); setActiveCategoryFilter(null); setIsBulkMode(false); setSelectedBulkItems(new Set()); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='frig' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
                             <Icon path={Icons.Fridge}/> Frig.
                             {isAdmin && managedUserHiddenTabs.includes('frig') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
                     )}
                     {(!myHiddenTabs.includes('voorraad') || isAdmin) && (
-                        <button onClick={() => { setActiveTab('stock.'); setActiveCategoryFilter(null); setIsBulkMode(false); setSelectedBulkItems(new Set()); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='stock.' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
+                        <button onClick={() => { setActiveTab('voorraad'); setActiveCategoryFilter(null); setIsBulkMode(false); setSelectedBulkItems(new Set()); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='voorraad' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
                             <Icon path={Icons.Box}/> Stock.
-                            {isAdmin && managedUserHiddenTabs.includes('stock.') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
+                            {isAdmin && managedUserHiddenTabs.includes('voorraad') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
                     )}
                     {(!myHiddenTabs.includes('weekmenu') || isAdmin) && (
