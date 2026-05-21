@@ -2341,18 +2341,39 @@ onKeyDown={async (e) => {
                                 })}
                             </div>
 
-                            {/* Kolom 2: Beschikbare Voorraad */}
+{/* Kolom 2: Beschikbare Voorraad */}
                             <div className="w-full lg:w-1/3 bg-gray-50 dark:bg-gray-800/80 p-4 rounded-xl border border-gray-200 dark:border-gray-700 h-fit sticky top-20 shadow-sm">
                                 <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-1">Beschikbaar</h3>
-                                <p className="text-xs text-gray-500 mb-4">Vriezer & Koelkast</p>
+                                <p className="text-xs text-gray-500 mb-3">Vriezer & Koelkast</p>
                                 
-                                <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+                                {/* Snel zoeken binnen het weekmenu */}
+                                <div className="relative mb-3">
+                                    <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                                        <Icon path={Icons.Search} size={14} className="text-gray-400"/>
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        className="block w-full pl-8 pr-8 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-pink-500" 
+                                        placeholder="Zoek in beschikbare producten..." 
+                                        value={menuSearch} 
+                                        onChange={e => setMenuSearch(e.target.value)}
+                                    />
+                                    {menuSearch && (
+                                        <button type="button" onClick={() => setMenuSearch('')} className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-gray-400 hover:text-gray-600">
+                                            <Icon path={Icons.X} size={14} />
+                                        </button>
+                                    )}
+                                </div>
+                                
+                                <div className="space-y-2 max-h-[65vh] overflow-y-auto pr-1">
                                     {items
-                                        .filter(i => !i.geplandeDatum) // Nu gebaseerd op échte datum!
+                                        .filter(i => !i.geplandeDatum) 
                                         .filter(i => {
                                             const loc = vriezers.find(v => v.id === i.vriezerId);
                                             return loc && (loc.type === 'vriezer' || loc.type === 'frig');
                                         })
+                                        // Filteren op basis van de ingevoerde zoekterm
+                                        .filter(i => i.naam.toLowerCase().includes(menuSearch.toLowerCase()))
                                         .sort((a, b) => a.naam.localeCompare(b.naam))
                                         .map(item => (
                                             <div 
@@ -2375,6 +2396,9 @@ onKeyDown={async (e) => {
                                                 </div>
                                             </div>
                                     ))}
+                                    {items.filter(i => !i.geplandeDatum && (vriezers.find(v => v.id === i.vriezerId)?.type === 'vriezer' || vriezers.find(v => v.id === i.vriezerId)?.type === 'frig') && i.naam.toLowerCase().includes(menuSearch.toLowerCase())).length === 0 && (
+                                        <p className="text-xs text-center text-gray-400 italic py-4">Geen resultaten gevonden...</p>
+                                    )}
                                 </div>
                             </div>
                         </div>
