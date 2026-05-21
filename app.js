@@ -3008,7 +3008,7 @@ onKeyDown={async (e) => {
                                 onChange={e => setFormData({...formData, geplandeDatum: e.target.value || ''})}
                             >
                                 <option value="">-- Niet inplannen op een specifieke dag --</option>
-                                <optgroup label="Deze Week">
+                                <optgroup label="Deze week">
                                     {(() => {
                                         const monday = new Date();
                                         const day = monday.getDay() || 7;
@@ -3024,7 +3024,7 @@ onKeyDown={async (e) => {
                                         });
                                     })()}
                                 </optgroup>
-                                <optgroup label="Volgende Week">
+                                <optgroup label="Volgende week">
                                     {(() => {
                                         const nextMonday = new Date();
                                         const day = nextMonday.getDay() || 7;
