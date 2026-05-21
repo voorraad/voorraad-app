@@ -2488,13 +2488,16 @@ onKeyDown={async (e) => {
                                                 return (
                                                     <div key={item.id} className={`flex items-center justify-between p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-all ${borderStyle}`}>
                                                         <div className="flex items-center gap-4 min-w-0">
-                                                            {/* Kalender Blaadje Icoon */}
+                                                    {/* Kalender Blaadje Icoon */}
                                                             <div className="w-14 h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 flex flex-col items-center justify-center flex-shrink-0 shadow-sm">
-                                                                <span className="text-[10px] uppercase font-black text-red-500 tracking-wider leading-none pt-1">
+                                                                <span className="text-[10px] uppercase font-black text-red-500 tracking-wider leading-none mt-1">
                                                                     {item.eventDate.toLocaleString('nl-BE', { month: 'short' })}
                                                                 </span>
-                                                                <span className="text-xl font-extrabold text-gray-800 dark:text-white leading-tight">
+                                                                <span className="text-lg font-extrabold text-gray-800 dark:text-white leading-none my-0.5">
                                                                     {item.eventDate.getDate()}
+                                                                </span>
+                                                                <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 leading-none mb-1">
+                                                                    {item.eventDate.getFullYear()}
                                                                 </span>
                                                             </div>
 
