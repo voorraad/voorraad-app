@@ -2973,7 +2973,53 @@ onKeyDown={async (e) => {
                     <select className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.categorie} onChange={e => setFormData({...formData, categorie: e.target.value})}>
                         {actieveCategorieen.map(c => <option key={c.name||c} value={c.name||c}>{c.name||c}</option>)}
                     </select></div>
-                    
+                    {/* Extra inplanbalk voor Weekmenu indien geactiveerd door admin */}
+                    {!myHiddenTabs.includes('weekmenu') && (
+                        <div className="space-y-1 p-3 bg-pink-50/40 dark:bg-pink-950/10 border border-pink-200/60 dark:border-pink-800/40 rounded-xl mt-2 animate-in fade-in duration-200">
+                            <label className="text-xs font-bold text-pink-700 dark:text-pink-400 uppercase flex items-center gap-1.5">
+                                <Icon path={Icons.Calendar} size={14} /> Direct inplannen in menu (Optioneel)
+                            </label>
+                            <select 
+                                className="w-full p-3 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-pink-500 outline-none"
+                                value={formData.geplandeDatum || ''} 
+                                onChange={e => setFormData({...formData, geplandeDatum: e.target.value || ''})}
+                            >
+                                <option value="">-- Niet inplannen op een specifieke dag --</option>
+                                <optgroup label="Deze Week">
+                                    {(() => {
+                                        const monday = new Date();
+                                        const day = monday.getDay() || 7;
+                                        monday.setHours(0,0,0,0);
+                                        monday.setDate(monday.getDate() - day + 1);
+                                        
+                                        return Array.from({length: 7}).map((_, i) => {
+                                            const d = new Date(monday);
+                                            d.setDate(monday.getDate() + i);
+                                            const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                            const label = d.toLocaleDateString('nl-BE', { weekday: 'long', day: '2-digit', month: '2-digit' });
+                                            return <option key={ds} value={ds}>{label}</option>;
+                                        });
+                                    })()}
+                                </optgroup>
+                                <optgroup label="Volgende Week">
+                                    {(() => {
+                                        const nextMonday = new Date();
+                                        const day = nextMonday.getDay() || 7;
+                                        nextMonday.setHours(0,0,0,0);
+                                        nextMonday.setDate(nextMonday.getDate() - day + 1 + 7);
+                                        
+                                        return Array.from({length: 7}).map((_, i) => {
+                                            const d = new Date(nextMonday);
+                                            d.setDate(nextMonday.getDate() + i);
+                                            const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                            const label = d.toLocaleDateString('nl-BE', { weekday: 'long', day: '2-digit', month: '2-digit' });
+                                            return <option key={ds} value={ds}>{label}</option>;
+                                        });
+                                    })()}
+                                </optgroup>
+                            </select>
+                        </div>
+                    )}
                     {!editingItem && (
                         <div className="flex items-center gap-2">
                             <input type="checkbox" id="rememberLocation" checked={rememberLocation} onChange={e => setRememberLocation(e.target.checked)} className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300 dark:border-gray-600" />
