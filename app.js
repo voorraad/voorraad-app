@@ -2253,204 +2253,111 @@ onKeyDown={async (e) => {
                         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 animate-in fade-in duration-300">
                             <div className="mb-6">
                                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">Vervaldatums & Planning</h3>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Chronologisch overzicht van producten met een ingestelde houdbaarheidsdatum binnen de huidige sectie.</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Chronologisch overzicht van producten binnen de huidige sectie (<span className="font-bold capitalize">{activeTab}</span>).</p>
                             </div>
 
-                            {activeItems.filter(i => i.houdbaarheidsDatum).length === 0 ? (
-                                <div className="text-center py-12 text-gray-400 dark:text-gray-500 italic text-sm">
-                                    Geen producten met een vervaldatum gevonden in deze sectie.
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {/* Producten groeperen en sorteren op THT datum */}
-                                    {[...activeItems]
-                                        .filter(i => i.houdbaarheidsDatum)
-                                        .sort((a, b) => getDagenTotTHT(a.houdbaarheidsDatum) - getDagenTotTHT(b.houdbaarheidsDatum))
-                                        .map(item => {
-                                            const dagenTotTHT = getDagenTotTHT(item.houdbaarheidsDatum);
-                                            const datumObj = item.houdbaarheidsDatum.toDate ? item.houdbaarheidsDatum.toDate() : new Date(item.houdbaarheidsDatum);
-                                            
-                                            // Bepaal border kleur op basis van status
-                                            let borderStyle = "border-l-4 border-green-500 bg-green-50/30 dark:bg-green-950/10";
-                                            if (dagenTotTHT < 0) borderStyle = "border-l-4 border-red-500 bg-red-50/50 dark:bg-red-950/20";
-                                            else if (dagenTotTHT <= 7) borderStyle = "border-l-4 border-orange-400 bg-orange-50/40 dark:bg-orange-950/10";
-                                            else if (dagenTotTHT <= 30) borderStyle = "border-l-4 border-yellow-400 bg-yellow-50/40 dark:bg-yellow-950/10";
+                            {(() => {
+                                // 1. Bereken voor elk item de relevante kalenderdatum en resterende dagen
+                                const calendarItems = activeItems.map(item => {
+                                    let eventDate = null;
+                                    let resterendeDagen = 999;
 
-                                            return (
-                                                <div key={item.id} className={`flex items-center justify-between p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-all ${borderStyle}`}>
-                                                    <div className="flex items-center gap-4 min-w-0">
-                                                        {/* Kalender Blaadje Icoom */}
-                                                        <div className="w-14 h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 flex flex-col items-center justify-center flex-shrink-0 shadow-sm">
-                                                            <span className="text-[10px] uppercase font-black text-red-500 tracking-wider leading-none pt-1">
-                                                                {datumObj.toLocaleString('nl-BE', { month: 'short' })}
-                                                            </span>
-                                                            <span className="text-xl font-extrabold text-gray-800 dark:text-white leading-tight">
-                                                                {datumObj.getDate()}
-                                                            </span>
-                                                        </div>
+                                    if (item.houdbaarheidsDatum) {
+                                        eventDate = item.houdbaarheidsDatum.toDate ? item.houdbaarheidsDatum.toDate() : new Date(item.houdbaarheidsDatum);
+                                        resterendeDagen = getDagenTotTHT(item.houdbaarheidsDatum);
+                                    } else if (activeTab === 'vriezer' && item.ingevrorenOp) {
+                                        // Fix: Voor vriezer gebruiken we ingevrorenOp + 180 dagen als de 'vervaldatum'
+                                        const invriesDatum = item.ingevrorenOp.toDate ? item.ingevrorenOp.toDate() : new Date(item.ingevrorenOp);
+                                        eventDate = new Date(invriesDatum);
+                                        eventDate.setDate(eventDate.getDate() + 180);
+                                        
+                                        const today = new Date();
+                                        today.setHours(0,0,0,0);
+                                        eventDate.setHours(0,0,0,0);
+                                        resterendeDagen = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
+                                    }
 
-                                                        <div className="min-w-0">
-                                                            <p className="font-bold text-gray-900 dark:text-white flex items-center gap-2 truncate">
-                                                                <span className="text-xl flex-shrink-0">{item.emoji || '📦'}</span>
-                                                                <span className="truncate">{item.naam}</span>
-                                                            </p>
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                                                Aantal: <span className="font-bold text-gray-700 dark:text-gray-300">{formatAantal(item.aantal)} {item.eenheid}</span>
-                                                                {item.ladeNaam && ` • ${item.ladeNaam}`}
-                                                            </p>
-                                                        </div>
-                                                    </div>
+                                    return { ...item, eventDate, resterendeDagen };
+                                }).filter(item => item.eventDate !== null); // Filter items uit die écht geen datum hebben
 
-                                                    <div className="text-right flex-shrink-0 ml-4">
-                                                        {dagenTotTHT < 0 ? (
-                                                            <span className="text-xs font-black text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/40 px-2.5 py-1 rounded-full uppercase tracking-wide">
-                                                                Verlopen
-                                                            </span>
-                                                        ) : dagenTotTHT === 0 ? (
-                                                            <span className="text-xs font-black text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40 px-2.5 py-1 rounded-full uppercase tracking-wide">
-                                                                Vandaag!
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-xs font-bold text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2.5 py-1 rounded-full">
-                                                                Nog {dagenTotTHT} {dagenTotTHT === 1 ? 'dag' : 'dagen'}
-                                                            </span>
-                                                        )}
-                                                        <div className="mt-2 flex justify-end gap-1">
-                                                            <button onClick={() => initConsume(item)} className="p-1 text-orange-500 bg-white dark:bg-gray-700 rounded border border-gray-100 dark:border-gray-600 shadow-sm" title="Verbruik">
-                                                                <Icon path={Icons.Minus} size={14}/>
-                                                            </button>
-                                                            <button onClick={() => openEdit(item)} className="p-1 text-blue-500 bg-white dark:bg-gray-700 rounded border border-gray-100 dark:border-gray-600 shadow-sm" title="Bewerk">
-                                                                <Icon path={Icons.Edit2} size={14}/>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className={`grid gap-6 items-start ${gridClass}`}>
-                            {filteredLocaties.map(vriezer => {
-                                const gradientKeys = Object.keys(GRADIENTS);
-                                let hash = 0;
-                                for (let i = 0; i < vriezer.id.length; i++) hash = (hash << 5) - hash + vriezer.id.charCodeAt(i);
-                                
-                                const colorKey = vriezer.color || gradientKeys[Math.abs(hash) % gradientKeys.length];
-                                const gradientClass = GRADIENTS[colorKey] || GRADIENTS.blue;
+                                // 2. Als er na de berekening niks overblijft, toon fallback
+                                if (calendarItems.length === 0) {
+                                    return (
+                                        <div className="text-center py-12 text-gray-400 dark:text-gray-500 italic text-sm">
+                                            Geen producten met een vervaldatum of invriesdatum gevonden in deze sectie.
+                                        </div>
+                                    );
+                                }
 
+                                // 3. Render de chronologische lijst
                                 return (
-                                    <div key={vriezer.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 page-break-inside-avoid">
-                                        <h2 className={`text-lg font-bold mb-3 flex items-center gap-2 bg-clip-text text-transparent bg-gradient-to-r ${gradientClass}`}>{vriezer.naam}</h2>
-                                        <div className="space-y-4">
-                                            {lades.filter(l => l.vriezerId === vriezer.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(lade => {
-                                                let ladeItems = items.filter(i => i.ladeId === lade.id && i.naam.toLowerCase().includes(search.toLowerCase()));
-                                                
-                                                if (activeCategoryFilter) {
-                                                    ladeItems = ladeItems.filter(i => i.categorie === activeCategoryFilter);
-                                                }
+                                    <div className="space-y-4">
+                                        {calendarItems
+                                            .sort((a, b) => a.resterendeDagen - b.resterendeDagen)
+                                            .map(item => {
+                                                // Bepaal de kleur van de border aan de linkerkant
+                                                let borderStyle = "border-l-4 border-green-500 bg-green-50/30 dark:bg-green-950/10";
+                                                if (item.resterendeDagen < 0) borderStyle = "border-l-4 border-red-500 bg-red-50/50 dark:bg-red-950/20";
+                                                else if (item.resterendeDagen <= 7) borderStyle = "border-l-4 border-orange-400 bg-orange-50/40 dark:bg-orange-950/10";
+                                                else if (item.resterendeDagen <= 30) borderStyle = "border-l-4 border-yellow-400 bg-yellow-50/40 dark:bg-yellow-950/10";
 
-                                                ladeItems.sort((a, b) => {
-                                                    if (sortBy === 'name') return a.naam.localeCompare(b.naam);
-                                                    if (sortBy === 'expiry') {
-                                                        const aTHT = getDagenTotTHT(a.houdbaarheidsDatum);
-                                                        const bTHT = getDagenTotTHT(b.houdbaarheidsDatum);
-                                                        if (aTHT !== bTHT) return aTHT - bTHT;
-                                                        return getDagenOud(b.ingevrorenOp) - getDagenOud(a.ingevrorenOp); 
-                                                    }
-                                                    if (sortBy === 'newest') {
-                                                        return getDagenOud(a.ingevrorenOp) - getDagenOud(b.ingevrorenOp);
-                                                    }
-                                                    return 0;
-                                                });
-
-                                                if (ladeItems.length === 0 && (search || activeCategoryFilter)) return null;
-                                                const isCollapsed = collapsedLades.has(lade.id) && !search && !activeCategoryFilter;
-                                                
                                                 return (
-                                                    <div key={lade.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden page-break-inside-avoid transition-colors">
-                                                        <div className="bg-gray-50/50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 print:bg-white" onClick={() => toggleLade(lade.id)}>
-                                                            <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-sm flex items-center gap-2">
-                                                                {isCollapsed ? <Icon path={Icons.ChevronRight} className="print:hidden"/> : <Icon path={Icons.ChevronDown} className="print:hidden"/>} 
-                                                                {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
-                                                            </h3>
-                                                        </div>
-                                                        {!isCollapsed && (
-                                                            <ul className="block"> 
-                                                                {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
-                                                                ladeItems.map(item => {
-                                                                    const dagenOud = getDagenOud(item.ingevrorenOp);
-                                                                    const dagenTotTHT = getDagenTotTHT(item.houdbaarheidsDatum);
-                                                                    const isStockItem = vriezer.type === 'voorraad' || vriezer.type === 'frig';
-                                                                    
-                                                                    const isSelected = selectedBulkItems.has(item.id);
-                                                                    const bgClass = isBulkMode && isSelected ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : 'bg-white dark:bg-gray-800';
-                                                                    const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT);
-                                                                    const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT);
-                                                                    
-                                                                    const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
-                                                                    const catColor = catObj ? (catObj.color || 'gray') : 'gray';
+                                                    <div key={item.id} className={`flex items-center justify-between p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-all ${borderStyle}`}>
+                                                        <div className="flex items-center gap-4 min-w-0">
+                                                            {/* Kalender Blaadje Icoon */}
+                                                            <div className="w-14 h-14 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 flex flex-col items-center justify-center flex-shrink-0 shadow-sm">
+                                                                <span className="text-[10px] uppercase font-black text-red-500 tracking-wider leading-none pt-1">
+                                                                    {item.eventDate.toLocaleString('nl-BE', { month: 'short' })}
+                                                                </span>
+                                                                <span className="text-xl font-extrabold text-gray-800 dark:text-white leading-tight">
+                                                                    {item.eventDate.getDate()}
+                                                                </span>
+                                                            </div>
 
-                                                                    return (
-                                                                        <li 
-                                                                            key={item.id} 
-                                                                            onClick={() => isBulkMode ? toggleBulkSelection(item.id) : null}
-                                                                            className={`flex items-center justify-between p-3 ${bgClass} ${colorClass} last:border-b-0 group transition-colors ${isBulkMode ? 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30' : ''}`}
-                                                                        >
-                                                                            <div className="flex items-center gap-3 overflow-hidden min-w-0">
-                                                                                {isBulkMode && (
-                                                                                    <div className={`w-6 h-6 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-500 border-indigo-500' : 'border-gray-300 dark:border-gray-500'}`}>
-                                                                                        {isSelected && <Icon path={Icons.Check} size={14} className="text-white"/>}
-                                                                                    </div>
-                                                                                )}
-                                                                                <span className={`text-2xl flex-shrink-0 ${isBulkMode ? 'hidden sm:block' : ''}`}>{item.emoji||'📦'}</span>
-                                                                                <div className="min-w-0 flex-grow">
-                                                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                                                        <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.naam}</p>
-                                                                                        {item.categorie && item.categorie !== "Geen" && (
-                                                                                            <Badge type={catColor} text={item.categorie} />
-                                                                                        )}
-                                                                                    </div>
-                                                                                    <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
-                                                                                        <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
-                                                                                        {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
-                                                                                        {!isStockItem && item.houdbaarheidsDatum && <span className="text-xs text-gray-500 dark:text-gray-400"> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
-                                                                                        {isStockItem && item.houdbaarheidsDatum && <span className={`text-xs ${dateColorClass}`}> • THT: {formatDate(item.houdbaarheidsDatum)}</span>}
-                                                                                        {item.minimumVoorraad > 0 && <span className="text-[10px] text-orange-500 font-bold px-1.5 py-0.5 rounded bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800">Min: {item.minimumVoorraad}</span>}
-                                                                                        {item.prijs > 0 && <span className="text-[10px] text-green-600 font-bold px-1.5 py-0.5 rounded bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800">€{parseFloat(item.prijs).toFixed(2)}</span>}
-                                                                                    </div>
-                                                                                    {item.notitie && (
-                                                                                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic leading-tight">
-                                                                                            {item.notitie}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                            
-                                                                            {!isBulkMode && (
-                                                                                <div className="flex flex-wrap items-center gap-1 flex-shrink-0 print:hidden ml-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                                                    <button onClick={(e)=>{e.stopPropagation(); initConsume(item)}} className="p-1.5 text-orange-500 bg-orange-50 dark:bg-orange-900/30 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/50" title="Verbruik"><Icon path={Icons.Minus} size={16}/></button>
-                                                                                    <button onClick={(e)=>{e.stopPropagation(); handleDuplicate(item)}} className="p-1.5 text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50" title="Dupliceer"><Icon path={Icons.Copy} size={16}/></button>
-                                                                                    <button onClick={(e)=>{e.stopPropagation(); openEdit(item)}} className="p-1.5 text-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50" title="Bewerken"><Icon path={Icons.Edit2} size={16}/></button>
-                                                                                    <button onClick={(e)=>{e.stopPropagation(); initDelete(item)}} className="p-1.5 text-red-500 bg-red-50 dark:bg-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50" title="Verwijderen"><Icon path={Icons.Trash2} size={16}/></button>
-                                                                                </div>
-                                                                            )}
-                                                                        </li>
-                                                                    );
-                                                                })}
-                                                            </ul>
-                                                        )}
+                                                            <div className="min-w-0">
+                                                                <p className="font-bold text-gray-900 dark:text-white flex items-center gap-2 truncate">
+                                                                    <span className="text-xl flex-shrink-0">{item.emoji || '📦'}</span>
+                                                                    <span className="truncate">{item.naam}</span>
+                                                                </p>
+                                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                                    Aantal: <span className="font-bold text-gray-700 dark:text-gray-300">{formatAantal(item.aantal)} {item.eenheid}</span>
+                                                                    {item.ladeNaam && ` • ${item.ladeNaam}`}
+                                                                    {activeTab === 'vriezer' && <span className="text-gray-400 dark:text-gray-500"> (Ingevroren op: {formatDate(item.ingevrorenOp)})</span>}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="text-right flex-shrink-0 ml-4">
+                                                            {item.resterendeDagen < 0 ? (
+                                                                <span className="text-xs font-black text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/40 px-2.5 py-1 rounded-full uppercase tracking-wide">
+                                                                    {activeTab === 'vriezer' ? 'Te Oud' : 'Verlopen'}
+                                                                </span>
+                                                            ) : item.resterendeDagen === 0 ? (
+                                                                <span className="text-xs font-black text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40 px-2.5 py-1 rounded-full uppercase tracking-wide">
+                                                                    Vandaag!
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-xs font-bold text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2.5 py-1 rounded-full">
+                                                                    Nog {item.resterendeDagen} {item.resterendeDagen === 1 ? 'dag' : 'dagen'}
+                                                                </span>
+                                                            )}
+                                                            <div className="mt-2 flex justify-end gap-1">
+                                                                <button onClick={() => initConsume(item)} className="p-1 text-orange-500 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 shadow-sm" title="Verbruik">
+                                                                    <Icon path={Icons.Minus} size={14}/>
+                                                                </button>
+                                                                <button onClick={() => openEdit(item)} className="p-1 text-blue-500 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 shadow-sm" title="Bewerk">
+                                                                    <Icon path={Icons.Edit2} size={14}/>
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 );
                                             })}
-                                        </div>
                                     </div>
                                 );
-                            })}
+                            })()}
                         </div>
-                    )
-                )}
+                    ) : (
             </main>
 
             {/* Bulk Verplaats Modal */}
