@@ -2129,55 +2129,59 @@ function App() {
                             className="flex-grow bg-transparent outline-none font-bold text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                             value={rapidEntryText}
                             onChange={(e) => setRapidEntryText(e.target.value)}
-                            onKeyDown={async (e) => {
-                                if (e.key === 'Enter' && rapidEntryText.trim()) {
-                                    e.preventDefault();
-                                    
-                                    // 1. Haal de slimme data op
-                                    const info = analyzeProductName(rapidEntryText.trim()) || { cat: null, emoji: null, dagenHoudbaar: null };
-                                    
-                                    // 2. Bepaal de standaard locatie op basis van de actieve tab
-                                    const defaultLoc = filteredLocaties.length > 0 ? filteredLocaties[0].id : '';
-                                    const fallbackCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
-                                    
-                                    // 3. Bereken THT als we niet in de vriezer zitten
-                                    let tht = null;
-                                    if (info.dagenHoudbaar && (activeTab === 'frig' || activeTab === 'voorraad')) {
-                                        const d = new Date();
-                                        d.setDate(d.getDate() + info.dagenHoudbaar);
-                                        tht = d;
-                                    }
+onKeyDown={async (e) => {
+    if (e.key === 'Enter' && rapidEntryText.trim()) {
+        e.preventDefault();
+        
+        // 1. Haal de slimme data op
+        const info = analyzeProductName(rapidEntryText.trim()) || { cat: null, emoji: null, dagenHoudbaar: null };
+        
+        // 2. Bepaal de standaard locatie én lade op basis van de actieve tab
+        const defaultLoc = filteredLocaties.length > 0 ? filteredLocaties[0].id : '';
+        const availableLades = lades.filter(l => l.vriezerId === defaultLoc).sort((a,b) => a.naam.localeCompare(b.naam));
+        const defaultLadeId = availableLades.length > 0 ? availableLades[0].id : '';
+        const defaultLadeNaam = availableLades.length > 0 ? availableLades[0].naam : '';
+        const fallbackCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
+        
+        // 3. Bereken THT als we niet in de vriezer zitten
+        let tht = null;
+        if (info.dagenHoudbaar && (activeTab === 'frig' || activeTab === 'voorraad')) {
+            const d = new Date();
+            d.setDate(d.getDate() + info.dagenHoudbaar);
+            tht = d;
+        }
 
-                                    // 4. Opslaan in Firebase
-                                    try {
-                                        await db.collection('items').add({
-                                            naam: rapidEntryText.trim(),
-                                            aantal: 1,
-                                            eenheid: 'stuks',
-                                            categorie: info.cat || fallbackCat,
-                                            emoji: info.emoji || '📦',
-                                            vriezerId: defaultLoc,
-                                            ladeId: '',
-                                            minimumVoorraad: null,
-                                            prijs: null,
-                                            ingevrorenOp: new Date(),
-                                            houdbaarheidsDatum: tht,
-                                            notitie: '',
-                                            userId: beheerdeUserId
-                                        });
-                                        
-                                        // 5. Logboek actie en notificatie
-                                        const loc = vriezers.find(v => v.id === defaultLoc);
-                                        const locNaam = loc ? loc.naam : 'Onbekende locatie';
-                                        await logAction('Toevoegen', rapidEntryText.trim(), `Snel ingevoerd in ${locNaam}`, user, beheerdeUserId);
-                                        
-                                        showNotification(`${rapidEntryText.trim()} razendsnel toegevoegd!`, 'success');
-                                        setRapidEntryText(''); // Leegmaken voor de volgende invoer
-                                    } catch (err) {
-                                        showNotification("Fout bij snel toevoegen: " + err.message, "error");
-                                    }
-                                }
-                            }}
+        // 4. Opslaan in Firebase
+        try {
+            await db.collection('items').add({
+                naam: rapidEntryText.trim(),
+                aantal: 1,
+                eenheid: 'stuks',
+                categorie: info.cat || fallbackCat,
+                emoji: info.emoji || '📦',
+                vriezerId: defaultLoc,
+                ladeId: defaultLadeId,     // Dit is de fix!
+                ladeNaam: defaultLadeNaam, // Dit is de fix!
+                minimumVoorraad: null,
+                prijs: null,
+                ingevrorenOp: new Date(),
+                houdbaarheidsDatum: tht,
+                notitie: '',
+                userId: beheerdeUserId
+            });
+            
+            // 5. Logboek actie en notificatie
+            const loc = vriezers.find(v => v.id === defaultLoc);
+            const locNaam = loc ? loc.naam : 'Onbekende locatie';
+            await logAction('Toevoegen', rapidEntryText.trim(), `Snel ingevoerd in ${locNaam} (${defaultLadeNaam || 'Geen lade'})`, user, beheerdeUserId);
+            
+            showNotification(`${rapidEntryText.trim()} razendsnel toegevoegd!`, 'success');
+            setRapidEntryText(''); // Leegmaken voor de volgende invoer
+        } catch (err) {
+            showNotification("Fout bij snel toevoegen: " + err.message, "error");
+        }
+    }
+}}
                         />
                         {rapidEntryText && (
                             <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 mr-2 flex-shrink-0 animate-pulse">
