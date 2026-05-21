@@ -2257,7 +2257,7 @@ onKeyDown={async (e) => {
                                 <div className="flex items-center justify-between mb-2 border-b border-gray-200 dark:border-gray-700 pb-4">
                                     <div>
                                         <h2 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-rose-500">
-                                            {weekOffset === 0 ? 'Deze Week.' : weekOffset === 1 ? 'Volgende Week.' : `Week ${weekOffset}`}
+                                            {weekOffset === 0 ? 'Deze week.' : weekOffset === 1 ? 'Volgende week.' : `Week ${weekOffset}`}
                                         </h2>
                                         <p className="text-gray-500 dark:text-gray-400 text-sm">Sleep producten vanuit je voorraad naar een datum.</p>
                                     </div>
