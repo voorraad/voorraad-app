@@ -2305,13 +2305,19 @@ onKeyDown={async (e) => {
                                             }}
                                             className={`bg-white dark:bg-gray-800 p-4 rounded-xl border-2 border-dashed ${isToday ? 'border-pink-400 dark:border-pink-500 bg-pink-50/30 dark:bg-pink-900/10' : 'border-gray-200 dark:border-gray-700'} min-h-[100px] transition-colors hover:border-pink-300 dark:hover:border-pink-600/50 print:border-gray-400 print:bg-transparent print:break-inside-avoid print:p-2 print:min-h-0`}
                                         >
-                                            <div className="flex justify-between items-center mb-3 border-b border-gray-100 dark:border-gray-700 pb-2 print:mb-1 print:pb-1">
+<div className="flex justify-between items-center mb-3 border-b border-gray-100 dark:border-gray-700 pb-2 print:mb-1 print:pb-1">
                                                 <h4 className={`font-bold ${isToday ? 'text-pink-600 dark:text-pink-400 print:text-black' : 'text-gray-700 dark:text-gray-200 print:text-black'}`}>
                                                     {dayNameCap}
                                                 </h4>
                                                 <span className={`text-sm font-semibold ${isToday ? 'bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full dark:bg-pink-900/30 dark:text-pink-400 print:bg-transparent print:text-gray-500' : 'text-gray-400 print:text-gray-500'}`}>
-                                                    {isToday ? <span className="print:hidden">Vandaag ({visualDate})</span> : visualDate}
-                                                    <span className="hidden print:inline">{visualDate}</span>
+                                                    {isToday ? (
+                                                        <>
+                                                            <span className="print:hidden">Vandaag ({visualDate})</span>
+                                                            <span className="hidden print:inline">{visualDate}</span>
+                                                        </>
+                                                    ) : (
+                                                        visualDate
+                                                    )}
                                                 </span>
                                             </div>
                                             <div className="space-y-2 print:space-y-1">
