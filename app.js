@@ -520,7 +520,8 @@ function App() {
     const [viewMode, setViewMode] = useState('list'); // 'list' of 'calendar'
     const [draggedMenuItem, setDraggedMenuItem] = useState(null);
     const [weekOffset, setWeekOffset] = useState(0);
-    const [menuSearch, setMenuSearch] = useState('');    
+    const [menuSearch, setMenuSearch] = useState('');  
+    const [customMenuInput, setCustomMenuInput] = useState({ date: '', text: '' });
     const [activeCategoryFilter, setActiveCategoryFilter] = useState(null);
     const [collapsedLades, setCollapsedLades] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
@@ -2254,17 +2255,21 @@ onKeyDown={async (e) => {
                     });
 
                     return (
-                        <div className="flex flex-col lg:flex-row gap-6 animate-in fade-in duration-300">
+                        <div className="flex flex-col lg:flex-row gap-6 animate-in fade-in duration-300 print:block">
                             {/* Kolom 1: Het Weekmenu (Dagen) */}
-                            <div className="flex-1 space-y-4">
+                            <div className="flex-1 space-y-4 print:w-full">
                                 <div className="flex items-center justify-between mb-2 border-b border-gray-200 dark:border-gray-700 pb-4">
                                     <div>
-                                        <h2 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-rose-500">
-                                            {weekOffset === 0 ? 'Deze week.' : weekOffset === 1 ? 'Volgende week.' : `Week ${weekOffset}`}
+                                        <h2 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-rose-500 print:text-black">
+                                            {weekOffset === 0 ? 'Deze Week.' : weekOffset === 1 ? 'Volgende Week.' : `Week ${weekOffset}`}
                                         </h2>
-                                        <p className="text-gray-500 dark:text-gray-400 text-sm">Sleep producten vanuit je voorraad naar een datum.</p>
+                                        <p className="text-gray-500 dark:text-gray-400 text-sm print:hidden">Sleep producten of voeg zelf gerechten toe.</p>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 print:hidden">
+                                        {/* NIEUWE PRINT KNOP */}
+                                        <button onClick={() => window.print()} className="p-2 rounded-xl bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 transition flex items-center gap-2 mr-2 font-bold text-sm shadow-sm" title="Print Weekmenu">
+                                            <Icon path={Icons.Printer} size={18} /> <span className="hidden sm:inline">Print</span>
+                                        </button>
                                         <button onClick={() => setWeekOffset(weekOffset - 1)} className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition" title="Vorige Week">
                                             <Icon path={Icons.ChevronRight} size={20} className="rotate-180 text-gray-600 dark:text-gray-300" />
                                         </button>
@@ -2278,11 +2283,9 @@ onKeyDown={async (e) => {
                                 </div>
                                 
                                 {weekDays.map(dateObj => {
-                                    // Formatteer als YYYY-MM-DD om in de database op te slaan
                                     const dateString = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
                                     const itemsOpDag = items.filter(i => i.geplandeDatum === dateString);
                                     
-                                    // UI Tekst (bijv. Maandag 25/05)
                                     const dayName = dateObj.toLocaleDateString('nl-BE', { weekday: 'long' });
                                     const dayNameCap = dayName.charAt(0).toUpperCase() + dayName.slice(1);
                                     const visualDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
@@ -2300,34 +2303,42 @@ onKeyDown={async (e) => {
                                                     setDraggedMenuItem(null);
                                                 }
                                             }}
-                                            className={`bg-white dark:bg-gray-800 p-4 rounded-xl border-2 border-dashed ${isToday ? 'border-pink-400 dark:border-pink-500 bg-pink-50/30 dark:bg-pink-900/10' : 'border-gray-200 dark:border-gray-700'} min-h-[100px] transition-colors hover:border-pink-300 dark:hover:border-pink-600/50`}
+                                            className={`bg-white dark:bg-gray-800 p-4 rounded-xl border-2 border-dashed ${isToday ? 'border-pink-400 dark:border-pink-500 bg-pink-50/30 dark:bg-pink-900/10' : 'border-gray-200 dark:border-gray-700'} min-h-[100px] transition-colors hover:border-pink-300 dark:hover:border-pink-600/50 print:border-gray-400 print:bg-transparent print:break-inside-avoid print:p-2 print:min-h-0`}
                                         >
-                                            <div className="flex justify-between items-center mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
-                                                <h4 className={`font-bold ${isToday ? 'text-pink-600 dark:text-pink-400' : 'text-gray-700 dark:text-gray-200'}`}>
+                                            <div className="flex justify-between items-center mb-3 border-b border-gray-100 dark:border-gray-700 pb-2 print:mb-1 print:pb-1">
+                                                <h4 className={`font-bold ${isToday ? 'text-pink-600 dark:text-pink-400 print:text-black' : 'text-gray-700 dark:text-gray-200 print:text-black'}`}>
                                                     {dayNameCap}
                                                 </h4>
-                                                <span className={`text-sm font-semibold ${isToday ? 'bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full dark:bg-pink-900/30 dark:text-pink-400' : 'text-gray-400'}`}>
-                                                    {isToday ? `Vandaag (${visualDate})` : visualDate}
+                                                <span className={`text-sm font-semibold ${isToday ? 'bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full dark:bg-pink-900/30 dark:text-pink-400 print:bg-transparent print:text-gray-500' : 'text-gray-400 print:text-gray-500'}`}>
+                                                    {isToday ? <span className="print:hidden">Vandaag ({visualDate})</span> : visualDate}
+                                                    <span className="hidden print:inline">{visualDate}</span>
                                                 </span>
                                             </div>
-                                            <div className="space-y-2">
+                                            <div className="space-y-2 print:space-y-1">
                                                 {itemsOpDag.length === 0 ? (
-                                                    <p className="text-xs text-gray-400 italic">Niks gepland...</p>
+                                                    <p className="text-xs text-gray-400 italic print:hidden">Niks gepland...</p>
                                                 ) : (
                                                     itemsOpDag.map(item => (
-                                                        <div key={item.id} className="flex items-center justify-between p-2 bg-pink-50 dark:bg-pink-900/20 rounded-lg border border-pink-100 dark:border-pink-800/50 shadow-sm">
+                                                        <div key={item.id} className="flex items-center justify-between p-2 bg-pink-50 dark:bg-pink-900/20 rounded-lg border border-pink-100 dark:border-pink-800/50 shadow-sm print:bg-transparent print:shadow-none print:border-gray-300 print:p-1">
                                                             <div className="flex items-center gap-2 truncate">
                                                                 <span className="text-lg">{item.emoji || '📦'}</span>
                                                                 <div>
-                                                                    <p className="font-semibold text-sm text-gray-800 dark:text-gray-100 truncate">{item.naam}</p>
-                                                                    <p className="text-[10px] text-gray-500">{formatAantal(item.aantal)} {item.eenheid}</p>
+                                                                    <p className="font-semibold text-sm text-gray-800 dark:text-gray-100 truncate print:text-black">{item.naam}</p>
+                                                                    {item.vriezerId !== 'custom_menu' && (
+                                                                        <p className="text-[10px] text-gray-500">{formatAantal(item.aantal)} {item.eenheid}</p>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                             <button 
                                                                 onClick={async () => {
-                                                                    await db.collection('items').doc(item.id).update({ geplandeDatum: null });
+                                                                    // Aangepaste verwijder-logica voor zelfgetypte tekst
+                                                                    if (item.vriezerId === 'custom_menu') {
+                                                                        await db.collection('items').doc(item.id).delete();
+                                                                    } else {
+                                                                        await db.collection('items').doc(item.id).update({ geplandeDatum: null });
+                                                                    }
                                                                 }} 
-                                                                className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                                                                className="p-1 text-gray-400 hover:text-red-500 transition-colors print:hidden"
                                                                 title="Verwijder van planning"
                                                             >
                                                                 <Icon path={Icons.X} size={16}/>
@@ -2335,14 +2346,47 @@ onKeyDown={async (e) => {
                                                         </div>
                                                     ))
                                                 )}
+                                                
+                                                {/* NIEUW: Zelf tekst typen */}
+                                                <div className="pt-2 mt-2 border-t border-gray-100 dark:border-gray-700 print:hidden">
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="+ Typ gerecht en druk Enter..." 
+                                                        className="w-full text-xs p-2 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-200 dark:border-gray-600 focus:ring-1 focus:ring-pink-400 outline-none"
+                                                        value={customMenuInput.date === dateString ? customMenuInput.text : ''}
+                                                        onChange={(e) => setCustomMenuInput({ date: dateString, text: e.target.value })}
+                                                        onKeyDown={async (e) => {
+                                                            if (e.key === 'Enter' && customMenuInput.text.trim() && customMenuInput.date === dateString) {
+                                                                e.preventDefault();
+                                                                try {
+                                                                    await db.collection('items').add({
+                                                                        naam: customMenuInput.text.trim(),
+                                                                        aantal: 1,
+                                                                        eenheid: 'stuks',
+                                                                        vriezerId: 'custom_menu', // Speciaal ID voor handmatige gerechten
+                                                                        ladeId: '',
+                                                                        categorie: 'Menu',
+                                                                        emoji: '🍽️',
+                                                                        geplandeDatum: dateString,
+                                                                        ingevrorenOp: new Date().toISOString().split('T')[0],
+                                                                        userId: beheerdeUserId
+                                                                    });
+                                                                    setCustomMenuInput({ date: '', text: '' });
+                                                                } catch (err) {
+                                                                    showNotification("Fout bij toevoegen", "error");
+                                                                }
+                                                            }
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     )
                                 })}
                             </div>
 
-{/* Kolom 2: Beschikbare Voorraad */}
-                            <div className="w-full lg:w-1/3 bg-gray-50 dark:bg-gray-800/80 p-4 rounded-xl border border-gray-200 dark:border-gray-700 h-fit sticky top-20 shadow-sm">
+                            {/* Kolom 2: Beschikbare Voorraad */}
+                            <div className="w-full lg:w-1/3 bg-gray-50 dark:bg-gray-800/80 p-4 rounded-xl border border-gray-200 dark:border-gray-700 h-fit sticky top-20 shadow-sm print:hidden">
                                 <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-1">Beschikbaar</h3>
                                 <p className="text-xs text-gray-500 mb-3">Vriezer & Koelkast</p>
                                 
@@ -2372,7 +2416,6 @@ onKeyDown={async (e) => {
                                             const loc = vriezers.find(v => v.id === i.vriezerId);
                                             return loc && (loc.type === 'vriezer' || loc.type === 'frig');
                                         })
-                                        // Filteren op basis van de ingevoerde zoekterm
                                         .filter(i => i.naam.toLowerCase().includes(menuSearch.toLowerCase()))
                                         .sort((a, b) => a.naam.localeCompare(b.naam))
                                         .map(item => (
