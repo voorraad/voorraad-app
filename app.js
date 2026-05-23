@@ -562,7 +562,7 @@ function App() {
     const [itemToConsume, setItemToConsume] = useState(null);
     const [consumeAmount, setConsumeAmount] = useState(1);
 
-    // Forms
+// Forms
     const [formData, setFormData] = useState({
         naam: '', 
         aantal: 1, 
@@ -576,7 +576,8 @@ function App() {
         houdbaarheidsDatum: '', 
         notitie: '',
         emoji: '',
-        geplandeDatum: ''
+        geplandeDatum: '',
+        bulkAanmaak: 1
     });
     
     const [shoppingFormData, setShoppingFormData] = useState({ 
@@ -1052,17 +1053,17 @@ const handleOpenAdd = () => {
         const defaultLoc = typeLocaties.length > 0 ? typeLocaties[0].id : '';
         const defaultCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
         
-        if (!rememberLocation) {
+if (!rememberLocation) {
             setFormData({
                 naam: '', aantal: 1, eenheid: 'stuks', vriezerId: defaultLoc, ladeId: '', 
-                categorie: defaultCat, minimumVoorraad: '', prijs: '', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: '', geplandeDatum: ''
+                categorie: defaultCat, minimumVoorraad: '', prijs: '', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: '', geplandeDatum: '', bulkAanmaak: 1
             });
         } else {
              setFormData(prev => ({
                 ...prev,
                 vriezerId: defaultLoc,
                 naam: '', aantal: 1, minimumVoorraad: '', prijs: '', categorie: defaultCat, 
-                ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: '', geplandeDatum: ''
+                ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: '', geplandeDatum: '', bulkAanmaak: 1
             }));
         }
         setShowAddModal(true);
@@ -1128,22 +1129,39 @@ const handleOpenAdd = () => {
                 showNotification(`${data.naam} is bijgewerkt!`, 'success');
                 setEditingItem(null);
                 setShowAddModal(false);
-            } else {
-                await db.collection('items').add(data);
+} else {
+                const aantalKeerToevoegen = parseInt(formData.bulkAanmaak) || 1;
+                const batchPromises = [];
+                
+                // Schiet het product X keer in de database
+                for(let i = 0; i < aantalKeerToevoegen; i++) {
+                    batchPromises.push(db.collection('items').add(data));
+                }
+                
+                // Wacht tot alle kopieën zijn opgeslagen
+                await Promise.all(batchPromises);
+                
                 const locNaam = loc ? loc.naam : 'Onbekende locatie';
                 const ladeNaam = lade ? lade.naam : 'Onbekende lade';
-                await logAction('Toevoegen', data.naam, `${data.aantal} ${data.eenheid} in ${locNaam} (${ladeNaam})`, user, beheerdeUserId);
-                showNotification(`${data.naam} is toegevoegd!`, 'success');
+                
+                if (aantalKeerToevoegen > 1) {
+                    await logAction('Toevoegen', data.naam, `${aantalKeerToevoegen} losse items in ${locNaam} (${ladeNaam})`, user, beheerdeUserId);
+                    showNotification(`${aantalKeerToevoegen} keer ${data.naam} apart toegevoegd!`, 'success');
+                } else {
+                    await logAction('Toevoegen', data.naam, `${data.aantal} ${data.eenheid} in ${locNaam} (${ladeNaam})`, user, beheerdeUserId);
+                    showNotification(`${data.naam} is toegevoegd!`, 'success');
+                }
+                
                 if (rememberLocation) {
                     setFormData(prev => ({
                         ...prev, 
                         naam: '', aantal: 1, minimumVoorraad: '', prijs: '', notitie: '', emoji: '', 
                         ingevrorenOp: new Date().toISOString().split('T')[0],
-                        houdbaarheidsDatum: ''
+                        houdbaarheidsDatum: '', bulkAanmaak: 1
                     }));
                 } else {
                     const defaultCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
-                    setFormData(prev => ({...prev, naam: '', aantal: 1, minimumVoorraad: '', prijs: '', notitie: '', emoji: '', categorie: defaultCat})); 
+                    setFormData(prev => ({...prev, naam: '', aantal: 1, minimumVoorraad: '', prijs: '', notitie: '', emoji: '', categorie: defaultCat, bulkAanmaak: 1})); 
                 }
                 setShowAddModal(false);
             }
@@ -3095,6 +3113,27 @@ onKeyDown={async (e) => {
                             </select>
                         </div>
                     )}
+{/* Bulk (Batch) Aanmaak: Product los toevoegen */}
+                    {!editingItem && (
+                        <div className="space-y-1 p-3 bg-indigo-50/40 dark:bg-indigo-950/10 border border-indigo-200/60 dark:border-indigo-800/40 rounded-xl mt-2 mb-2 animate-in fade-in duration-200">
+                            <label className="text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase flex items-center gap-1.5">
+                                <Icon path={Icons.Copy} size={14} /> Opsplitsen in losse items (Optioneel)
+                            </label>
+                            <div className="flex items-center gap-3 mt-1">
+                                <input 
+                                    type="number" 
+                                    min="1" 
+                                    max="50"
+                                    className="w-20 p-2 text-center bg-white dark:bg-gray-700 dark:text-white border border-indigo-300 dark:border-indigo-600 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={formData.bulkAanmaak || 1} 
+                                    onChange={e => setFormData({...formData, bulkAanmaak: e.target.value})}
+                                />
+                                <span className="text-xs font-medium text-indigo-800 dark:text-indigo-300 leading-tight">
+                                    Hoe vaak wil je dit product als<br/> een APARTE regel opslaan?
+                                </span>
+                            </div>
+                        </div>
+                    )}                                                                                    
                     {!editingItem && (
                         <div className="flex items-center gap-2">
                             <input type="checkbox" id="rememberLocation" checked={rememberLocation} onChange={e => setRememberLocation(e.target.checked)} className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300 dark:border-gray-600" />
