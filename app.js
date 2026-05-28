@@ -183,6 +183,7 @@ const CATEGORIEEN_VOORRAAD = [
     { name: "Ander", color: "gray" }
 ];
 const EENHEDEN_VOORRAAD = ["stuks", "pak", "fles", "blik", "pot", "liter", "kilo", "gram", "zak", "doos"];
+const AVAILABLE_TAGS = ['Restje', 'Snel klaar', 'Voor bezoek', 'Glutenvrij', 'Pittig', 'Vegetarisch', 'Aanbieding'];
 
 const EMOJI_CATEGORIES = {
     "Fruit.": ["🍏", "🍐", "🍊", "🍋", "🍌", "🍎", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🥑", "🫒", "🍋‍🟩"],
@@ -526,6 +527,8 @@ function App() {
     const [collapsedLades, setCollapsedLades] = useState(new Set()); 
     const [editingItem, setEditingItem] = useState(null);
     const [notification, setNotification] = useState(null);
+    const [auditLade, setAuditLade] = useState(null);
+    const [auditedItems, setAuditedItems] = useState(new Set()); // Onthoudt welke items je hebt afgevinkt
     const [draggedLocId, setDraggedLocId] = useState(null); 
     
     const [isBulkMode, setIsBulkMode] = useState(false);
@@ -577,7 +580,8 @@ function App() {
         notitie: '',
         emoji: '',
         geplandeDatum: '',
-        bulkAanmaak: 1
+        bulkAanmaak: 1,
+        tags: []
     });
     
     const [shoppingFormData, setShoppingFormData] = useState({ 
@@ -1056,14 +1060,14 @@ const handleOpenAdd = () => {
 if (!rememberLocation) {
             setFormData({
                 naam: '', aantal: 1, eenheid: 'stuks', vriezerId: defaultLoc, ladeId: '', 
-                categorie: defaultCat, minimumVoorraad: '', prijs: '', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: '', geplandeDatum: '', bulkAanmaak: 1
+                categorie: defaultCat, minimumVoorraad: '', prijs: '', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: '', geplandeDatum: '', bulkAanmaak: 1, tags: []
             });
         } else {
              setFormData(prev => ({
                 ...prev,
                 vriezerId: defaultLoc,
                 naam: '', aantal: 1, minimumVoorraad: '', prijs: '', categorie: defaultCat, 
-                ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: '', geplandeDatum: '', bulkAanmaak: 1
+                ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: '', geplandeDatum: '', bulkAanmaak: 1, tags: []
             }));
         }
         setShowAddModal(true);
@@ -1525,7 +1529,8 @@ const openEdit = (item) => {
             ingevrorenOp: toInputDate(item.ingevrorenOp), 
             houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), 
             emoji: item.emoji,
-            geplandeDatum: item.geplandeDatum || ''
+            geplandeDatum: item.geplandeDatum || '',
+            tags: item.tags || []
         });
         setShowAddModal(true);
     };
