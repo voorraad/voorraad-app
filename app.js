@@ -2661,13 +2661,15 @@ onKeyDown={async (e) => {
                                                                 {isCollapsed ? <Icon path={Icons.ChevronRight} className="print:hidden"/> : <Icon path={Icons.ChevronDown} className="print:hidden"/>} 
                                                                 {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
                                                             </h3>
-                                                            <button 
-                                                                onClick={(e) => { e.stopPropagation(); setAuditLade(lade); setAuditedItems(new Set()); }} 
-                                                                className="text-xs flex items-center gap-1 font-bold text-blue-600 bg-blue-50 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 px-2 py-1 rounded shadow-sm hover:bg-blue-100 transition-colors print:hidden"
-                                                                title="Voorraad-Balans (Snel aftikken)"
-                                                            >
-                                                                <Icon path={Icons.CheckSquare} size={14} /> Balans
-                                                            </button>
+                                                            {(!myHiddenTabs.includes('balans') || isAdmin) && (
+                                                                <button 
+                                                                    onClick={(e) => { e.stopPropagation(); setAuditLade(lade); setAuditedItems(new Set()); }} 
+                                                                    className="text-xs flex items-center gap-1 font-bold text-blue-600 bg-blue-50 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 px-2 py-1 rounded shadow-sm hover:bg-blue-100 transition-colors print:hidden"
+                                                                    title="Voorraad-Balans (Snel aftikken)"
+                                                                >
+                                                                    <Icon path={Icons.CheckSquare} size={14} /> Balans
+                                                                </button>
+                                                            )}
                                                         </div>
 
                                                         {!isCollapsed && (
@@ -3708,6 +3710,16 @@ onKeyDown={async (e) => {
                                     />
                                     <span className="font-medium text-pink-700 dark:text-pink-400">Verberg 'Week.' tabblad</span>
                                 </div>
+                                                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mt-1">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={(u.hiddenTabs || []).includes('balans')} 
+                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'balans')}
+                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="font-medium text-blue-700 dark:text-blue-400">Verberg 'Balans' knop (Rechten beperken)</span>
+                                </div>
+
                                 <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 border-t border-gray-200 dark:border-gray-600 pt-2 mt-1">
                                     <input 
                                         type="checkbox" 
