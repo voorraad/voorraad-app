@@ -2656,12 +2656,20 @@ onKeyDown={async (e) => {
                                                 
                                                 return (
                                                     <div key={lade.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden page-break-inside-avoid transition-colors">
-                                                        <div className="bg-gray-50/50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 print:bg-white" onClick={() => toggleLade(lade.id)}>
+                                                                                               <div className="bg-gray-50/50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 print:bg-white" onClick={() => toggleLade(lade.id)}>
                                                             <h3 className="font-semibold text-gray-700 dark:text-gray-200 text-sm flex items-center gap-2">
                                                                 {isCollapsed ? <Icon path={Icons.ChevronRight} className="print:hidden"/> : <Icon path={Icons.ChevronDown} className="print:hidden"/>} 
                                                                 {lade.naam} <span className="text-xs font-normal text-gray-400">({ladeItems.length})</span>
                                                             </h3>
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); setAuditLade(lade); setAuditedItems(new Set()); }} 
+                                                                className="text-xs flex items-center gap-1 font-bold text-blue-600 bg-blue-50 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 px-2 py-1 rounded shadow-sm hover:bg-blue-100 transition-colors print:hidden"
+                                                                title="Voorraad-Balans (Snel aftikken)"
+                                                            >
+                                                                <Icon path={Icons.CheckSquare} size={14} /> Balans
+                                                            </button>
                                                         </div>
+
                                                         {!isCollapsed && (
                                                             <ul className="block"> 
                                                                 {ladeItems.length === 0 ? <li className="p-4 text-center text-gray-400 text-sm italic">Leeg</li> : 
@@ -2702,6 +2710,16 @@ onKeyDown={async (e) => {
                                                                                             <Badge type="pink" text={`Menu: ${new Date(item.geplandeDatum).toLocaleDateString('nl-BE', {weekday: 'short', day: '2-digit', month: '2-digit'})}`} />
                                                                                         )}
                                                                                     </div>
+                                                                                                                                                                        {item.tags && item.tags.length > 0 && (
+                                                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                                                            {item.tags.map(t => (
+                                                                                                <span key={t} className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600">
+                                                                                                    {t}
+                                                                                                </span>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    )}
+
                                                                                     <div className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 flex flex-wrap items-center gap-x-2">
                                                                                         <span className="font-bold">{formatAantal(item.aantal)} {item.eenheid}</span>
                                                                                         {!isStockItem && <span className={`text-xs ${dateColorClass}`}> • {formatDate(item.ingevrorenOp)}</span>}
@@ -3051,7 +3069,29 @@ onKeyDown={async (e) => {
                     <div className="space-y-1 flex-1 min-w-[100px]">
                         <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Notitie (Optioneel).</label>
                         <input type="text" className="w-full p-3 text-sm bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={formData.notitie} onChange={e => setFormData({...formData, notitie: e.target.value})} placeholder="Bijv. Voor de BBQ, Restje van gisteren..." />
-                    </div>                                                                                            
+                    </div>   
+                    <div className="space-y-1 w-full pt-2">
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Labels (Tags).</label>
+                        <div className="flex flex-wrap gap-2">
+                            {AVAILABLE_TAGS.map(tag => {
+                                const isSelected = formData.tags?.includes(tag);
+                                return (
+                                    <button
+                                        type="button"
+                                        key={tag}
+                                        onClick={() => {
+                                            const newTags = isSelected ? formData.tags.filter(t => t !== tag) : [...(formData.tags || []), tag];
+                                            setFormData({...formData, tags: newTags});
+                                        }}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors ${isSelected ? 'bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-700' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
+                                    >
+                                        {isSelected && <Icon path={Icons.Check} size={12} className="inline mr-1 -mt-0.5"/>}
+                                        {tag}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>                                   
                     </div>
 
                     {modalType === 'vriezer' && (
@@ -4045,6 +4085,61 @@ onKeyDown={async (e) => {
                             })}
                         </div>
                     )}
+                </div>
+            </Modal>
+            {/* Voorraad-Balans (Audit) Modal */}
+            <Modal isOpen={!!auditLade} onClose={() => setAuditLade(null)} title={`Balans: ${auditLade?.naam}`} color="blue" size="lg">
+                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300">
+                        <strong>Instructie:</strong> Sta je voor de vriezer? Controleer de aantallen in deze lade. Klik op 'Klopt!' als het item klopt. Zo werk je razendsnel je voorraad bij!
+                    </div>
+
+                    {auditLade && items.filter(i => i.ladeId === auditLade.id).sort((a,b)=>a.naam.localeCompare(b.naam)).map(item => {
+                        const isChecked = auditedItems.has(item.id);
+                        return (
+                            <div key={item.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${isChecked ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700 shadow-sm'}`}>
+                                <div className="flex items-center gap-3 truncate">
+                                    <span className="text-2xl">{item.emoji || '📦'}</span>
+                                    <div className="truncate">
+                                        <p className={`font-bold text-sm ${isChecked ? 'text-green-800 dark:text-green-400' : 'text-gray-800 dark:text-gray-200'}`}>{item.naam}</p>
+                                        <p className="text-[10px] text-gray-500">Huidig: {formatAantal(item.aantal)} {item.eenheid}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    {/* Snelle + en - knoppen voor correcties */}
+                                    {!isChecked && (
+                                        <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mr-2 border border-gray-200 dark:border-gray-600">
+                                            <button onClick={async () => {
+                                                const nw = Math.max(0.25, parseFloat(item.aantal) - 0.25);
+                                                await db.collection('items').doc(item.id).update({ aantal: nw });
+                                            }} className="px-2 text-gray-600 dark:text-gray-300 hover:text-red-500 font-bold">-</button>
+                                            <span className="px-2 text-xs font-bold text-gray-800 dark:text-white flex items-center justify-center w-8">{formatAantal(item.aantal)}</span>
+                                            <button onClick={async () => {
+                                                const nw = parseFloat(item.aantal) + 0.25;
+                                                await db.collection('items').doc(item.id).update({ aantal: nw });
+                                            }} className="px-2 text-gray-600 dark:text-gray-300 hover:text-green-500 font-bold">+</button>
+                                        </div>
+                                    )}
+                                    
+                                    <button 
+                                        onClick={() => {
+                                            const newSet = new Set(auditedItems);
+                                            if (isChecked) newSet.delete(item.id); else newSet.add(item.id);
+                                            setAuditedItems(newSet);
+                                        }}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors ${isChecked ? 'bg-green-500 text-white shadow-inner' : 'bg-gray-100 text-gray-600 hover:bg-green-100 hover:text-green-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-green-900/40 dark:hover:text-green-400'}`}
+                                    >
+                                        <Icon path={Icons.Check} size={14}/> {isChecked ? 'Gecontroleerd' : 'Klopt!'}
+                                    </button>
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+                    <button onClick={() => setAuditLade(null)} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow-md hover:bg-blue-700 transition">
+                        Klaar met controleren
+                    </button>
                 </div>
             </Modal>
 
