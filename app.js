@@ -183,7 +183,6 @@ const CATEGORIEEN_VOORRAAD = [
     { name: "Ander", color: "gray" }
 ];
 const EENHEDEN_VOORRAAD = ["stuks", "pak", "fles", "blik", "pot", "liter", "kilo", "gram", "zak", "doos"];
-const AVAILABLE_TAGS = ['Restje', 'Snel klaar', 'Voor bezoek', 'Glutenvrij', 'Pittig', 'Vegetarisch', 'Aanbieding'];
 const STANDAARD_LABELS = ["Restje", "Snel klaar", "Voor bezoek", "Glutenvrij", "Pittig", "Vegetarisch", "Aanbieding"];
 
 const EMOJI_CATEGORIES = {
