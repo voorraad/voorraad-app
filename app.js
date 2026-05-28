@@ -3113,7 +3113,29 @@ onKeyDown={async (e) => {
                         <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Notitie (Optioneel).</label>
                         <input type="text" className="w-full p-3 text-sm bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={formData.notitie} onChange={e => setFormData({...formData, notitie: e.target.value})} placeholder="Bijv. Voor de BBQ, Restje van gisteren..." />
                     </div>   
-                                        
+                                  <div className="space-y-1 w-full pt-2">
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Labels (Tags).</label>
+                        <div className="flex flex-wrap gap-2">
+                            {actieveLabels.map(tag => {
+                                const isSelected = formData.tags?.includes(tag);
+                                return (
+                                    <button
+                                        type="button"
+                                        key={tag}
+                                        onClick={() => {
+                                            const newTags = isSelected ? formData.tags.filter(t => t !== tag) : [...(formData.tags || []), tag];
+                                            setFormData({...formData, tags: newTags});
+                                        }}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors ${isSelected ? 'bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-700' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
+                                    >
+                                        {isSelected && <Icon path={Icons.Check} size={12} className="inline mr-1 -mt-0.5"/>}
+                                        {tag}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+                          
                         </div>
 
                     {modalType === 'vriezer' && (
