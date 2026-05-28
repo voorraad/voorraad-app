@@ -184,6 +184,7 @@ const CATEGORIEEN_VOORRAAD = [
 ];
 const EENHEDEN_VOORRAAD = ["stuks", "pak", "fles", "blik", "pot", "liter", "kilo", "gram", "zak", "doos"];
 const AVAILABLE_TAGS = ['Restje', 'Snel klaar', 'Voor bezoek', 'Glutenvrij', 'Pittig', 'Vegetarisch', 'Aanbieding'];
+const STANDAARD_LABELS = ["Restje", "Snel klaar", "Voor bezoek", "Glutenvrij", "Pittig", "Vegetarisch", "Aanbieding"];
 
 const EMOJI_CATEGORIES = {
     "Fruit.": ["🍏", "🍐", "🍊", "🍋", "🍌", "🍎", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🥑", "🫒", "🍋‍🟩"],
@@ -512,6 +513,12 @@ function App() {
     const [customUnitsFrig, setCustomUnitsFrig] = useState([]);
     const [customUnitsVoorraad, setCustomUnitsVoorraad] = useState([]);
     const [customCategories, setCustomCategories] = useState([]);
+    
+    const [customLabels, setCustomLabels] = useState([]);
+    const [newLabelNaam, setNewLabelNaam] = useState('');
+    const [editingLabelName, setEditingLabelName] = useState(null);
+    const [editLabelInput, setEditLabelInput] = useState('');
+
 
     // UI filters, Sort & Bulk Mode
     const [search, setSearch] = useState('');
@@ -762,6 +769,7 @@ function App() {
                 setManagedUserHiddenTabs(data.hiddenTabs || []); 
 
                 setCustomCategories(data.customCategories && data.customCategories.length > 0 ? data.customCategories : CATEGORIEEN_VRIES);
+                setCustomLabels(data.customLabels || []);
                 if (data.stats) {
                     setStats({
                         wasted: data.stats.wasted || 0,
@@ -1741,6 +1749,40 @@ const openEdit = (item) => {
         });
         await batch.commit();
         setEditingUnitName(null);
+    };
+    const actieveLabels = [...new Set([...STANDAARD_LABELS, ...customLabels])].sort();
+
+    const handleAddLabel = async (e) => {
+        e.preventDefault();
+        const naam = newLabelNaam.trim();
+        if(naam && !STANDAARD_LABELS.includes(naam) && !customLabels.includes(naam)) {
+            const updated = [...customLabels, naam];
+            await db.collection('users').doc(beheerdeUserId).set({customLabels: updated}, {merge:true});
+            setNewLabelNaam('');
+        }
+    };
+
+    const handleDeleteLabel = async (label) => {
+        if(confirm(`Verwijder label '${label}'?`)) {
+            const updated = customLabels.filter(l => l !== label);
+            await db.collection('users').doc(beheerdeUserId).set({customLabels: updated}, {merge:true});
+        }
+    };
+    
+    const startEditLabel = (l) => { setEditingLabelName(l); setEditLabelInput(l); };
+    const saveLabelName = async () => {
+        if(!editLabelInput.trim()) return;
+        const updated = customLabels.map(l => l === editingLabelName ? editLabelInput.trim() : l);
+        await db.collection('users').doc(beheerdeUserId).set({customLabels: updated}, {merge:true});
+        
+        const batch = db.batch();
+        const itemsWithLabel = items.filter(i => i.tags && i.tags.includes(editingLabelName));
+        itemsWithLabel.forEach(item => {
+            const newTags = item.tags.map(t => t === editingLabelName ? editLabelInput.trim() : t);
+            batch.update(db.collection('items').doc(item.id), { tags: newTags });
+        });
+        await batch.commit();
+        setEditingLabelName(null);
     };
 
     const handleAddCat = async (e) => {
@@ -3072,6 +3114,28 @@ onKeyDown={async (e) => {
                         <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Notitie (Optioneel).</label>
                         <input type="text" className="w-full p-3 text-sm bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={formData.notitie} onChange={e => setFormData({...formData, notitie: e.target.value})} placeholder="Bijv. Voor de BBQ, Restje van gisteren..." />
                     </div>   
+                                        <div className="space-y-1 w-full pt-2">
+                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Labels (Tags).</label>
+                        <div className="flex flex-wrap gap-2">
+                            {actieveLabels.map(tag => {
+                                const isSelected = formData.tags?.includes(tag);
+                                return (
+                                    <button
+                                        type="button"
+                                        key={tag}
+                                        onClick={() => {
+                                            const newTags = isSelected ? formData.tags.filter(t => t !== tag) : [...(formData.tags || []), tag];
+                                            setFormData({...formData, tags: newTags});
+                                        }}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors ${isSelected ? 'bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-700' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
+                                    >
+                                        {isSelected && <Icon path={Icons.Check} size={12} className="inline mr-1 -mt-0.5"/>}
+                                        {tag}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
                     <div className="space-y-1 w-full pt-2">
                         <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Labels (Tags).</label>
                         <div className="flex flex-wrap gap-2">
@@ -3491,10 +3555,11 @@ onKeyDown={async (e) => {
             </Modal>
 
             <Modal isOpen={showBeheerModal} onClose={() => setShowBeheerModal(false)} title="Instellingen." color="purple">
-                <div className="flex border-b dark:border-gray-700 mb-4">
-                    <button onClick={() => setBeheerTab('locaties')} className={`flex-1 py-2 font-medium ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500 dark:text-gray-400'}`}>Locaties.</button>
-                    <button onClick={() => setBeheerTab('categorieen')} className={`flex-1 py-2 font-medium ${beheerTab==='categorieen'?'text-purple-600 border-b-2 border-purple-600':'text-gray-500 dark:text-gray-400'}`}>Categorieën.</button>
-                    <button onClick={() => setBeheerTab('eenheden')} className={`flex-1 py-2 font-medium ${beheerTab==='eenheden'?'text-orange-600 border-b-2 border-orange-600':'text-gray-500 dark:text-gray-400'}`}>Eenheden.</button>
+                <div className="flex border-b dark:border-gray-700 mb-4 overflow-x-auto scrollbar-hide">
+                    <button onClick={() => setBeheerTab('locaties')} className={`flex-1 px-4 py-2 font-medium whitespace-nowrap ${beheerTab==='locaties'?'text-blue-600 border-b-2 border-blue-600':'text-gray-500 dark:text-gray-400'}`}>Locaties.</button>
+                    <button onClick={() => setBeheerTab('categorieen')} className={`flex-1 px-4 py-2 font-medium whitespace-nowrap ${beheerTab==='categorieen'?'text-purple-600 border-b-2 border-purple-600':'text-gray-500 dark:text-gray-400'}`}>Categorieën.</button>
+                    <button onClick={() => setBeheerTab('eenheden')} className={`flex-1 px-4 py-2 font-medium whitespace-nowrap ${beheerTab==='eenheden'?'text-orange-600 border-b-2 border-orange-600':'text-gray-500 dark:text-gray-400'}`}>Eenheden.</button>
+                    <button onClick={() => setBeheerTab('labels')} className={`flex-1 px-4 py-2 font-medium whitespace-nowrap ${beheerTab==='labels'?'text-teal-600 border-b-2 border-teal-600':'text-gray-500 dark:text-gray-400'}`}>Labels.</button>
                 </div>
 
                 {beheerTab === 'locaties' && (
@@ -3636,6 +3701,31 @@ onKeyDown={async (e) => {
                             ))}
                         </ul>
                         <form onSubmit={handleAddUnit} className="flex gap-2"><input className="flex-grow border p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" placeholder="Nieuwe eenheid" value={newUnitNaam} onChange={e=>setNewUnitNaam(e.target.value)} required /><button className={`text-white px-3 rounded ${eenheidFilter === 'voorraad' ? 'bg-orange-500' : eenheidFilter === 'frig' ? 'bg-green-600' : 'bg-blue-600'}`}>+</button></form>
+                    </div>
+                )}
+                    {beheerTab === 'labels' && (
+                    <div>
+                        <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Mijn Labels (Tags)</h4>
+                        <ul className="space-y-2 mb-3">
+                            {customLabels.length === 0 ? <li className="text-gray-400 italic">Geen eigen labels. Typ hieronder om er een toe te voegen!</li> : 
+                            customLabels.map(l => (
+                                <li key={l} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded items-center">
+                                    {editingLabelName === l ? 
+                                        <div className="flex gap-2 w-full"><input className="flex-grow border p-1 rounded dark:bg-gray-600 dark:text-white" value={editLabelInput} onChange={e=>setEditLabelInput(e.target.value)} /><button onClick={saveLabelName} className="text-green-600"><Icon path={Icons.Check}/></button></div>
+                                        :
+                                        <><span>{l}</span><div className="flex gap-2"><button onClick={()=>startEditLabel(l)} className="text-blue-500"><Icon path={Icons.Edit2} size={16}/></button><button onClick={() => handleDeleteLabel(l)} className="text-red-500"><Icon path={Icons.Trash2} size={16}/></button></div></>
+                                    }
+                                </li>
+                            ))}
+                        </ul>
+                        <form onSubmit={handleAddLabel} className="flex gap-2"><input className="flex-grow border p-2 rounded dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600" placeholder="Nieuw label (bijv. Tupperware)" value={newLabelNaam} onChange={e=>setNewLabelNaam(e.target.value)} required /><button className="bg-teal-600 text-white px-3 rounded">+</button></form>
+                        
+                        <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
+                            <h4 className="font-bold text-gray-500 dark:text-gray-400 mb-2 text-sm">Standaard Labels (niet verwijderbaar)</h4>
+                            <div className="flex flex-wrap gap-1">
+                                {STANDAARD_LABELS.map(l => <span key={l} className="px-2 py-1 bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-300 rounded text-xs">{l}</span>)}
+                            </div>
+                        </div>
                     </div>
                 )}
             </Modal>
