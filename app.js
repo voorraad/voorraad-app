@@ -3688,10 +3688,6 @@ onKeyDown={async (e) => {
                     <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2">
                         <Icon path={Icons.BookOpen} size={18} /> Algemene Rondleiding (Tour)
                     </h4>
-                <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 mb-6">
-                    <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2">
-                        <Icon path={Icons.BookOpen} size={18} /> Algemene Rondleiding (Tour)
-                    </h4>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Stel in of nieuwe gebruikers standaard de tour te zien krijgen.</p>
                     <div className="flex flex-col sm:flex-row gap-3">
                         <button onClick={toggleGlobalOnboardingStatus} className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold flex justify-center items-center gap-2 transition-colors ${globalOnboardingActive ? 'bg-green-100 text-green-700 border border-green-200 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-200 text-gray-600 border border-gray-300 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600'}`}>
