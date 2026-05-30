@@ -487,6 +487,7 @@ function App() {
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [onboardingStep, setOnboardingStep] = useState(0);
     const [globalOnboardingActive, setGlobalOnboardingActive] = useState(true);
+    const [maintenanceMode, setMaintenanceMode] = useState(false);    
     
     // Touch States for swipe
     const [touchStart, setTouchStart] = useState(null);
@@ -712,25 +713,22 @@ function App() {
         return () => unsubscribe();
     }, []);
 
-    // Global Onboarding Settings & Tour Steps
+// Global Onboarding Settings, Tour Steps & Onderhoud
     useEffect(() => {
         const unsub = db.collection('settings').doc('onboarding').onSnapshot(doc => {
-            if (doc.exists) {
-                setGlobalOnboardingActive(doc.data().isActive !== false); // default true if not strictly false
-            } else {
-                db.collection('settings').doc('onboarding').set({ isActive: true });
-            }
+            if (doc.exists) setGlobalOnboardingActive(doc.data().isActive !== false);
         });
         
         const unsubSteps = db.collection('settings').doc('tourSteps').onSnapshot(doc => {
-            if (doc.exists && doc.data().steps && doc.data().steps.length > 0) {
-                setTourSteps(doc.data().steps);
-            } else {
-                setTourSteps(DEFAULT_TOUR_STEPS);
-            }
+            if (doc.exists && doc.data().steps) setTourSteps(doc.data().steps);
+        });
+
+        // NIEUW: Luisteraar voor Onderhoudsmodus
+        const unsubMaintenance = db.collection('settings').doc('maintenance').onSnapshot(doc => {
+            if (doc.exists) setMaintenanceMode(doc.data().active === true);
         });
         
-        return () => { unsub(); unsubSteps(); };
+        return () => { unsub(); unsubSteps(); unsubMaintenance(); };
     }, []);
 
     // Show Onboarding if user hasn't seen it and hasn't been explicitly disabled
@@ -1920,7 +1918,14 @@ const openEdit = (item) => {
             }
         }
     };
-
+const toggleMaintenanceMode = async () => {
+        try {
+            await db.collection('settings').doc('maintenance').set({ active: !maintenanceMode }, { merge: true });
+            showNotification(`Onderhoudsmodus staat nu ${!maintenanceMode ? 'AAN' : 'UIT'}.`, "success");
+        } catch (e) {
+            showNotification("Fout bij opslaan onderhoudsmodus.", "error");
+        }
+    };
     const triggerTourForUser = async (userId) => {
         try {
             await db.collection('users').doc(userId).set({ hasSeenTutorial: false, tourDisabled: false }, { merge: true });
@@ -1999,7 +2004,26 @@ const openEdit = (item) => {
             </div>
         </div>
     );
-
+// Onderhoudsscherm voor normale gebruikers
+    if (maintenanceMode && !isAdmin) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4 transition-colors duration-300 text-center">
+                <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl max-w-md w-full flex flex-col items-center animate-in fade-in zoom-in duration-500">
+                    <div className="w-20 h-20 bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full flex items-center justify-center mb-6 relative">
+                        <Icon className="animate-pulse" path="{Icons.Wrench}" size="{40}"/>
+                        <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 border-4 border-white dark:border-gray-800 rounded-full"></span>
+                    </div>
+                    <h1 className="text-2xl font-black text-gray-800 dark:text-gray-100 mb-2">App in Onderhoud</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">
+                        We zijn achter de schermen bezig met een geweldige nieuwe update voor de app. Nog heel even geduld, we zijn zo snel mogelijk weer online!
+                    </p>
+                    <button onClick={handleLogout} className="px-6 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-bold transition-colors text-sm flex items-center gap-2">
+                        <Icon path="{Icons.LogOut}" size="{16}"/> Uitloggen
+                    </button>
+                </div>
+            </div>
+        );
+    }
     const currentVersionData = VERSION_HISTORY.find(v => v.version === APP_VERSION);
 
     // Boodschappen groeperen per winkel voor weergave
@@ -3640,7 +3664,30 @@ onKeyDown={async (e) => {
                 )}
             </Modal>
             
-            <Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers." color="pink">
+<Modal isOpen={showUserAdminModal} onClose={() => setShowUserAdminModal(false)} title="Gebruikers." color="pink">
+                
+                {/* --- START NIEUW ONDERHOUDSMODUS BLOK --- */}
+                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div>
+                        <h4 className="font-bold text-red-800 dark:text-red-300 flex items-center gap-2">
+                            <Icon path={Icons.Wrench} size={18}/> Onderhoudsmodus
+                        </h4>
+                        <p className="text-xs text-red-600 dark:text-red-400 mt-1">Blokkeer toegang voor normale gebruikers. Jij als Admin kan nog wel in de app om te testen.</p>
+                    </div>
+                    <button 
+                        onClick={toggleMaintenanceMode} 
+                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex-shrink-0 ${maintenanceMode ? 'bg-red-600 text-white shadow-md' : 'bg-white text-red-600 border border-red-200 hover:bg-red-50 dark:bg-transparent dark:border-red-700 dark:hover:bg-red-900/40'}`}
+                    >
+                        {maintenanceMode ? 'Onderhoud is AAN' : 'Zet in Onderhoud'}
+                    </button>
+                </div>
+                {/* --- EINDE NIEUW ONDERHOUDSMODUS BLOK --- */}
+
+                {/* Hier begint het blok dat je al had: */}
+                <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 mb-6">
+                    <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2">
+                        <Icon path={Icons.BookOpen} size={18} /> Algemene Rondleiding (Tour)
+                    </h4>
                 <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 mb-6">
                     <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2">
                         <Icon path={Icons.BookOpen} size={18} /> Algemene Rondleiding (Tour)
