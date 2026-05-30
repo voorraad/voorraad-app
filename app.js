@@ -2008,17 +2008,26 @@ const toggleMaintenanceMode = async () => {
     if (maintenanceMode && !isAdmin) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4 transition-colors duration-300 text-center">
-                <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl max-w-md w-full flex flex-col items-center animate-in fade-in zoom-in duration-500">
-                    <div className="w-20 h-20 bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full flex items-center justify-center mb-6 relative">
-                        <Icon className="animate-pulse" path="{Icons.Wrench}" size="{40}"/>
-                        <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 border-4 border-white dark:border-gray-800 rounded-full"></span>
+                <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700 max-w-sm w-full flex flex-col items-center animate-in fade-in zoom-in duration-500">
+                    
+                    {/* Het Logo in een mooie cirkel met subtiele onderhouds-badge */}
+                    <div className="w-24 h-24 bg-gradient-to-tr from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center mb-5 relative shadow-inner border border-blue-100/50 dark:border-blue-800/50">
+                        <Icon className="animate-pulse" path={Icons.Box} size={40}/>
+                        <div className="absolute bottom-0 right-0 w-8 h-8 bg-yellow-400 text-yellow-900 rounded-full flex items-center justify-center border-4 border-white dark:border-gray-800 shadow-sm translate-x-1 translate-y-1">
+                            <Icon path={Icons.Wrench} size={12}/>
+                        </div>
                     </div>
-                    <h1 className="text-2xl font-black text-gray-800 dark:text-gray-100 mb-2">App in Onderhoud</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">
-                        We zijn achter de schermen bezig met een geweldige nieuwe update voor de app. Nog heel even geduld, we zijn zo snel mogelijk weer online!
+
+                    <h1 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400 mb-1">Voorraad.</h1>
+                    <h2 className="text-xs font-bold text-gray-400 dark:text-gray-500 mb-4 uppercase tracking-widest">In Onderhoud</h2>
+                    
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-8 leading-relaxed px-2">
+                        We zijn achter de schermen bezig met een update. Nog heel even geduld, we zijn zo snel mogelijk weer online!
                     </p>
-                    <button onClick={handleLogout} className="px-6 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-bold transition-colors text-sm flex items-center gap-2">
-                        <Icon path="{Icons.LogOut}" size="{16}"/> Uitloggen
+
+                    {/* Subtielere Uitloggen knop */}
+                    <button onClick={handleLogout} className="px-4 py-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors text-xs flex items-center gap-1.5">
+                        <Icon path={Icons.LogOut} size={14}/> Uitloggen
                     </button>
                 </div>
             </div>
