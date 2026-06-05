@@ -2353,9 +2353,9 @@ onKeyDown={async (e) => {
                 </div>
             </div>
         ))}
-        {recepten.length === 0 && <p className="text-center text-gray-500 italic py-8">Nog geen recepten toegevoegd...</p>}
+{recepten.length === 0 && <p className="text-center text-gray-500 italic py-8">Nog geen recepten toegevoegd...</p>}
     </div>
-                {activeTab === 'weekmenu' ? (() => {
+) : activeTab === 'weekmenu' ? (() => {
                     // Bereken de exacte datums voor de gekozen week
                     const baseDate = new Date();
                     const dayNum = baseDate.getDay() || 7; 
