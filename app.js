@@ -184,6 +184,8 @@ const CATEGORIEEN_VOORRAAD = [
 ];
 const EENHEDEN_VOORRAAD = ["stuks", "pak", "fles", "blik", "pot", "liter", "kilo", "gram", "zak", "doos"];
 const AVAILABLE_TAGS = ['Restje', 'Snel klaar', 'Voor bezoek', 'Glutenvrij', 'Pittig', 'Vegetarisch', 'Aanbieding'];
+const CATEGORIEEN_RECEPT = ["Hoofdgerecht", "Voorgerecht", "Dessert", "Ontbijt", "Lunch", "Snack", "Soep", "Basisrecept"];
+const EENHEDEN_RECEPT = ["naar smaak", "snufje", "teentje(s)", "el", "tl", "gram", "kilo", "ml", "liter", "stuks", "blikje", "pakje", "druppel(s)", "takje(s)"];
 
 const EMOJI_CATEGORIES = {
     "Fruit.": ["🍏", "🍐", "🍊", "🍋", "🍌", "🍎", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🥑", "🫒", "🍋‍🟩"],
@@ -514,6 +516,16 @@ function App() {
     const [customUnitsVoorraad, setCustomUnitsVoorraad] = useState([]);
     const [customCategories, setCustomCategories] = useState([]);
 
+    const [recepten, setRecepten] = useState([]);
+    const [showRecipeModal, setShowRecipeModal] = useState(false);
+    const [showRecipeViewModal, setShowRecipeViewModal] = useState(false);
+    const [editingRecipe, setEditingRecipe] = useState(null);
+    const [viewRecipePersons, setViewRecipePersons] = useState(4);
+    const [recipeFormData, setRecipeFormData] = useState({
+    naam: '', fotoUrl: '', personen: 4, categorie: 'Hoofdgerecht',
+    ingredienten: [], stappen: []
+    });
+
     // UI filters, Sort & Bulk Mode
     const [search, setSearch] = useState('');
     const [sortBy, setSortBy] = useState('name');
@@ -800,9 +812,10 @@ function App() {
         });
         
         const unsubI = db.collection('items').where('userId', '==', beheerdeUserId).onSnapshot(s => setItems(s.docs.map(d => ({id: d.id, ...d.data()}))));
-        const unsubS = db.collection('shoppingList').where('userId', '==', beheerdeUserId).onSnapshot(s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()})))); 
+        const unsubS = db.collection('shoppingList').where('userId', '==', beheerdeUserId).onSnapshot(s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()}))));
+        const unsubR = db.collection('recepten').where('userId', '==', beheerdeUserId).onSnapshot(s => setRecepten(s.docs.map(d => ({id: d.id, ...d.data()}))));
 
-        return () => { unsubV(); unsubL(); unsubI(); unsubS(); };
+        return () => { unsubV(); unsubL(); unsubI(); unsubS(); unsubR(); };
     }, [beheerdeUserId, isDataLoaded, savedOpenLades]); 
 
     useEffect(() => {
@@ -2153,6 +2166,11 @@ const toggleMaintenanceMode = async () => {
                             {isAdmin && managedUserHiddenTabs.includes('weekmenu') && <span title="Verborgen voor gebruiker" className="ml-1 text-gray-400"><Icon path={Icons.Lock} size={14}/></span>}
                         </button>
                     )}
+                    {(!myHiddenTabs.includes('recepten') || isAdmin) && (
+                        <button onClick={() => { setActiveTab('recepten'); setActiveCategoryFilter(null); setIsBulkMode(false); setSelectedBulkItems(new Set()); }} className={`pb-3 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab==='recepten' ? 'border-teal-500 text-teal-600' : 'border-transparent text-gray-500 dark:text-gray-400'}`}>
+                            <Icon path={Icons.BookOpen}/> Recepten.
+                        </button>
+                    )}
                 </div>
             </header>
 
@@ -2296,7 +2314,47 @@ onKeyDown={async (e) => {
                     </div>
                 )}
 
-{/* Het Weekmenu of de Normale weergave */}
+{/* Het Weekmenu of de Normale weergave en recepten */}
+{activeTab === 'recepten' ? (
+    <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="flex justify-between items-center pb-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-teal-500 to-emerald-500">Mijn Recepten.</h2>
+            <button onClick={() => {
+                setEditingRecipe(null);
+                setRecipeFormData({naam: '', fotoUrl: '', personen: 4, categorie: 'Hoofdgerecht', ingredienten: [], stappen: []});
+                setShowRecipeModal(true);
+            }} className="bg-teal-600 text-white px-4 py-2 rounded-xl font-bold shadow-md hover:bg-teal-700 transition flex items-center gap-2">
+                <Icon path={Icons.Plus} size={18} /> Recept
+            </button>
+        </div>
+
+        {Object.entries(recepten.reduce((acc, r) => { (acc[r.categorie || 'Ander'] = acc[r.categorie || 'Ander'] || []).push(r); return acc; }, {})).map(([cat, recs]) => (
+            <div key={cat} className="mb-6">
+                <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200 mb-3">{cat}</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {recs.map(r => (
+                        <div key={r.id} onClick={() => { setEditingRecipe(r); setViewRecipePersons(r.personen || 4); setShowRecipeViewModal(true); }} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer hover:border-teal-400 dark:hover:border-teal-600 transition-all flex flex-col aspect-square group relative">
+                            {r.fotoUrl ? (
+                                <div className="h-2/3 w-full bg-cover bg-center" style={{backgroundImage: `url(${r.fotoUrl})`}}></div>
+                            ) : (
+                                <div className="h-2/3 w-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400">
+                                    <Icon path={Icons.Utensils} size={32} />
+                                </div>
+                            )}
+                            <div className="h-1/3 p-2 flex items-center justify-center text-center bg-white dark:bg-gray-800 z-10">
+                                <span className="font-bold text-sm text-gray-800 dark:text-gray-100 line-clamp-2 leading-tight">{r.naam}</span>
+                            </div>
+                            {/* Verwijder knop zichtbaar bij hover */}
+                            <button onClick={(e) => { e.stopPropagation(); if(confirm('Recept verwijderen?')) db.collection('recepten').doc(r.id).delete(); }} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
+                                <Icon path={Icons.Trash2} size={14}/>
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        ))}
+        {recepten.length === 0 && <p className="text-center text-gray-500 italic py-8">Nog geen recepten toegevoegd...</p>}
+    </div>
                 {activeTab === 'weekmenu' ? (() => {
                     // Bereken de exacte datums voor de gekozen week
                     const baseDate = new Date();
@@ -2826,6 +2884,138 @@ onKeyDown={async (e) => {
                 </form>
             </Modal>
 
+<Modal isOpen={showRecipeViewModal} onClose={() => setShowRecipeViewModal(false)} title="Recept Bekijken." color="teal" size="lg">
+    {editingRecipe && (
+        <div className="space-y-6">
+            {editingRecipe.fotoUrl && (
+                <div className="w-full h-48 rounded-xl bg-cover bg-center mb-4 border border-gray-200 dark:border-gray-700 shadow-inner" style={{backgroundImage: `url(${editingRecipe.fotoUrl})`}}></div>
+            )}
+            <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-4">
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white">{editingRecipe.naam}</h2>
+                <button onClick={() => { 
+                    setRecipeFormData(editingRecipe); 
+                    setShowRecipeViewModal(false); 
+                    setShowRecipeModal(true); 
+                }} className="p-2 text-blue-600 bg-blue-50 dark:bg-blue-900/30 rounded-lg font-bold flex items-center gap-2">
+                    <Icon path={Icons.Edit2} size={16}/> Bewerk
+                </button>
+            </div>
+
+            <div className="bg-teal-50 dark:bg-teal-900/20 p-4 rounded-xl border border-teal-100 dark:border-teal-800 flex justify-between items-center">
+                <span className="font-bold text-teal-800 dark:text-teal-300">Aantal Personen:</span>
+                <div className="flex items-center gap-3">
+                    <button onClick={() => setViewRecipePersons(Math.max(1, viewRecipePersons - 1))} className="w-8 h-8 rounded-full bg-white dark:bg-gray-700 text-teal-600 flex items-center justify-center font-bold shadow-sm">-</button>
+                    <span className="font-black text-xl w-6 text-center text-gray-800 dark:text-white">{viewRecipePersons}</span>
+                    <button onClick={() => setViewRecipePersons(viewRecipePersons + 1)} className="w-8 h-8 rounded-full bg-white dark:bg-gray-700 text-teal-600 flex items-center justify-center font-bold shadow-sm">+</button>
+                </div>
+            </div>
+
+            <div>
+                <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2 uppercase tracking-wide text-sm flex items-center gap-2"><Icon path={Icons.ShoppingCart} size={16}/> Ingrediënten</h3>
+                <ul className="space-y-2">
+                    {editingRecipe.ingredienten?.map((ing, idx) => {
+                        let berekendAantal = "";
+                        if (ing.aantal) {
+                            const ratio = viewRecipePersons / (editingRecipe.personen || 4);
+                            const nieuwAantal = parseFloat(ing.aantal) * ratio;
+                            berekendAantal = (nieuwAantal % 1 !== 0) ? nieuwAantal.toFixed(1) : nieuwAantal;
+                        }
+                        return (
+                            <li key={idx} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700">
+                                <span className="font-medium text-gray-800 dark:text-gray-200">{ing.naam}</span>
+                                <span className="font-bold text-teal-600 dark:text-teal-400">{berekendAantal} {ing.eenheid}</span>
+                            </li>
+                        )
+                    })}
+                </ul>
+            </div>
+
+            <div>
+                <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2 uppercase tracking-wide text-sm flex items-center gap-2"><Icon path={Icons.List} size={16}/> Stappen</h3>
+                <ol className="list-decimal pl-5 space-y-3">
+                    {editingRecipe.stappen?.map((stap, idx) => (
+                        <li key={idx} className="text-gray-700 dark:text-gray-300 leading-relaxed pl-2 border-l-2 border-teal-200 dark:border-teal-800">{stap}</li>
+                    ))}
+                </ol>
+            </div>
+        </div>
+    )}
+</Modal>
+<Modal isOpen={showRecipeModal} onClose={() => setShowRecipeModal(false)} title={editingRecipe ? "Recept Bewerken." : "Nieuw Recept."} color="teal" size="lg">
+    <div className="space-y-4">
+        <div className="flex gap-4">
+            <div className="flex-grow space-y-1">
+                <label className="text-xs font-bold text-gray-500 uppercase">Recept Naam</label>
+                <input type="text" className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-teal-500" value={recipeFormData.naam} onChange={e => setRecipeFormData({...recipeFormData, naam: e.target.value})} placeholder="Bv. Spaghetti Bolognese"/>
+            </div>
+            <div className="w-24 space-y-1">
+                <label className="text-xs font-bold text-gray-500 uppercase">Personen (Standaard)</label>
+                <input type="number" min="1" className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-teal-500 text-center font-bold" value={recipeFormData.personen} onChange={e => setRecipeFormData({...recipeFormData, personen: parseInt(e.target.value) || 4})}/>
+            </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500 uppercase">Categorie</label>
+                <select className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-teal-500" value={recipeFormData.categorie} onChange={e => setRecipeFormData({...recipeFormData, categorie: e.target.value})}>
+                    {CATEGORIEEN_RECEPT.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+            </div>
+            <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500 uppercase">Foto (Afbeelding URL)</label>
+                <input type="text" className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-teal-500" value={recipeFormData.fotoUrl} onChange={e => setRecipeFormData({...recipeFormData, fotoUrl: e.target.value})} placeholder="https://link-naar-foto.jpg"/>
+            </div>
+        </div>
+
+        {/* Ingrediënten Toevoegen */}
+        <div className="p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800">
+            <h4 className="font-bold mb-2">Ingrediënten</h4>
+            <div className="space-y-2 mb-3">
+                {recipeFormData.ingredienten.map((ing, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                        <input type="text" className="flex-grow p-2 border rounded-lg dark:bg-gray-700 dark:text-white text-sm" value={ing.naam} onChange={e => { const newIng = [...recipeFormData.ingredienten]; newIng[idx].naam = e.target.value; setRecipeFormData({...recipeFormData, ingredienten: newIng}); }} placeholder="Ingrediënt"/>
+                        <input type="number" step="0.5" className="w-20 p-2 border rounded-lg dark:bg-gray-700 dark:text-white text-sm text-center" value={ing.aantal} onChange={e => { const newIng = [...recipeFormData.ingredienten]; newIng[idx].aantal = e.target.value; setRecipeFormData({...recipeFormData, ingredienten: newIng}); }} placeholder="Hoeveel"/>
+                        <select className="w-28 p-2 border rounded-lg dark:bg-gray-700 dark:text-white text-sm" value={ing.eenheid} onChange={e => { const newIng = [...recipeFormData.ingredienten]; newIng[idx].eenheid = e.target.value; setRecipeFormData({...recipeFormData, ingredienten: newIng}); }}>
+                            {EENHEDEN_RECEPT.map(u => <option key={u} value={u}>{u}</option>)}
+                        </select>
+                        <button onClick={() => { const newIng = recipeFormData.ingredienten.filter((_, i) => i !== idx); setRecipeFormData({...recipeFormData, ingredienten: newIng}); }} className="text-red-500 p-2"><Icon path={Icons.X} size={16}/></button>
+                    </div>
+                ))}
+            </div>
+            <button type="button" onClick={() => setRecipeFormData({...recipeFormData, ingredienten: [...recipeFormData.ingredienten, {naam: '', aantal: 1, eenheid: 'stuks'}]})} className="text-sm font-bold text-teal-600 bg-teal-50 dark:bg-teal-900/30 px-3 py-1.5 rounded-lg w-full">+ Ingrediënt toevoegen</button>
+        </div>
+
+        {/* Stappen Toevoegen */}
+        <div className="p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800">
+            <h4 className="font-bold mb-2">Bereidingswijze (Stappen)</h4>
+            <div className="space-y-2 mb-3">
+                {recipeFormData.stappen.map((stap, idx) => (
+                    <div key={idx} className="flex gap-2 items-start">
+                        <span className="font-bold text-teal-600 mt-2">{idx + 1}.</span>
+                        <textarea className="flex-grow p-2 border rounded-lg dark:bg-gray-700 dark:text-white text-sm h-16" value={stap} onChange={e => { const newStappen = [...recipeFormData.stappen]; newStappen[idx] = e.target.value; setRecipeFormData({...recipeFormData, stappen: newStappen}); }} placeholder="Beschrijf de stap..."/>
+                        <button onClick={() => { const newStappen = recipeFormData.stappen.filter((_, i) => i !== idx); setRecipeFormData({...recipeFormData, stappen: newStappen}); }} className="text-red-500 p-2 mt-1"><Icon path={Icons.X} size={16}/></button>
+                    </div>
+                ))}
+            </div>
+            <button type="button" onClick={() => setRecipeFormData({...recipeFormData, stappen: [...recipeFormData.stappen, '']})} className="text-sm font-bold text-teal-600 bg-teal-50 dark:bg-teal-900/30 px-3 py-1.5 rounded-lg w-full">+ Stap toevoegen</button>
+        </div>
+
+        <button onClick={async () => {
+            if(!recipeFormData.naam) return alert('Naam is verplicht!');
+            try {
+                if (editingRecipe) {
+                    await db.collection('recepten').doc(editingRecipe.id).update({...recipeFormData});
+                    showNotification('Recept bijgewerkt!', 'success');
+                } else {
+                    await db.collection('recepten').add({...recipeFormData, userId: beheerdeUserId});
+                    showNotification('Recept aangemaakt!', 'success');
+                }
+                setShowRecipeModal(false);
+            } catch(e) { showNotification('Fout bij opslaan', 'error'); }
+        }} className="w-full py-3 bg-teal-600 text-white font-bold rounded-xl shadow-md">Opslaan</button>
+    </div>
+</Modal>
+                                                                                    
             {/* Verbruik (Consume) Modal */}
             <Modal isOpen={showConsumeModal} onClose={() => setShowConsumeModal(false)} title="Product verwerken." color="orange">
                 {itemToConsume && (
