@@ -2175,7 +2175,7 @@ const toggleMaintenanceMode = async () => {
             </header>
 
             <main className="max-w-7xl mx-auto p-4 space-y-6 flex-grow w-full pb-32 relative">
-                {activeTab !== 'weekmenu' && (
+                {activeTab !== 'weekmenu' && activeTab !== 'recepten' && (
                 <div className="flex flex-col gap-4 print:hidden">
                     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide items-center">
                         <div className="flex-shrink-0 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm text-sm font-bold">{activeItems.length} items</div>
@@ -2887,17 +2887,23 @@ onKeyDown={async (e) => {
 <Modal isOpen={showRecipeViewModal} onClose={() => setShowRecipeViewModal(false)} title="Recept Bekijken." color="teal" size="lg">
     {editingRecipe && (
         <div className="space-y-6">
+            {/* FOTO: Nu over de volledige breedte met negatieve marges (-mx-4 -mt-4) */}
             {editingRecipe.fotoUrl && (
-                <div className="w-full h-48 rounded-xl bg-cover bg-center mb-4 border border-gray-200 dark:border-gray-700 shadow-inner" style={{backgroundImage: `url(${editingRecipe.fotoUrl})`}}></div>
+                <div 
+                    className="-mt-4 -mx-4 mb-6 h-64 sm:h-80 bg-cover bg-center border-b border-gray-200 dark:border-gray-700 shadow-sm" 
+                    style={{backgroundImage: `url(${editingRecipe.fotoUrl})`}}
+                ></div>
             )}
-            <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-4">
-                <h2 className="text-2xl font-black text-gray-900 dark:text-white">{editingRecipe.naam}</h2>
+            
+            <div className="flex justify-between items-start border-b border-gray-200 dark:border-gray-700 pb-4">
+                <h2 className="text-3xl font-black text-gray-900 dark:text-white pr-4 leading-tight">{editingRecipe.naam}</h2>
+                {/* BEWERK KNOP: Nu heel subtiel en onopvallend */}
                 <button onClick={() => { 
                     setRecipeFormData(editingRecipe); 
                     setShowRecipeViewModal(false); 
                     setShowRecipeModal(true); 
-                }} className="p-2 text-blue-600 bg-blue-50 dark:bg-blue-900/30 rounded-lg font-bold flex items-center gap-2">
-                    <Icon path={Icons.Edit2} size={16}/> Bewerk
+                }} className="text-gray-400 hover:text-teal-600 dark:text-gray-500 dark:hover:text-teal-400 transition-colors flex items-center gap-1 text-xs font-medium uppercase tracking-wider mt-2">
+                    <Icon path={Icons.Edit2} size={14}/> Bewerk
                 </button>
             </div>
 
@@ -3952,7 +3958,16 @@ onKeyDown={async (e) => {
                                     />
                                     <span className="font-medium text-pink-700 dark:text-pink-400">Verberg 'Week.' tabblad</span>
                                 </div>
-                                                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mt-1">
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mt-1">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={(u.hiddenTabs || []).includes('recepten')} 
+                                        onChange={() => toggleUserTabVisibility(u.id, u.hiddenTabs, 'recepten')}
+                                        className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                                    />
+                                    <span className="font-medium text-teal-700 dark:text-teal-400">Verberg 'Recepten.' tabblad</span>
+                                </div>                                    
+                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mt-1">
                                     <input 
                                         type="checkbox" 
                                         checked={(u.hiddenTabs || []).includes('balans')} 
