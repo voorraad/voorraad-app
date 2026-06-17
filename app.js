@@ -3422,18 +3422,7 @@ const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT, ite
                             <label htmlFor="rememberLocation" className="text-sm text-gray-700 dark:text-gray-300">Onthoud locatie en lade</label>
                         </div>
                     )}
-                                        <div className="flex items-center gap-2 pb-4">
-                        <input 
-                            type="checkbox" 
-                            id="altijdGoed" 
-                            checked={formData.altijdGoed || false} 
-                            onChange={e => setFormData({...formData, altijdGoed: e.target.checked})} 
-                            className="w-5 h-5 text-green-600 rounded focus:ring-green-500 border-gray-300 dark:border-gray-600" 
-                        />
-                        <label htmlFor="altijdGoed" className="text-sm font-bold text-green-800 dark:text-green-400 cursor-pointer">
-                            Permanent goed (wordt nooit rood/oranje)
-                        </label>
-                    </div>
+
                     <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md">Opslaan</button>
                 </form>
             </Modal>
