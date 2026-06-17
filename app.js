@@ -305,7 +305,8 @@ const getEmojiForCategory = (cat) => {
     return emojis[cat] || "📦";
 };
 
-const getStatusColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999) => {
+const getStatusColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999, altijdGoed = false) => {
+    if (altijdGoed) return 'border-l-4 border-green-400 dark:border-green-600';
     if (type === 'voorraad' || type === 'frig') {
         if (dagenTotTHT === 999) return 'border-l-4 border-green-400 dark:border-green-600'; 
         if (dagenTotTHT < 0) return 'border-l-4 border-red-500 bg-red-50 dark:bg-red-900/10 dark:border-red-600'; 
@@ -317,6 +318,7 @@ const getStatusColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999) => {
         return 'border-l-4 border-green-400 dark:border-green-600';
     }
 };
+
 
 const getDateTextColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999) => {
     if (type === 'voorraad' || type === 'frig') {
