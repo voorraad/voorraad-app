@@ -1072,19 +1072,20 @@ const handleOpenAdd = () => {
         const defaultLoc = typeLocaties.length > 0 ? typeLocaties[0].id : '';
         const defaultCat = activeTab === 'voorraad' ? 'Pasta' : 'Vlees';
         
-if (!rememberLocation) {
+        if (!rememberLocation) {
             setFormData({
                 naam: '', aantal: 1, eenheid: 'stuks', vriezerId: defaultLoc, ladeId: '', 
-                categorie: defaultCat, minimumVoorraad: '', prijs: '', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: '', geplandeDatum: '', bulkAanmaak: 1, tags: []
+                categorie: defaultCat, minimumVoorraad: '', prijs: '', ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: '', geplandeDatum: '', bulkAanmaak: 1, tags: [], altijdGoed: false
             });
         } else {
              setFormData(prev => ({
                 ...prev,
                 vriezerId: defaultLoc,
                 naam: '', aantal: 1, minimumVoorraad: '', prijs: '', categorie: defaultCat, 
-                ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: '', geplandeDatum: '', bulkAanmaak: 1, tags: []
+                ingevrorenOp: new Date().toISOString().split('T')[0], houdbaarheidsDatum: '', notitie: '', emoji: '', geplandeDatum: '', bulkAanmaak: 1, tags: [], altijdGoed: false
             }));
         }
+
         setShowAddModal(true);
     };
     
@@ -1126,7 +1127,8 @@ if (!rememberLocation) {
             ingevrorenOp: new Date(formData.ingevrorenOp),
             houdbaarheidsDatum: formData.houdbaarheidsDatum ? new Date(formData.houdbaarheidsDatum) : null,
             userId: beheerdeUserId,
-            emoji: formData.emoji || getEmojiForCategory(formData.categorie)
+            emoji: formData.emoji || getEmojiForCategory(formData.categorie),
+            altijdGoed: formData.altijdGoed || false
         };
         try {
             if(editingItem) {
@@ -1545,7 +1547,8 @@ const openEdit = (item) => {
             houdbaarheidsDatum: toInputDate(item.houdbaarheidsDatum), 
             emoji: item.emoji,
             geplandeDatum: item.geplandeDatum || '',
-            tags: item.tags || []
+            tags: item.tags || [],
+            altijdGoed: item.altijdGoed || false
         });
         setShowAddModal(true);
     };
