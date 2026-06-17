@@ -61,8 +61,18 @@
 <body>
     <div id="root"></div>
 
-    <!-- Link naar de applicatie logica -->
-    <script type="text/babel" src="app.js"></script>
+    <!-- 1. Forceer Babel in de 'classic' modus -->
+    <script>
+      Babel.registerPreset('react-classic', {
+        presets: [
+          [Babel.availablePresets['react'], { "runtime": "classic" }]
+        ]
+      });
+    </script>
+
+    <!-- 2. Laad je applicatie met de correcte modus -->
+    <script type="text/babel" data-presets="react-classic" src="app.js"></script>
+
 </body>
 </html>
 
