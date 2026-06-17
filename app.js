@@ -1,3 +1,6 @@
+/** @jsx React.createElement */
+/** @jsxFrag React.Fragment */
+
 const { useState, useEffect, useRef } = React;
 
 // --- 1. FIREBASE CONFIGURATIE ---
