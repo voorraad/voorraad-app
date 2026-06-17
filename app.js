@@ -3327,11 +3327,35 @@ const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT, ite
                                     </button>
                                 )
                             })}
-                        </div>
+                                            </div>
                     </div>                                   
                     </div>
 
+                    {/* HIER BEGINT DE NIEUWE SCHAKELAAR */}
+                    <div className="pt-2 mb-2">
+                        <button
+                            type="button"
+                            onClick={() => setFormData({...formData, altijdGoed: !formData.altijdGoed})}
+                            className={`w-full p-3 rounded-xl flex items-center justify-between font-bold border transition-colors ${
+                                formData.altijdGoed 
+                                ? 'bg-green-100 border-green-400 text-green-700 dark:bg-green-900/40 dark:border-green-600 dark:text-green-300' 
+                                : 'bg-gray-50 border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                        >
+                            <span className="flex items-center gap-2">
+                                <Icon path={Icons.Check} size={18} />
+                                Permanent goed (negeer datums)
+                            </span>
+                            {/* Dit is het 'schuifje' van de schakelaar */}
+                            <div className={`w-10 h-6 rounded-full p-1 transition-colors ${formData.altijdGoed ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                                <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${formData.altijdGoed ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                            </div>
+                        </button>
+                    </div>
+                    {/* HIER EINDIGT DE NIEUWE SCHAKELAAR */}
+
                     {modalType === 'vriezer' && (
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Invriesdatum.</label>
                             <input type="date" className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
