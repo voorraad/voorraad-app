@@ -319,8 +319,8 @@ const getStatusColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999, altijdGoe
     }
 };
 
-
-const getDateTextColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999) => {
+const getDateTextColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999, altijdGoed = false) => {
+    if (altijdGoed) return 'text-green-600 dark:text-green-400 font-medium';
     if (type === 'voorraad' || type === 'frig') {
         if (dagenTotTHT < 0) return 'text-red-600 dark:text-red-400 font-bold'; 
         if (dagenTotTHT <= 30) return 'text-orange-500 dark:text-orange-400 font-bold';
@@ -331,6 +331,7 @@ const getDateTextColor = (dagenOud, type = 'vriezer', dagenTotTHT = 999) => {
         return 'text-green-600 dark:text-green-400 font-medium';
     }
 };
+
 
 const formatAantal = (aantal) => {
   const num = parseFloat(aantal);
@@ -941,6 +942,7 @@ function App() {
 
     // Alerts Logic
     const alerts = items.filter(i => {
+        if (i.altijdGoed) return false;
         const loc = vriezers.find(v => v.id === i.vriezerId);
         const type = loc ? (loc.type || 'vriezer') : 'vriezer';
 
@@ -2775,8 +2777,10 @@ onKeyDown={async (e) => {
                                                                     
                                                                     const isSelected = selectedBulkItems.has(item.id);
                                                                     const bgClass = isBulkMode && isSelected ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : 'bg-white dark:bg-gray-800';
-                                                                    const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT);
-                                                                    const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT);
+const colorClass = getStatusColor(dagenOud, vriezer.type, dagenTotTHT, item.altijdGoed);
+const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT, item.altijdGoed);
+
+                                                                    
                                                                     
                                                                     const catObj = actieveCategorieen.find(c => (c.name || c) === item.categorie);
                                                                     const catColor = catObj ? (catObj.color || 'gray') : 'gray';
@@ -3418,7 +3422,18 @@ onKeyDown={async (e) => {
                             <label htmlFor="rememberLocation" className="text-sm text-gray-700 dark:text-gray-300">Onthoud locatie en lade</label>
                         </div>
                     )}
-                    
+                                        <div className="flex items-center gap-2 pb-4">
+                        <input 
+                            type="checkbox" 
+                            id="altijdGoed" 
+                            checked={formData.altijdGoed || false} 
+                            onChange={e => setFormData({...formData, altijdGoed: e.target.checked})} 
+                            className="w-5 h-5 text-green-600 rounded focus:ring-green-500 border-gray-300 dark:border-gray-600" 
+                        />
+                        <label htmlFor="altijdGoed" className="text-sm font-bold text-green-800 dark:text-green-400 cursor-pointer">
+                            Permanent goed (wordt nooit rood/oranje)
+                        </label>
+                    </div>
                     <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md">Opslaan</button>
                 </form>
             </Modal>
