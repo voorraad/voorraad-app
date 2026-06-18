@@ -3357,8 +3357,7 @@ const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT, ite
                     </div>
                     {/* HIER EINDIGT DE NIEUWE SCHAKELAAR */}
 
-                    {modalType === 'vriezer' && (
-
+                    {modalType === 'vriezer' && !formData.altijdGoed && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Invriesdatum.</label>
                             <input type="date" className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.ingevrorenOp} onChange={e => setFormData({...formData, ingevrorenOp: e.target.value})} required /></div>
@@ -3366,7 +3365,7 @@ const dateColorClass = getDateTextColor(dagenOud, vriezer.type, dagenTotTHT, ite
                             <input type="date" className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                         </div>
                     )}
-                    {(modalType === 'voorraad' || modalType === 'frig') && (
+                                  {(modalType === 'voorraad' || modalType === 'frig') && !formData.altijdGoed && (
                         <div className="space-y-1"><label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Houdbaarheidsdatum (THT).</label>
                         <input type="date" className="w-full p-2 bg-white dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg" value={formData.houdbaarheidsDatum} onChange={e => setFormData({...formData, houdbaarheidsDatum: e.target.value})} /></div>
                     )}
