@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import Icon from '../../lib/icons.jsx';
 import { useStore } from '../../state/store.jsx';
 import { useUi } from '../../state/ui.jsx';
-import { Card, Button, Segmented, Input, IconButton, Select } from '../../components/ui.jsx';
+import { Card, Button, Segmented, Input, IconButton, Select, ColorPicker } from '../../components/ui.jsx';
 import { TYPES, TYPE_BY_ID, LOC_DOT, LOC_COLOR_KEYS, COLOR_KEYS, DOT, ALL_DEFAULT_CAT_NAMES, EENHEDEN, UNIT_FIELD } from '../../lib/constants.js';
 import { cx, sortLocaties, byName, categoriesFor, unitsFor, formatDate, toDate } from '../../lib/utils.js';
 
+const LOC_NAMES = { blue: 'Groenblauw', purple: 'Paars', pink: 'Roze', orange: 'Oranje', green: 'Groen', red: 'Rood', gray: 'Grijs', teal: 'Cyaan', indigo: 'Indigo', yellow: 'Geel' };
 const move = (arr, i, dir) => { const a = [...arr]; const j = i + dir; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; return a; };
 
 function OrderButtons({ i, n, onMove }) {
@@ -33,7 +34,6 @@ export function Locaties() {
     };
     const renameLoc = async (l) => { const naam = await prompt({ title: 'Locatie hernoemen', value: l.naam }); if (naam) actions.updateLocatie(l, { naam }); };
     const regroup = async (l) => { const g = await prompt({ title: 'Plaats (groep)', message: 'Bv. Thuis, Vakantiehuis, Garage. Locaties met dezelfde plaats worden samen getoond.', value: l.locatieGroep || 'Thuis' }); if (g) actions.updateLocatie(l, { locatieGroep: g }); };
-    const cycleColor = (l) => { const i = LOC_COLOR_KEYS.indexOf(l.color || 'blue'); actions.updateLocatie(l, { color: LOC_COLOR_KEYS[(i + 1) % LOC_COLOR_KEYS.length] }); };
     const delLoc = async (l) => { if (await confirm({ title: `${l.naam} verwijderen?`, confirmLabel: 'Verwijderen', danger: true })) actions.deleteLocatie(l); };
     const addLade = async (l) => { const naam = await prompt({ title: `Nieuwe lade in ${l.naam}`, placeholder: 'Bv. Lade 1, Bovenste plank' }); if (naam) actions.addLade(l.id, naam); };
     const renameLade = async (ld) => { const naam = await prompt({ title: 'Lade hernoemen', value: ld.naam }); if (naam) actions.renameLade(ld, naam); };
@@ -52,7 +52,7 @@ export function Locaties() {
                         <div key={l.id}>
                             <div className="flex items-center gap-2 px-2 py-2">
                                 <OrderButtons i={i} n={locs.length} onMove={(i, d) => actions.reorderLocaties(move(locs, i, d))} />
-                                <button type="button" onClick={() => cycleColor(l)} aria-label="Kleur wijzigen" title="Tik om de kleur te wijzigen" className={cx('w-6 h-6 rounded-full flex-shrink-0 ring-2 ring-white dark:ring-stone-900', LOC_DOT[l.color] || LOC_DOT.blue)} />
+                                <ColorPicker value={l.color || 'blue'} colors={LOC_DOT} names={LOC_NAMES} onChange={k => actions.updateLocatie(l, { color: k })} label={`Kleur van ${l.naam}`} />
                                 <button type="button" onClick={() => setOpenLoc(open ? null : l.id)} className="flex-1 min-w-0 text-left py-1">
                                     <span className="block font-semibold truncate">{l.naam}</span>
                                     <span className="block text-xs text-stone-500">{groups.length > 1 ? (l.locatieGroep || 'Thuis') + ' · ' : ''}{ls.length} lades · {n} producten</span>
@@ -118,9 +118,7 @@ export function Categorieen() {
                     return (
                         <div key={c.name} className="flex items-center gap-2 px-2 py-1.5">
                             <OrderButtons i={i} n={list.length} onMove={(i, d) => save(move(list, i, d))} />
-                            <button type="button" aria-label="Kleur wijzigen" title="Tik om de kleur te wijzigen"
-                                onClick={() => { const k = COLOR_KEYS[(COLOR_KEYS.indexOf(c.color || 'gray') + 1) % COLOR_KEYS.length]; save(list.map(x => x.name === c.name ? { ...x, color: k } : x)); }}
-                                className={cx('w-6 h-6 rounded-full flex-shrink-0 ring-2 ring-white dark:ring-stone-900', DOT[c.color] || DOT.gray)} />
+                            <ColorPicker value={c.color || 'gray'} colors={DOT} onChange={k => save(list.map(x => x.name === c.name ? { ...x, color: k } : x))} label={`Kleur van ${c.name}`} />
                             <span className="flex-1 font-medium truncate py-2">{c.name}</span>
                             {!isDefault && <IconButton icon="Edit" label="Hernoem" size={16} onClick={() => rename(c)} />}
                             {!isDefault && <IconButton icon="Trash" label="Verwijder" size={16} className="text-red-500" onClick={() => del(c)} />}
@@ -131,8 +129,7 @@ export function Categorieen() {
             </Card>
             <form onSubmit={add} className="flex gap-2">
                 <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nieuwe categorie" className="flex-1" />
-                <button type="button" aria-label="Kleur kiezen" onClick={() => setNewColor(COLOR_KEYS[(COLOR_KEYS.indexOf(newColor) + 1) % COLOR_KEYS.length])}
-                    className="w-11 h-11 rounded-xl border border-stone-200 dark:border-stone-700 flex items-center justify-center flex-shrink-0"><span className={cx('w-5 h-5 rounded-full', DOT[newColor])} /></button>
+                <ColorPicker value={newColor} colors={DOT} onChange={setNewColor} size="lg" label="Kleur van nieuwe categorie" />
                 <Button type="submit" icon="Plus" disabled={!newName.trim()} aria-label="Toevoegen" />
             </form>
         </div>

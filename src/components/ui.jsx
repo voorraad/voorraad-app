@@ -275,3 +275,46 @@ export function StorePicker({ value, onChange, className }) {
         </div>
     );
 }
+
+const COLOR_NAMES = { gray: 'Grijs', red: 'Rood', orange: 'Oranje', yellow: 'Geel', green: 'Groen', teal: 'Turquoise', blue: 'Blauw', indigo: 'Indigo', purple: 'Paars', pink: 'Roze' };
+
+// Kleurkiezer: klik op het bolletje en kies een kleur uit de lijst.
+// colors: { sleutel: 'tailwind-klasse' }  (bv. DOT of LOC_DOT)
+export function ColorPicker({ value, onChange, colors, names = COLOR_NAMES, size = 'md', label = 'Kleur kiezen' }) {
+    const [pos, setPos] = useState(null);
+    const btn = useRef(null);
+    useEffect(() => {
+        if (!pos) return;
+        const close = (e) => { if (e.type === 'keydown' ? e.key === 'Escape' : !e.target.closest('[data-colorpop]')) setPos(null); };
+        const t = setTimeout(() => { document.addEventListener('mousedown', close); document.addEventListener('touchstart', close); }, 0);
+        document.addEventListener('keydown', close);
+        window.addEventListener('scroll', () => setPos(null), { once: true, capture: true });
+        return () => { clearTimeout(t); document.removeEventListener('mousedown', close); document.removeEventListener('touchstart', close); document.removeEventListener('keydown', close); };
+    }, [pos]);
+    const open = () => {
+        const r = btn.current.getBoundingClientRect();
+        const w = 5 * 40 + 16;
+        setPos({ left: Math.max(8, Math.min(r.left, window.innerWidth - w - 8)), top: r.bottom + 6 + 120 > window.innerHeight ? r.top - 6 - 104 : r.bottom + 6 });
+    };
+    const big = size === 'lg';
+    return (
+        <>
+            <button ref={btn} type="button" onClick={() => (pos ? setPos(null) : open())} aria-label={label} aria-haspopup="true" aria-expanded={!!pos} title={label}
+                className={cx('flex items-center justify-center flex-shrink-0 rounded-xl transition-colors', big ? 'w-11 h-11 border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800' : 'w-9 h-9 hover:bg-stone-100 dark:hover:bg-stone-800')}>
+                <span className={cx('rounded-full ring-2 ring-white dark:ring-stone-900 shadow-sm', big ? 'w-5 h-5' : 'w-6 h-6', colors[value] || Object.values(colors)[0])} />
+            </button>
+            {pos && (
+                <div data-colorpop role="listbox" aria-label={label} style={{ position: 'fixed', left: pos.left, top: pos.top }}
+                    className="z-[80] p-2 grid grid-cols-5 gap-1 rounded-2xl bg-white dark:bg-stone-800 shadow-xl border border-stone-200 dark:border-stone-700 anim-fade">
+                    {Object.entries(colors).map(([k, cls]) => (
+                        <button key={k} type="button" role="option" aria-selected={value === k} aria-label={names[k] || k} title={names[k] || k}
+                            onClick={() => { onChange(k); setPos(null); }}
+                            className={cx('w-9 h-9 rounded-xl flex items-center justify-center hover:bg-stone-100 dark:hover:bg-stone-700', value === k && 'bg-stone-100 dark:bg-stone-700')}>
+                            <span className={cx('w-6 h-6 rounded-full flex items-center justify-center text-white', cls)}>{value === k && <Icon name="Check" size={14} strokeWidth={3} />}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </>
+    );
+}
