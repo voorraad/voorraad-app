@@ -109,7 +109,7 @@ function Shell() {
 
             {/* Kopbalk */}
             <header className="sticky top-0 z-30 bg-stone-50/85 dark:bg-stone-950/85 backdrop-blur-md print:hidden pt-[env(safe-area-inset-top)]">
-                <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-2">
+                <div className={cx('mx-auto px-4 h-14 flex items-center gap-2', page === 'voorraad' ? 'max-w-7xl' : 'max-w-5xl')}>
                     {sub ? <IconButton icon="ChevronLeft" label="Terug" onClick={() => go('meer')} className="-ml-2" />
                         : <IconButton icon="Menu" label="Menu openen" onClick={() => setDrawer(true)} className="-ml-2 lg:hidden" />}
                     <h1 className="text-xl font-bold text-stone-900 dark:text-white truncate">{title}</h1>
@@ -119,7 +119,7 @@ function Shell() {
                 </div>
             </header>
 
-            <main className="max-w-5xl mx-auto px-4 pt-2 pb-32 lg:pb-12">
+            <main className={cx('mx-auto px-4 pt-2 pb-32 lg:pb-12', page === 'voorraad' ? 'max-w-7xl' : 'max-w-5xl')}>
                 {page === 'voorraad' && <Stock />}
                 {page === 'lijst' && <Shopping />}
                 {page === 'menu' && <Menu />}
