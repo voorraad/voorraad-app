@@ -28,10 +28,12 @@
 @keyframes sheet-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes toast-in { from { transform: translateY(-8px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes drawer-in { from { transform: translateX(-100%); } to { transform: none; } }
+.anim-drawer { animation: drawer-in .22s cubic-bezier(.2,.8,.2,1); }
 .anim-sheet { animation: sheet-in .22s cubic-bezier(.2,.8,.2,1); }
 .anim-fade { animation: fade-in .18s ease-out; }
 .anim-toast { animation: toast-in .2s ease-out; }
-@media (prefers-reduced-motion: reduce) { .anim-sheet, .anim-fade, .anim-toast { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .anim-sheet, .anim-fade, .anim-toast, .anim-drawer { animation: none; } }
 
 @media print {
     body { background: white !important; color: black !important; }

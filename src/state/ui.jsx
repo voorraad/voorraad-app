@@ -7,7 +7,7 @@ export const useUi = () => useContext(UiCtx);
 const parseHash = () => {
     const h = (window.location.hash || '').replace(/^#\/?/, '');
     const parts = h.split('/').filter(Boolean);
-    return { page: parts[0] || 'overzicht', sub: parts[1] || null, extra: parts[2] || null };
+    return { page: parts[0] || 'voorraad', sub: parts[1] || null, extra: parts[2] || null };
 };
 
 export function UiProvider({ children }) {

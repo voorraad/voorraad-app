@@ -5,11 +5,11 @@ Web-app om bij te houden wat er in je vriezer, frigo en voorraadkast zit — met
 ## Wat is er nieuw in versie 11
 
 **Nieuwe indeling**
-- **Overzicht**: startscherm met *Eerst opmaken* (verlopen, binnen 3 dagen, deze week en lang ingevroren — over al je locaties heen), tellers per type, wat er vandaag op het menu staat en wat bijna op is.
-- **Voorraad**: Vriezer, Frigo en Stock in één scherm met een schakelaar. Zoeken, filteren, sorteren, weergave *per lade* of *op datum*, snel toevoegen en meerdere producten selecteren.
+- **Navigatie**: onderaan Vriezer · Frigo · ＋ · Stock · Lijst. Weekmenu, recepten, statistieken, delen en instellingen zitten in het hamburgermenu (☰) linksboven; op een groot scherm staat dat menu vast links.
+- **Eerst opmaken**: een balkje bovenaan je voorraad toont wat verlopen is, binnen 3 dagen of deze week op moet en wat lang ingevroren is — over al je locaties heen. Tik erop voor de lijst.
+- **Voorraad**: zoeken, filteren, sorteren, weergave *per lade* of *op datum*, snel toevoegen en meerdere producten selecteren.
 - **Boodschappen**: een eigen pagina in plaats van een pop-up, met *bijna op*-suggesties en "in voorraad zetten".
-- **Menu**: weekmenu en recepten samen.
-- **Meer**: alle instellingen netjes gegroepeerd (beheer, delen, gegevens, hulp, admin).
+- **Instellingen**: netjes gegroepeerd (beheer, delen, gegevens, hulp, admin).
 - Tik op een product voor alle details en acties. Met de min-knop gebruik je snel één stuk, en dat kan je ongedaan maken.
 - Verwijderen vraagt in één keer de reden (opgegeten / weggegooid / foutje) en of het op je lijstje moet.
 - Recepten tonen welke ingrediënten je in huis hebt en zetten de rest met één tik op je lijstje.
@@ -57,7 +57,7 @@ src/
   PublicView.jsx    Alleen-lezen weergave via ?deel=TOKEN
   state/store.jsx   Alle Firestore-data en -acties
   state/ui.jsx      Welke schermen/sheets open zijn (+ #/routes)
-  pages/            Overzicht, Voorraad, Boodschappen, Menu, Meer (+ meer/…)
+  pages/            Voorraad, Boodschappen, Menu (week/recepten), Meer (+ meer/…)
   components/       Herbruikbare onderdelen (formulier, dialogen, …)
   lib/              Constanten, hulpfuncties, iconen, export/back-up
 build.mjs           Bouwscript (esbuild + Tailwind v4)

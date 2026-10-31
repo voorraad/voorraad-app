@@ -4,6 +4,7 @@ import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
 import { Card, Button, Segmented, Chip, Sheet, EmptyState, IconButton } from '../components/ui.jsx';
 import { ItemRow } from '../components/items.jsx';
+import { UrgentBanner, PendingInvites } from '../components/Urgent.jsx';
 import { TYPES, TYPE_BY_ID, LOC_DOT } from '../lib/constants.js';
 import { cx, smartMatch, sortLocaties, byName, itemStatus, URGENCY, daysUntil, daysSince, toDate, formatDate, categoriesFor, guessProduct, addDays, emojiForCategory } from '../lib/utils.js';
 
@@ -116,7 +117,8 @@ export default function Stock() {
 
     return (
         <div className="space-y-4">
-            <Segmented value={type} onChange={t => go('voorraad/' + t)} options={visibleTypes.map(t => ({ id: t.id, label: t.label, icon: t.icon, count: typeCounts[t.id] }))} />
+            <PendingInvites />
+            <UrgentBanner />
 
             {(groups.length > 1) && (
                 <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
@@ -173,7 +175,7 @@ export default function Stock() {
                         <span className="text-stone-500">{filtering ? `${shown.length} gevonden` : `${typeItems.length} producten`}</span>
                         {typeLadeIds.length > 0 && !filtering && <button type="button" onClick={toggleAll} className="font-semibold text-teal-700 dark:text-teal-300 print:hidden">{allOpen ? 'Alles dichtklappen' : 'Alles openklappen'}</button>}
                     </div>
-                    <div className={cx('grid gap-4 items-start', locs.length > 1 && 'lg:grid-cols-2')}>
+                    <div className={cx('grid gap-4 items-start grid-cols-1', locs.length === 2 && 'md:grid-cols-2', locs.length >= 3 && 'md:grid-cols-2 xl:grid-cols-3')}>
                         {locs.map(loc => {
                             const locLades = lades.filter(l => l.vriezerId === loc.id).sort(byName);
                             const ladeIds = new Set(locLades.map(l => l.id));
@@ -199,7 +201,7 @@ export default function Stock() {
                                                             <Icon name={open ? 'ChevronDown' : 'ChevronRight'} size={18} className="text-stone-400 flex-shrink-0" />
                                                             <span className="font-semibold text-stone-800 dark:text-stone-100 truncate">{lade.naam}</span>
                                                             <span className="text-xs font-semibold text-stone-500 bg-stone-100 dark:bg-stone-800 rounded-full px-2 py-0.5 tabular-nums">{li.length}</span>
-                                                            {(lastCheck || lastMod) && <span className="hidden sm:inline text-xs text-stone-400 ml-auto truncate">{lastCheck && (!lastMod || lastCheck >= lastMod) ? 'gecontroleerd ' + formatDate(lastCheck) : 'gewijzigd ' + formatDate(lastMod)}</span>}
+                                                            {(lastCheck || lastMod) && <span className={cx('hidden text-xs text-stone-400 ml-auto truncate', locs.length === 1 ? 'sm:inline' : locs.length === 2 ? 'lg:inline' : '2xl:inline')}>{lastCheck && (!lastMod || lastCheck >= lastMod) ? 'gecontroleerd ' + formatDate(lastCheck) : 'gewijzigd ' + formatDate(lastMod)}</span>}
                                                         </button>
                                                         {me.showBalans && canSee('balans') && (
                                                             <button type="button" onClick={() => openAudit(lade.id)} className="mr-2 h-8 px-2.5 rounded-lg text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 dark:text-teal-300 dark:bg-teal-950/50 flex items-center gap-1 print:hidden"><Icon name="CheckSquare" size={14} />Controle</button>

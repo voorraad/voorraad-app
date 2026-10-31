@@ -14,7 +14,6 @@ export default function Menu() {
     const tab = tabs.some(t => t.id === route.sub) ? route.sub : tabs[0].id;
     return (
         <div className="space-y-4">
-            {tabs.length > 1 && <Segmented value={tab} onChange={t => go('menu/' + t)} options={tabs} className="max-w-sm print:hidden" />}
             {tab === 'week' ? <Week /> : <Recipes />}
         </div>
     );

@@ -7,21 +7,12 @@ import { ItemSheet } from './components/items.jsx';
 import ItemForm from './components/ItemForm.jsx';
 import AuditSheet from './components/AuditSheet.jsx';
 import { ConfirmDialog, PromptDialog, RemoveDialog, MoveSheet, PlanSheet, NewsSheet, Tour } from './components/dialogs.jsx';
-import Overview from './pages/Overview.jsx';
 import Stock from './pages/Stock.jsx';
 import Shopping from './pages/Shopping.jsx';
 import Menu from './pages/Menu.jsx';
 import More, { subpageTitle } from './pages/More.jsx';
-import { APP_VERSION } from './lib/constants.js';
+import { APP_VERSION, TYPES, TYPE_BY_ID } from './lib/constants.js';
 import { cx, itemStatus, todayKey } from './lib/utils.js';
-
-const NAV = [
-    { id: 'overzicht', label: 'Overzicht', icon: 'Home' },
-    { id: 'voorraad', label: 'Voorraad', icon: 'Layers' },
-    { id: 'lijst', label: 'Boodschappen', short: 'Lijst', icon: 'Cart' },
-    { id: 'menu', label: 'Menu', icon: 'Utensils', need: ['weekmenu', 'recepten'] },
-    { id: 'meer', label: 'Meer', icon: 'Settings', desktopOnly: true }
-];
 
 export default function App() {
     const { authState, user, me, isAdmin, globalSettings } = useStore();
@@ -43,8 +34,15 @@ function Shell() {
     const { user, me, meLoaded, isAdmin, canSee, shopping, items, typeOf, toast, setToast, accounts, ownerId, isOwnAccount, actions, dataLoaded, globalSettings } = store;
     const ui = useUi();
     const { route, go, openForm, setShowTour, setShowNews } = ui;
-    const nav = NAV.filter(n => !n.need || n.need.some(canSee));
-    const page = nav.some(n => n.id === route.page) ? route.page : 'overzicht';
+    const types = TYPES.filter(t => t.id === 'vriezer' || canSee(t.id));
+    const menuTabs = [canSee('weekmenu') && 'week', canSee('recepten') && 'recepten'].filter(Boolean);
+    const PAGES = ['voorraad', 'lijst', 'meer', ...(menuTabs.length ? ['menu'] : [])];
+    const page = PAGES.includes(route.page) ? route.page : 'voorraad';
+    const stockType = types.some(t => t.id === route.sub) ? route.sub : 'vriezer';
+    const menuTab = menuTabs.includes(route.sub) ? route.sub : menuTabs[0];
+    const activeKey = page === 'voorraad' ? 'voorraad/' + stockType : page === 'menu' ? 'menu/' + menuTab : page;
+    const [drawer, setDrawer] = useState(false);
+    useEffect(() => { setDrawer(false); }, [route.page, route.sub]);
     const [switcher, setSwitcher] = useState(false);
     const openCount = shopping.filter(s => !s.checked).length;
 
@@ -73,52 +71,55 @@ function Shell() {
         localStorage.setItem(key, '1');
     }, [dataLoaded, items.length]);
 
-    const addType = page === 'voorraad' && ['vriezer', 'frig', 'voorraad'].includes(route.sub) ? route.sub : (page === 'voorraad' ? 'vriezer' : undefined);
-    const openAdd = () => openForm({ type: addType || 'vriezer', nonce: Date.now() });
+    const openAdd = () => openForm({ type: page === 'voorraad' ? stockType : 'vriezer', nonce: Date.now() });
 
     const sub = page === 'meer' && subpageTitle(route.sub);
-    const title = sub || (nav.find(n => n.id === page) || {}).label;
+    const title = sub || (page === 'voorraad' ? TYPE_BY_ID[stockType].label : page === 'lijst' ? 'Boodschappen' : page === 'menu' ? (menuTab === 'week' ? 'Weekmenu' : 'Recepten') : 'Instellingen');
     const ownerAcc = accounts.find(a => a.id === ownerId);
+    const counts = Object.fromEntries(types.map(t => [t.id, items.filter(i => typeOf(i) === t.id).length]));
+
+    // Onderste balk: de voorraadtypes + boodschappen, met de + in het midden.
+    const bottom = [...types.map(t => ({ key: 'voorraad/' + t.id, label: t.label, icon: t.icon })), { key: 'lijst', label: 'Lijst', icon: 'Cart', badge: openCount }];
+    const mid = Math.ceil(bottom.length / 2);
+
+    const menuList = (
+        <NavMenu activeKey={activeKey} types={types} counts={counts} menuTabs={menuTabs} openCount={openCount}
+            onSwitch={accounts.length > 1 ? () => setSwitcher(true) : null} ownerAcc={ownerAcc} isOwn={isOwnAccount} />
+    );
 
     return (
         <div className="min-h-dvh lg:pl-64">
             {/* Zijbalk (groot scherm) */}
             <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 flex-col border-r border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 print:hidden">
                 <div className="px-6 pt-6 pb-4"><Logo /></div>
-                <div className="px-4">
-                    <Button block icon="Plus" onClick={openAdd} className="mb-4">Product toevoegen</Button>
-                </div>
-                <nav className="px-3 space-y-0.5 flex-1">
-                    {nav.map(n => (
-                        <a key={n.id} href={'#/' + n.id} className={cx('flex items-center gap-3 h-11 px-3 rounded-xl font-medium transition-colors', page === n.id ? 'bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-200' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800')}>
-                            <Icon name={n.icon} size={20} />{n.label}
-                            {n.id === 'lijst' && openCount > 0 && <span className="ml-auto text-xs font-bold bg-teal-600 text-white rounded-full px-2 py-0.5">{openCount}</span>}
-                        </a>
-                    ))}
-                </nav>
-                {accounts.length > 1 && <div className="p-3"><AccountButton acc={ownerAcc} isOwn={isOwnAccount} onClick={() => setSwitcher(true)} /></div>}
-                <div className="p-3 border-t border-stone-100 dark:border-stone-800 flex items-center gap-3">
-                    <Avatar user={user} />
-                    <div className="min-w-0 flex-1"><p className="text-sm font-semibold truncate">{user.displayName || user.email}</p><p className="text-xs text-stone-400 truncate">{user.email}</p></div>
-                    <IconButton icon={me.darkMode ? 'Sun' : 'Moon'} label="Thema wisselen" onClick={actions.toggleDark} />
-                </div>
+                <div className="px-4"><Button block icon="Plus" onClick={openAdd} className="mb-3">Product toevoegen</Button></div>
+                {menuList}
             </aside>
+
+            {/* Hamburgermenu (gsm) */}
+            {drawer && (
+                <div className="lg:hidden fixed inset-0 z-50 print:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+                    <div className="absolute inset-0 bg-stone-900/40 anim-fade" onClick={() => setDrawer(false)} />
+                    <div className="absolute inset-y-0 left-0 w-[82%] max-w-xs bg-white dark:bg-stone-900 shadow-2xl flex flex-col anim-drawer pt-[env(safe-area-inset-top)]">
+                        <div className="flex items-center justify-between px-5 h-14"><Logo small /><IconButton icon="X" label="Menu sluiten" onClick={() => setDrawer(false)} className="-mr-2" /></div>
+                        {menuList}
+                    </div>
+                </div>
+            )}
 
             {/* Kopbalk */}
             <header className="sticky top-0 z-30 bg-stone-50/85 dark:bg-stone-950/85 backdrop-blur-md print:hidden pt-[env(safe-area-inset-top)]">
-                <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-2">
-                    {sub && <IconButton icon="ChevronLeft" label="Terug" onClick={() => go('meer')} className="-ml-2" />}
-                    {page === 'overzicht' && !sub && <span className="lg:hidden"><Logo small /></span>}
-                    <h1 className={cx('text-xl font-bold text-stone-900 dark:text-white truncate', page === 'overzicht' && !sub && 'hidden lg:block')}>{title}</h1>
+                <div className={cx('mx-auto px-4 h-14 flex items-center gap-2', page === 'voorraad' ? 'max-w-7xl' : 'max-w-5xl')}>
+                    {sub ? <IconButton icon="ChevronLeft" label="Terug" onClick={() => go('meer')} className="-ml-2" />
+                        : <IconButton icon="Menu" label="Menu openen" onClick={() => setDrawer(true)} className="-ml-2 lg:hidden" />}
+                    <h1 className="text-xl font-bold text-stone-900 dark:text-white truncate">{title}</h1>
                     <div className="flex-1" />
                     {accounts.length > 1 && <span className="lg:hidden"><AccountButton acc={ownerAcc} isOwn={isOwnAccount} compact onClick={() => setSwitcher(true)} /></span>}
                     {me.showHelpButton && <IconButton icon="Help" label="Rondleiding" onClick={() => setShowTour(true)} className="text-red-500" />}
-                    <button type="button" onClick={() => go('meer')} className="lg:hidden rounded-full ring-2 ring-transparent hover:ring-teal-500/40" aria-label="Meer en instellingen"><Avatar user={user} /></button>
                 </div>
             </header>
 
-            <main className="max-w-5xl mx-auto px-4 pt-2 pb-32 lg:pb-12">
-                {page === 'overzicht' && <Overview />}
+            <main className={cx('mx-auto px-4 pt-2 pb-32 lg:pb-12', page === 'voorraad' ? 'max-w-7xl' : 'max-w-5xl')}>
                 {page === 'voorraad' && <Stock />}
                 {page === 'lijst' && <Shopping />}
                 {page === 'menu' && <Menu />}
@@ -127,15 +128,14 @@ function Shell() {
 
             {/* Onderste navigatie (gsm) */}
             <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200 dark:border-stone-800 pb-[env(safe-area-inset-bottom)] print:hidden">
-                <div className="max-w-md mx-auto grid grid-cols-5 h-16 items-center">
-                    {nav.filter(n => !n.desktopOnly).slice(0, 2).map(n => <NavBtn key={n.id} n={n} active={page === n.id} />)}
+                <div className="max-w-md mx-auto grid h-16 items-center" style={{ gridTemplateColumns: `repeat(${bottom.length + 1}, minmax(0, 1fr))` }}>
+                    {bottom.slice(0, mid).map(n => <NavBtn key={n.key} n={n} active={activeKey === n.key} />)}
                     <div className="flex justify-center">
                         <button type="button" onClick={openAdd} aria-label="Product toevoegen" className="w-14 h-14 -mt-7 rounded-full bg-teal-600 hover:bg-teal-700 active:scale-95 text-white shadow-lg shadow-teal-600/30 flex items-center justify-center ring-4 ring-stone-50 dark:ring-stone-950 transition">
                             <Icon name="Plus" size={28} strokeWidth={2.5} />
                         </button>
                     </div>
-                    {nav.filter(n => !n.desktopOnly).slice(2).map(n => <NavBtn key={n.id} n={n} active={page === n.id} badge={n.id === 'lijst' ? openCount : 0} />)}
-                    {nav.filter(n => !n.desktopOnly).length < 4 && <NavBtn n={NAV[4]} active={page === 'meer'} />}
+                    {bottom.slice(mid).map(n => <NavBtn key={n.key} n={n} active={activeKey === n.key} />)}
                 </div>
             </nav>
 
@@ -156,13 +156,52 @@ function Shell() {
     );
 }
 
-function NavBtn({ n, active, badge }) {
+function NavBtn({ n, active }) {
     return (
-        <a href={'#/' + n.id} className={cx('relative flex flex-col items-center justify-center gap-0.5 h-full text-[11px] font-semibold', active ? 'text-teal-700 dark:text-teal-300' : 'text-stone-400 dark:text-stone-500')}>
+        <a href={'#/' + n.key} className={cx('relative flex flex-col items-center justify-center gap-0.5 h-full text-[11px] font-semibold', active ? 'text-teal-700 dark:text-teal-300' : 'text-stone-400 dark:text-stone-500')}>
             <span className={cx('w-12 h-7 rounded-full flex items-center justify-center transition-colors', active && 'bg-teal-50 dark:bg-teal-950/60')}><Icon name={n.icon} size={21} /></span>
-            {n.short || n.label}
-            {badge > 0 && <span className="absolute top-1.5 left-1/2 ml-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{badge > 99 ? '99+' : badge}</span>}
+            {n.label}
+            {n.badge > 0 && <span className="absolute top-1.5 left-1/2 ml-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{n.badge > 99 ? '99+' : n.badge}</span>}
         </a>
+    );
+}
+
+// Inhoud van het hamburgermenu (gsm) en de zijbalk (groot scherm).
+function NavMenu({ activeKey, types, counts, menuTabs, openCount, onSwitch, ownerAcc, isOwn }) {
+    const { user, me, actions } = useStore();
+    const { setShowNews } = useUi();
+    const Item = ({ k, icon, label, right }) => (
+        <a href={'#/' + k} className={cx('flex items-center gap-3 h-11 px-3 rounded-xl font-medium transition-colors',
+            activeKey === k ? 'bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-200' : 'text-stone-700 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800')}>
+            <Icon name={icon} size={20} className="flex-shrink-0" /><span className="flex-1 truncate">{label}</span>{right}
+        </a>
+    );
+    const Head = ({ children }) => <p className="px-3 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-stone-400">{children}</p>;
+    const count = (n) => n > 0 ? <span className="text-xs text-stone-400 tabular-nums">{n}</span> : null;
+    return (
+        <>
+            <nav className="px-3 flex-1 overflow-y-auto overscroll-contain">
+                {onSwitch && <div className="pb-2"><AccountButton acc={ownerAcc} isOwn={isOwn} onClick={onSwitch} /></div>}
+                <Head>Voorraad</Head>
+                {types.map(t => <Item key={t.id} k={'voorraad/' + t.id} icon={t.icon} label={t.label} right={count(counts[t.id])} />)}
+                <Item k="lijst" icon="Cart" label="Boodschappen" right={openCount > 0 ? <span className="text-xs font-bold bg-teal-600 text-white rounded-full px-2 py-0.5">{openCount}</span> : null} />
+                {menuTabs.length > 0 && <Head>Koken</Head>}
+                {menuTabs.includes('week') && <Item k="menu/week" icon="Calendar" label="Weekmenu" />}
+                {menuTabs.includes('recepten') && <Item k="menu/recepten" icon="Book" label="Recepten" />}
+                <Head>Meer</Head>
+                <Item k="meer/statistieken" icon="Chart" label="Statistieken" />
+                <Item k="meer/delen" icon="Users" label="Delen" />
+                <Item k="meer" icon="Settings" label="Instellingen" />
+                <button type="button" onClick={() => setShowNews(true)} className="w-full flex items-center gap-3 h-11 px-3 rounded-xl font-medium text-stone-700 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800">
+                    <Icon name="Sparkles" size={20} />Wat is er nieuw
+                </button>
+            </nav>
+            <div className="p-3 border-t border-stone-100 dark:border-stone-800 flex items-center gap-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <Avatar user={user} />
+                <div className="min-w-0 flex-1"><p className="text-sm font-semibold truncate">{user.displayName || user.email}</p><p className="text-xs text-stone-400 truncate">{user.email}</p></div>
+                <IconButton icon={me.darkMode ? 'Sun' : 'Moon'} label="Thema wisselen" onClick={actions.toggleDark} />
+            </div>
+        </>
     );
 }
 
