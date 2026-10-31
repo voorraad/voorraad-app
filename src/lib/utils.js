@@ -186,7 +186,7 @@ export const STATUS_TONE = {
 };
 export const STATUS_BAR = {
     expired: 'bg-red-500', veryold: 'bg-red-500', soon: 'bg-orange-500', week: 'bg-amber-400', old: 'bg-amber-400',
-    month: 'bg-yellow-300 dark:bg-yellow-600', ok: 'bg-transparent'
+    month: 'bg-yellow-300 dark:bg-yellow-600', ok: 'bg-emerald-400 dark:bg-emerald-600'
 };
 
 // ---------- Categorieën & eenheden ----------

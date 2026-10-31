@@ -33,7 +33,7 @@ export function ItemRow({ item, type, showWhere, selectable, selected, onToggle,
         <li className={cx('relative flex items-center gap-3 pl-4 pr-2 py-2.5 cursor-pointer select-none transition-colors',
             selected ? 'bg-teal-50 dark:bg-teal-950/40' : 'hover:bg-stone-50 dark:hover:bg-stone-800/50 active:bg-stone-100 dark:active:bg-stone-800')}
             onClick={() => selectable ? onToggle(item.id) : openItem(item.id)}>
-            <span className={cx('absolute left-0 top-2 bottom-2 w-1 rounded-r-full', STATUS_BAR[st.level])} aria-hidden="true" />
+            <span className={cx('absolute left-0 inset-y-0 w-1', STATUS_BAR[st.level])} aria-hidden="true" />
             {selectable && (
                 <span className={cx('w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0', selected ? 'bg-teal-600 border-teal-600 text-white' : 'border-stone-300 dark:border-stone-600')}>
                     {selected && <Icon name="Check" size={13} strokeWidth={3} />}

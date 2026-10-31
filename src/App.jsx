@@ -118,7 +118,7 @@ function Shell() {
                     </nav>
                     <div className="flex-1" />
                     {accounts.length > 1 && <AccountButton acc={ownerAcc} isOwn={isOwnAccount} compact onClick={() => setSwitcher(true)} />}
-                    <span className="hidden lg:block"><Button icon="Plus" onClick={openAdd}>Product toevoegen</Button></span>
+                    
                     {me.showHelpButton && <IconButton icon="Help" label="Rondleiding" onClick={() => setShowTour(true)} className="text-red-500" />}
                 </div>
             </header>
@@ -129,6 +129,12 @@ function Shell() {
                 {page === 'menu' && <Menu />}
                 {page === 'meer' && <More />}
             </main>
+
+            {/* Zwevende + (computer) */}
+            <button type="button" onClick={openAdd} aria-label="Product toevoegen" title="Product toevoegen"
+                className="hidden lg:flex fixed bottom-8 right-8 z-40 w-16 h-16 rounded-full bg-teal-600 hover:bg-teal-700 active:scale-95 text-white shadow-xl shadow-teal-600/30 items-center justify-center transition print:hidden">
+                <Icon name="Plus" size={30} strokeWidth={2.5} />
+            </button>
 
             {/* Onderste navigatie (gsm) */}
             <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200 dark:border-stone-800 pb-[env(safe-area-inset-bottom)] print:hidden">
