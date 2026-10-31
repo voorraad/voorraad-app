@@ -3,7 +3,7 @@
 //   Zo krijg je altijd meteen de nieuwste versie, en werkt de app toch offline.
 // - Firebase-scripts en lettertypes van CDN: uit de cache (die veranderen niet per versie).
 // - Firestore/inloggen worden NIET onderschept; Firestore heeft zijn eigen offline-opslag.
-const BUILD = 'mvwh44v0';
+const BUILD = 'mvwh8e7j';
 const CACHE = 'voorraad-' + BUILD;
 const CDN_CACHE = 'voorraad-cdn-v1';
 
@@ -34,7 +34,8 @@ self.addEventListener('activate', (event) => {
 
 const isCdn = (url) => url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/')
     || url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com'
-    || url.hostname === 'cdnjs.cloudflare.com';
+    || url.hostname === 'cdnjs.cloudflare.com'
+    || (url.hostname === 'www.google.com' && url.pathname === '/s2/favicons') || /^t\d\.gstatic\.com$/.test(url.hostname);
 
 self.addEventListener('fetch', (event) => {
     const req = event.request;

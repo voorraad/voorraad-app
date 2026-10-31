@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Icon from '../lib/icons.jsx';
 import { cx, num, round2, formatAantal } from '../lib/utils.js';
-import { BADGE, DOT } from '../lib/constants.js';
+import { BADGE, DOT, WINKELS } from '../lib/constants.js';
 
 // ---------- Sheet: onderaan op gsm, gecentreerd op groot scherm ----------
 let openSheets = 0;
@@ -244,5 +244,34 @@ export function Row({ icon, iconTone, title, subtitle, right, onClick, danger, c
             </span>
             {right !== undefined ? right : (onClick && <Icon name="ChevronRight" size={18} className="text-stone-300 dark:text-stone-600 flex-shrink-0" />)}
         </C>
+    );
+}
+
+// Logo van een winkel (favicon van hun eigen website). Valt terug op een gekleurde letter.
+export function StoreIcon({ name, size = 20, className }) {
+    const w = WINKELS.find(x => x.name === name);
+    const [failed, setFailed] = useState(false);
+    const box = { width: size, height: size };
+    if (!w || !w.domain || failed) {
+        return <span style={box} className={cx('inline-flex items-center justify-center rounded-md text-white font-bold flex-shrink-0', DOT[w ? w.color : 'gray'], className)}>
+            <span style={{ fontSize: size * 0.55 }}>{(name || '?')[0].toUpperCase()}</span></span>;
+    }
+    return <img src={`https://www.google.com/s2/favicons?domain=${w.domain}&sz=64`} alt="" style={box} loading="lazy" referrerPolicy="no-referrer"
+        onError={() => setFailed(true)} className={cx('rounded-md bg-white object-contain flex-shrink-0 ring-1 ring-stone-200 dark:ring-stone-700', className)} />;
+}
+
+// Kies een winkel met logo's (horizontaal scrollen).
+export function StorePicker({ value, onChange, className }) {
+    return (
+        <div className={cx('flex gap-1.5 overflow-x-auto no-scrollbar', className)} role="radiogroup" aria-label="Winkel">
+            <button type="button" role="radio" aria-checked={!value} onClick={() => onChange('')}
+                className={cx('h-9 px-3 rounded-full border text-sm font-medium flex-shrink-0', !value ? 'bg-stone-900 text-white border-stone-900 dark:bg-white dark:text-stone-900' : 'bg-white border-stone-200 text-stone-600 dark:bg-stone-800 dark:border-stone-700 dark:text-stone-300')}>Geen</button>
+            {WINKELS.filter(w => w.domain).map(w => (
+                <button key={w.name} type="button" role="radio" aria-checked={value === w.name} onClick={() => onChange(w.name)}
+                    className={cx('h-9 pl-1.5 pr-3 rounded-full border text-sm font-medium flex items-center gap-1.5 flex-shrink-0', value === w.name ? 'border-teal-600 bg-teal-50 text-teal-900 ring-2 ring-teal-600/20 dark:bg-teal-950/50 dark:text-teal-100' : 'bg-white border-stone-200 text-stone-700 dark:bg-stone-800 dark:border-stone-700 dark:text-stone-200')}>
+                    <StoreIcon name={w.name} size={22} className="rounded-full" />{w.name}
+                </button>
+            ))}
+        </div>
     );
 }

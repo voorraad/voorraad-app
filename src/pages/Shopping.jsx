@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import Icon from '../lib/icons.jsx';
 import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
-import { Card, Button, Input, Select, Stepper, EmptyState, IconButton, SectionTitle } from '../components/ui.jsx';
+import { Card, Button, Input, Select, Stepper, EmptyState, IconButton, SectionTitle, StoreIcon, StorePicker } from '../components/ui.jsx';
 import { WINKELS, DOT } from '../lib/constants.js';
 import { cx, formatAantal, normalize, num, emojiFor, byName } from '../lib/utils.js';
 
@@ -77,10 +77,8 @@ export default function Shopping() {
                     <datalist id="shop-names">{nameList.map(n => <option key={n} value={n} />)}</datalist>
                     <Button type="submit" icon="Plus" disabled={!naam.trim()} aria-label="Toevoegen" className="px-3 sm:px-4"><span className="hidden sm:inline">Toevoegen</span></Button>
                 </div>
-                <div className="flex gap-2">
-                    <Stepper value={aantal} onChange={setAantal} min={0.25} size="sm" className="w-32" />
-                    <div className="flex-1"><Select value={winkel} onChange={e => setWinkel(e.target.value)} className="h-9 text-sm"><option value="">Geen winkel</option>{WINKELS.map(w => <option key={w.name}>{w.name}</option>)}</Select></div>
-                </div>
+                <Stepper value={aantal} onChange={setAantal} min={0.25} size="sm" className="w-32" />
+                <StorePicker value={winkel} onChange={setWinkel} className="-mx-4 px-4" />
             </form>
 
             {low.length > 0 && (
@@ -111,7 +109,7 @@ export default function Shopping() {
                         return (
                             <section key={w}>
                                 <h3 className="flex items-center gap-2 text-sm font-semibold text-stone-500 dark:text-stone-400 mb-1.5 px-1">
-                                    <span className={cx('w-2 h-2 rounded-full', DOT[wObj ? wObj.color : 'gray'])} />{w}
+                                    {w === NO_SHOP ? <span className={cx('w-2 h-2 rounded-full mx-1.5', DOT.gray)} /> : <StoreIcon name={w} size={22} />}{w}
                                 </h3>
                                 <Card className="overflow-hidden"><ul className="divide-y divide-stone-100 dark:divide-stone-800">
                                     {list.map(s => <ShopRow key={s.id} s={s} onToggle={() => actions.toggleShopping(s)} onStock={() => toStock(s)} onDelete={() => actions.deleteShopping(s)} />)}
