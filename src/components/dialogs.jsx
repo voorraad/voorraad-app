@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Icon from '../lib/icons.jsx';
 import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
-import { Sheet, Button, Field, Input, Select, Stepper, Segmented } from './ui.jsx';
+import { Sheet, Button, Field, Input, Select, Stepper, Segmented, StorePicker } from './ui.jsx';
 import { WINKELS, TYPES, TYPE_BY_ID, APP_VERSION, VERSION_HISTORY, TOUR_TONE } from '../lib/constants.js';
 import { cx, num, emojiFor, formatAantal, sortLocaties, byName, mondayOf, addDays, dateKey, weekdayLabel, smartMatch, isMenuEntry, todayKey } from '../lib/utils.js';
 
@@ -94,12 +94,9 @@ export function RemoveDialog() {
                     <span className="font-semibold text-stone-800 dark:text-stone-100 flex items-center gap-2"><Icon name="Cart" size={18} /> Op boodschappenlijst zetten</span>
                 </label>
                 {toList && (
-                    <div className="grid grid-cols-2 gap-2 mt-3">
-                        <Stepper value={aantal} onChange={setAantal} min={0.25} />
-                        <Select value={winkel} onChange={e => setWinkel(e.target.value)}>
-                            <option value="">Geen winkel</option>
-                            {WINKELS.map(w => <option key={w.name} value={w.name}>{w.name}</option>)}
-                        </Select>
+                    <div className="space-y-2 mt-3">
+                        <Stepper value={aantal} onChange={setAantal} min={0.25} className="w-40" />
+                        <StorePicker value={winkel} onChange={setWinkel} />
                     </div>
                 )}
             </div>

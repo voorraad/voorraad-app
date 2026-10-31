@@ -131,11 +131,13 @@ export const TOUR_TONE = {
     gray: 'bg-stone-100 text-stone-700 dark:bg-stone-700 dark:text-stone-200'
 };
 
+// domain: wordt gebruikt om het echte logo (favicon van de winkelsite) te tonen.
 export const WINKELS = [
-    { name: 'AH', color: 'blue' }, { name: 'Colruyt', color: 'orange' }, { name: 'Delhaize', color: 'gray' },
-    { name: 'Aldi', color: 'blue' }, { name: 'Lidl', color: 'yellow' }, { name: 'Jumbo', color: 'yellow' },
-    { name: 'Carrefour', color: 'blue' }, { name: 'Kruidvat', color: 'red' }, { name: 'Action', color: 'blue' },
-    { name: 'Overig', color: 'gray' }
+    { name: 'AH', color: 'blue', domain: 'ah.be' }, { name: 'Colruyt', color: 'orange', domain: 'colruyt.be' },
+    { name: 'Delhaize', color: 'gray', domain: 'delhaize.be' }, { name: 'Aldi', color: 'blue', domain: 'aldi.be' },
+    { name: 'Lidl', color: 'yellow', domain: 'lidl.be' }, { name: 'Jumbo', color: 'yellow', domain: 'jumbo.com' },
+    { name: 'Carrefour', color: 'blue', domain: 'carrefour.be' }, { name: 'Kruidvat', color: 'red', domain: 'kruidvat.be' },
+    { name: 'Action', color: 'blue', domain: 'action.com' }, { name: 'Overig', color: 'gray' }
 ];
 
 export const CATEGORIEEN_VRIES = [
