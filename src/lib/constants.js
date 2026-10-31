@@ -6,8 +6,8 @@ export const VERSION_HISTORY = [
     {
         version: '11.0',
         changes: [
-            'Nieuw: Startscherm "Overzicht" met alles wat eerst op moet — verlopen, bijna verlopen en lang ingevroren producten, over al je locaties heen.',
-            'Nieuw: Duidelijkere navigatie. Vriezer, Frigo en Stock zitten samen onder "Voorraad"; boodschappen, menu en instellingen hebben elk hun eigen plek.',
+            'Nieuw: "Eerst opmaken" bovenaan je voorraad: verlopen, bijna verlopen en lang ingevroren producten, over al je locaties heen.',
+            'Nieuw: Duidelijkere navigatie. Onderaan Vriezer, Frigo, Stock en je boodschappenlijst; weekmenu, recepten en instellingen zitten in het menu linksboven.',
             'Nieuw: Tik op een product voor alle details en acties. Met de min-knop gebruik je snel één stuk, en je kan dat ongedaan maken.',
             'Nieuw: Recepten tonen welke ingrediënten je al in huis hebt en zetten de rest met één tik op je lijstje.',
             'Nieuw: Weekmenu werkt nu ook op je gsm (tikken in plaats van slepen) en je kan recepten inplannen.',
@@ -59,10 +59,16 @@ export const DEFAULT_TOUR_STEPS = [
         colorName: 'blue'
     },
     {
-        title: 'Overzicht',
-        content: 'Op het startscherm zie je meteen wat eerst op moet: verlopen of bijna verlopen producten, en wat al lang in de vriezer ligt.',
-        icon: 'Home',
+        title: 'Eerst opmaken',
+        content: 'Bovenaan je voorraad zie je meteen wat eerst op moet: verlopen of bijna verlopen producten, en wat al lang in de vriezer ligt. Tik erop voor de volledige lijst.',
+        icon: 'Alert',
         colorName: 'green'
+    },
+    {
+        title: 'Menu',
+        content: 'Via de drie streepjes linksboven vind je je weekmenu, recepten, statistieken en instellingen.',
+        icon: 'Menu',
+        colorName: 'indigo'
     },
     {
         title: 'Toevoegen',

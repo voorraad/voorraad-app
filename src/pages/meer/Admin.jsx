@@ -43,7 +43,7 @@ export function Gebruikers() {
                                 <div className="px-4 pb-4 space-y-3 bg-stone-50/70 dark:bg-stone-800/30">
                                     <div className="flex flex-wrap gap-2 pt-2">
                                         <Button size="sm" variant="secondary" icon="Dashboard" onClick={() => go('meer/dashboard/' + u.id)}>Dashboard</Button>
-                                        {u.id !== ownerId && <Button size="sm" variant="soft" icon="Swap" onClick={() => { actions.switchAccount(u.id); go('overzicht'); }}>Beheer deze voorraad</Button>}
+                                        {u.id !== ownerId && <Button size="sm" variant="soft" icon="Swap" onClick={() => { actions.switchAccount(u.id); go('voorraad'); }}>Beheer deze voorraad</Button>}
                                         <Button size="sm" variant="secondary" icon="Help" onClick={() => { actions.setUserField(u.id, { hasSeenTutorial: false, tourDisabled: false }); actions.notify('Rondleiding staat klaar'); }}>Toon tour opnieuw</Button>
                                     </div>
                                     <div>
@@ -97,7 +97,7 @@ export function Dashboard() {
                     <>
                         <div className="flex items-center justify-between">
                             <p className="text-sm text-stone-500">{data.i.filter(i => i.vriezerId !== 'custom_menu').length} producten in {data.v.length} locaties</p>
-                            {uid !== ownerId && <Button size="sm" variant="soft" icon="Swap" onClick={() => { actions.switchAccount(uid); go('overzicht'); }}>Beheer deze voorraad</Button>}
+                            {uid !== ownerId && <Button size="sm" variant="soft" icon="Swap" onClick={() => { actions.switchAccount(uid); go('voorraad'); }}>Beheer deze voorraad</Button>}
                         </div>
                         {TYPES.map(t => {
                             const locs = sortLocaties(data.v.filter(v => (v.type || 'vriezer') === t.id));

@@ -4,6 +4,7 @@ import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
 import { Card, Button, Segmented, Chip, Sheet, EmptyState, IconButton } from '../components/ui.jsx';
 import { ItemRow } from '../components/items.jsx';
+import { UrgentBanner, PendingInvites } from '../components/Urgent.jsx';
 import { TYPES, TYPE_BY_ID, LOC_DOT } from '../lib/constants.js';
 import { cx, smartMatch, sortLocaties, byName, itemStatus, URGENCY, daysUntil, daysSince, toDate, formatDate, categoriesFor, guessProduct, addDays, emojiForCategory } from '../lib/utils.js';
 
@@ -116,7 +117,8 @@ export default function Stock() {
 
     return (
         <div className="space-y-4">
-            <Segmented value={type} onChange={t => go('voorraad/' + t)} options={visibleTypes.map(t => ({ id: t.id, label: t.label, icon: t.icon, count: typeCounts[t.id] }))} />
+            <PendingInvites />
+            <UrgentBanner />
 
             {(groups.length > 1) && (
                 <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
