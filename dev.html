@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Voorraad. (test)</title>
+    <meta name="description" content="Weet wat er in je vriezer, frigo en kast zit, en gooi minder weg.">
+    <meta name="theme-color" content="#fafaf9" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0c0a09" media="(prefers-color-scheme: dark)">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Voorraad">
+
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon_180x180.png">
+    <link rel="manifest" href="site.webmanifest.json">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://firestore.googleapis.com">
+    
+
+    <link rel="stylesheet" href="assets/app.css?v=mvwfg75w">
+
+    <!-- TESTVERSIE: nagemaakte Firebase met voorbeelddata (niet voor productie) -->
+    <script src="dev/mock-firebase.js"></script>
+    <script defer src="assets/app.js?v=mvwfg75w"></script>
+
+    <!-- Donker thema meteen toepassen om flitsen te vermijden -->
+    <script>try { if (localStorage.getItem('voorraad_dark') === '1') document.documentElement.classList.add('dark'); } catch (e) {}</script>
+</head>
+<body>
+    <div id="root"></div>
+    <noscript>Voorraad heeft JavaScript nodig.</noscript>
+</body>
+</html>
