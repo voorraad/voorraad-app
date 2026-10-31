@@ -70,7 +70,7 @@ export default function Shopping() {
     };
 
     return (
-        <div className="space-y-5 max-w-2xl">
+        <div className="space-y-5">
             <form onSubmit={add} className="space-y-2">
                 <div className="flex gap-2">
                     <Input list="shop-names" value={naam} onChange={e => setNaam(e.target.value)} placeholder="Wat moet je kopen?" className="flex-1" />
@@ -104,6 +104,7 @@ export default function Shopping() {
                         <Button size="sm" variant="secondary" icon="Share" onClick={share} disabled={!open.length}>Delen</Button>
                         <Button size="sm" variant="secondary" icon="Message" onClick={() => window.open('https://wa.me/?text=' + encodeURIComponent(text()), '_blank', 'noopener')} disabled={!open.length} aria-label="WhatsApp"><span className="hidden sm:inline">WhatsApp</span></Button>
                     </div>
+                    <div className="grid gap-4 items-start grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
                     {grouped.map(([w, list]) => {
                         const wObj = WINKELS.find(x => x.name === w);
                         return (
@@ -117,6 +118,7 @@ export default function Shopping() {
                             </section>
                         );
                     })}
+                    </div>
                     {done.length > 0 && (
                         <section>
                             <div className="flex items-center justify-between mb-1.5 px-1">
