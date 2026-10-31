@@ -3,7 +3,7 @@
 //   Zo krijg je altijd meteen de nieuwste versie, en werkt de app toch offline.
 // - Firebase-scripts en lettertypes van CDN: uit de cache (die veranderen niet per versie).
 // - Firestore/inloggen worden NIET onderschept; Firestore heeft zijn eigen offline-opslag.
-const BUILD = 'mvwhjk5t';
+const BUILD = 'mvwho6do';
 const CACHE = 'voorraad-' + BUILD;
 const CDN_CACHE = 'voorraad-cdn-v1';
 

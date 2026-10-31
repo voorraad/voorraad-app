@@ -42,6 +42,7 @@ function Shell() {
     const menuTab = menuTabs.includes(route.sub) ? route.sub : menuTabs[0];
     const activeKey = page === 'voorraad' ? 'voorraad/' + stockType : page === 'menu' ? 'menu/' + menuTab : page;
     const [drawer, setDrawer] = useState(false);
+    const onMenu = page === 'menu'; // weekmenu en recepten: zonder voorraad-knoppen
     useEffect(() => { setDrawer(false); }, [route.page, route.sub]);
     const [switcher, setSwitcher] = useState(false);
     const openCount = shopping.filter(s => !s.checked).length;
@@ -106,8 +107,8 @@ function Shell() {
                     {sub ? <IconButton icon="ChevronLeft" label="Terug" onClick={() => go('meer')} className="-ml-2" />
                         : <IconButton icon="Menu" label="Menu openen" onClick={() => setDrawer(true)} className="-ml-2" />}
                     <h1 className={cx('text-xl font-bold text-stone-900 dark:text-white truncate', (page === 'voorraad' || page === 'lijst') && !sub && 'lg:hidden')}>{title}</h1>
-                    <span className="hidden lg:block"><Logo small /></span>
-                    <nav className="hidden lg:flex items-center gap-1 ml-6">
+                    {(page === 'voorraad' || page === 'lijst') && !sub && <span className="hidden lg:block"><Logo small /></span>}
+                    {!onMenu && <nav className="hidden lg:flex items-center gap-1 ml-6">
                         {bottom.map(n => (
                             <a key={n.key} href={'#/' + n.key} className={cx('relative flex items-center gap-2 h-10 px-3.5 rounded-xl text-sm font-semibold transition-colors',
                                 activeKey === n.key ? 'bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-200' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800')}>
@@ -115,7 +116,7 @@ function Shell() {
                                 {n.badge > 0 && <span className="text-[11px] font-bold bg-teal-600 text-white rounded-full px-1.5">{n.badge}</span>}
                             </a>
                         ))}
-                    </nav>
+                    </nav>}
                     <div className="flex-1" />
                     {accounts.length > 1 && <AccountButton acc={ownerAcc} isOwn={isOwnAccount} compact onClick={() => setSwitcher(true)} />}
                     
@@ -123,7 +124,7 @@ function Shell() {
                 </div>
             </header>
 
-            <main className={cx('mx-auto px-4 pt-2 pb-32 lg:pb-12', 'max-w-7xl')}>
+            <main className={cx('mx-auto px-4 pt-2 lg:pb-12 max-w-7xl', onMenu ? 'pb-12' : 'pb-32')}>
                 {page === 'voorraad' && <Stock />}
                 {page === 'lijst' && <Shopping />}
                 {page === 'menu' && <Menu />}
@@ -131,13 +132,13 @@ function Shell() {
             </main>
 
             {/* Zwevende + (computer) */}
-            <button type="button" onClick={openAdd} aria-label="Product toevoegen" title="Product toevoegen"
+            {!onMenu && <button type="button" onClick={openAdd} aria-label="Product toevoegen" title="Product toevoegen"
                 className="hidden lg:flex fixed bottom-8 right-8 z-40 w-16 h-16 rounded-full bg-teal-600 hover:bg-teal-700 active:scale-95 text-white shadow-xl shadow-teal-600/30 items-center justify-center transition print:hidden">
                 <Icon name="Plus" size={30} strokeWidth={2.5} />
-            </button>
+            </button>}
 
             {/* Onderste navigatie (gsm) */}
-            <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200 dark:border-stone-800 pb-[env(safe-area-inset-bottom)] print:hidden">
+            {!onMenu && <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200 dark:border-stone-800 pb-[env(safe-area-inset-bottom)] print:hidden">
                 <div className="max-w-md mx-auto grid h-16 items-center" style={{ gridTemplateColumns: `repeat(${bottom.length + 1}, minmax(0, 1fr))` }}>
                     {bottom.slice(0, mid).map(n => <NavBtn key={n.key} n={n} active={activeKey === n.key} />)}
                     <div className="flex justify-center">
@@ -147,7 +148,7 @@ function Shell() {
                     </div>
                     {bottom.slice(mid).map(n => <NavBtn key={n.key} n={n} active={activeKey === n.key} />)}
                 </div>
-            </nav>
+            </nav>}
 
             {switcher && <AccountSwitcher onClose={() => setSwitcher(false)} />}
 
