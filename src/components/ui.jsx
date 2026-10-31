@@ -263,7 +263,7 @@ export function StoreIcon({ name, size = 20, className }) {
 // Kies een winkel met logo's (horizontaal scrollen).
 export function StorePicker({ value, onChange, className }) {
     return (
-        <div className={cx('flex gap-1.5 overflow-x-auto no-scrollbar', className)} role="radiogroup" aria-label="Winkel">
+        <div className={cx('flex flex-wrap gap-1.5', className)} role="radiogroup" aria-label="Winkel">
             <button type="button" role="radio" aria-checked={!value} onClick={() => onChange('')}
                 className={cx('h-9 px-3 rounded-full border text-sm font-medium flex-shrink-0', !value ? 'bg-stone-900 text-white border-stone-900 dark:bg-white dark:text-stone-900' : 'bg-white border-stone-200 text-stone-600 dark:bg-stone-800 dark:border-stone-700 dark:text-stone-300')}>Geen</button>
             {WINKELS.filter(w => w.domain).map(w => (

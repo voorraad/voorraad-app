@@ -78,7 +78,7 @@ export default function Shopping() {
                     <Button type="submit" icon="Plus" disabled={!naam.trim()} aria-label="Toevoegen" className="px-3 sm:px-4"><span className="hidden sm:inline">Toevoegen</span></Button>
                 </div>
                 <Stepper value={aantal} onChange={setAantal} min={0.25} size="sm" className="w-32" />
-                <StorePicker value={winkel} onChange={setWinkel} className="-mx-4 px-4" />
+                <StorePicker value={winkel} onChange={setWinkel} />
             </form>
 
             {low.length > 0 && (
