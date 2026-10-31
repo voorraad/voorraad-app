@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Icon from './lib/icons.jsx';
 import { useStore } from './state/store.jsx';
 import { useUi } from './state/ui.jsx';
-import { Toast, Button, IconButton } from './components/ui.jsx';
+import { Toast, Button, IconButton, Sheet } from './components/ui.jsx';
 import { ItemSheet } from './components/items.jsx';
 import ItemForm from './components/ItemForm.jsx';
 import AuditSheet from './components/AuditSheet.jsx';
@@ -11,6 +11,7 @@ import Stock from './pages/Stock.jsx';
 import Shopping from './pages/Shopping.jsx';
 import Menu from './pages/Menu.jsx';
 import More, { subpageTitle } from './pages/More.jsx';
+import { UserList } from './pages/meer/Admin.jsx';
 import { APP_VERSION, TYPES, TYPE_BY_ID } from './lib/constants.js';
 import { cx, itemStatus, todayKey } from './lib/utils.js';
 
@@ -42,6 +43,7 @@ function Shell() {
     const menuTab = menuTabs.includes(route.sub) ? route.sub : menuTabs[0];
     const activeKey = page === 'voorraad' ? 'voorraad/' + stockType : page === 'menu' ? 'menu/' + menuTab : page;
     const [drawer, setDrawer] = useState(false);
+    const [adminOpen, setAdminOpen] = useState(false);
     const onMenu = page === 'menu'; // weekmenu en recepten: zonder voorraad-knoppen
     useEffect(() => { setDrawer(false); }, [route.page, route.sub]);
     const [switcher, setSwitcher] = useState(false);
@@ -120,6 +122,13 @@ function Shell() {
                     <div className="flex-1" />
                     {accounts.length > 1 && <AccountButton acc={ownerAcc} isOwn={isOwnAccount} compact onClick={() => setSwitcher(true)} />}
                     
+                    {isAdmin && (
+                        <button type="button" onClick={() => setAdminOpen(true)} aria-label="Admin: gebruikers wisselen" title="Admin: gebruikers, rechten en dashboard"
+                            className={cx('h-9 px-2.5 rounded-xl flex items-center gap-1.5 text-sm font-semibold transition-colors',
+                                isOwnAccount ? 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/40 dark:text-purple-200' : 'bg-purple-600 text-white hover:bg-purple-700')}>
+                            <Icon name="Users" size={17} /><span className="hidden sm:inline">Admin</span>
+                        </button>
+                    )}
                     {me.showHelpButton && <IconButton icon="Help" label="Rondleiding" onClick={() => setShowTour(true)} className="text-red-500" />}
                 </div>
             </header>
@@ -151,6 +160,13 @@ function Shell() {
             </nav>}
 
             {switcher && <AccountSwitcher onClose={() => setSwitcher(false)} />}
+            {isAdmin && (
+                <Sheet open={adminOpen} onClose={() => setAdminOpen(false)} size="lg" title="Admin"
+                    subtitle={isOwnAccount ? 'Je bekijkt je eigen voorraad' : `Je bekijkt de voorraad van ${(ownerAcc && ownerAcc.label) || 'een andere gebruiker'}`}>
+                    {!isOwnAccount && <Button variant="secondary" icon="Home" block className="mb-3" onClick={() => { actions.switchAccount(user.uid); setAdminOpen(false); }}>Terug naar mijn eigen voorraad</Button>}
+                    <UserList onNavigate={() => setAdminOpen(false)} />
+                </Sheet>
+            )}
 
             <ItemSheet />
             <AuditSheet />

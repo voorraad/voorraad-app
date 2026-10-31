@@ -10,43 +10,56 @@ import { cx, formatDateTime, sortLocaties, byName, emojiFor, formatAantal, smart
 const TAB_OPTIONS = [['frig', 'Frigo'], ['voorraad', 'Stock'], ['weekmenu', 'Weekmenu'], ['recepten', 'Recepten'], ['balans', 'Controle-knop']];
 
 export function Gebruikers() {
+    const { actions } = useStore();
+    const { confirm } = useUi();
+    return (
+        <div className="space-y-3">
+            <UserList extra={<Button variant="secondary" onClick={async () => { if (await confirm({ title: 'Rondleiding resetten voor iedereen?', message: 'Alle gebruikers zien de rondleiding opnieuw bij de volgende keer openen.', confirmLabel: 'Resetten', danger: true })) actions.resetTourForEveryone(); }}>Reset tour</Button>} />
+        </div>
+    );
+}
+
+// Lijst van gebruikers met snelle acties: wisselen, dashboard en rechten. Gebruikt op de
+// pagina Gebruikers en in de admin-snelknop bovenaan.
+export function UserList({ extra, onNavigate, autoFocus }) {
     const { usersList, ownerId, user, actions } = useStore();
-    const { go, confirm } = useUi();
+    const { go } = useUi();
     const [open, setOpen] = useState(null);
     const [q, setQ] = useState('');
-    const list = usersList.filter(u => smartMatch(u.email || u.displayName || '', q));
+    const list = usersList.filter(u => smartMatch(u.email || u.displayName || '', q))
+        .sort((a, b) => (b.id === ownerId) - (a.id === ownerId) || (b.id === user.uid) - (a.id === user.uid));
+    const nav = (path) => { go(path); onNavigate && onNavigate(); };
     const toggleTab = (u, tab) => {
         const hidden = u.hiddenTabs || [];
         actions.setUserField(u.id, { hiddenTabs: hidden.includes(tab) ? hidden.filter(t => t !== tab) : [...hidden, tab] });
     };
     return (
-        <div className="space-y-3">
+        <>
             <div className="flex gap-2">
-                <Input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={`Zoek in ${usersList.length} gebruikers…`} className="flex-1" />
-                <Button variant="secondary" onClick={async () => { if (await confirm({ title: 'Rondleiding resetten voor iedereen?', message: 'Alle gebruikers zien de rondleiding opnieuw bij de volgende keer openen.', confirmLabel: 'Resetten', danger: true })) actions.resetTourForEveryone(); }}>Reset tour</Button>
+                <Input type="search" autoFocus={autoFocus} value={q} onChange={e => setQ(e.target.value)} placeholder={`Zoek in ${usersList.length} gebruikers…`} className="flex-1" />
+                {extra}
             </div>
-            <Card className="overflow-hidden divide-y divide-stone-100 dark:divide-stone-800">
+            <Card className="overflow-hidden divide-y divide-stone-100 dark:divide-stone-800 mt-3">
                 {list.map(u => {
                     const isOpen = open === u.id;
+                    const active = u.id === ownerId;
                     return (
-                        <div key={u.id}>
-                            <button type="button" onClick={() => setOpen(isOpen ? null : u.id)} className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-stone-50 dark:hover:bg-stone-800/50">
-                                <span className={cx('w-2.5 h-2.5 rounded-full flex-shrink-0', u.disabled ? 'bg-red-500' : 'bg-emerald-500')} />
-                                <span className="flex-1 min-w-0">
+                        <div key={u.id} className={cx(active && 'bg-teal-50/50 dark:bg-teal-950/20')}>
+                            <div className="flex items-center gap-1 pl-4 pr-2 py-2">
+                                <span className={cx('w-2.5 h-2.5 rounded-full flex-shrink-0 mr-2', u.disabled ? 'bg-red-500' : 'bg-emerald-500')} title={u.disabled ? 'Geblokkeerd' : 'Actief'} />
+                                <button type="button" onClick={() => setOpen(isOpen ? null : u.id)} className="flex-1 min-w-0 text-left py-1">
                                     <span className="block font-medium truncate">{u.email || u.displayName || u.id}{u.id === user.uid && <span className="text-xs text-stone-400"> (jij)</span>}</span>
-                                    <span className="block text-xs text-stone-400">Laatst gezien {u.laatstGezien ? formatDateTime(u.laatstGezien) : 'nooit'}</span>
-                                </span>
-                                {u.id === ownerId && <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300">actief</span>}
-                                <Icon name={isOpen ? 'ChevronUp' : 'ChevronDown'} size={18} className="text-stone-400" />
-                            </button>
+                                    <span className="block text-xs text-stone-400 truncate">{active ? 'je bekijkt deze voorraad · ' : ''}laatst gezien {u.laatstGezien ? formatDateTime(u.laatstGezien) : 'nooit'}</span>
+                                </button>
+                                {active
+                                    ? <span className="h-9 px-3 rounded-xl text-xs font-bold bg-teal-600 text-white flex items-center">Actief</span>
+                                    : <Button size="sm" variant="soft" icon="Swap" onClick={() => { actions.switchAccount(u.id); nav('voorraad'); }}>Wissel</Button>}
+                                <IconButton icon="Dashboard" label="Dashboard" onClick={() => nav('meer/dashboard/' + u.id)} />
+                                <IconButton icon={isOpen ? 'ChevronUp' : 'Settings'} label="Rechten bewerken" onClick={() => setOpen(isOpen ? null : u.id)} className={cx(isOpen && 'bg-stone-100 dark:bg-stone-800')} />
+                            </div>
                             {isOpen && (
-                                <div className="px-4 pb-4 space-y-3 bg-stone-50/70 dark:bg-stone-800/30">
-                                    <div className="flex flex-wrap gap-2 pt-2">
-                                        <Button size="sm" variant="secondary" icon="Dashboard" onClick={() => go('meer/dashboard/' + u.id)}>Dashboard</Button>
-                                        {u.id !== ownerId && <Button size="sm" variant="soft" icon="Swap" onClick={() => { actions.switchAccount(u.id); go('voorraad'); }}>Beheer deze voorraad</Button>}
-                                        <Button size="sm" variant="secondary" icon="Help" onClick={() => { actions.setUserField(u.id, { hasSeenTutorial: false, tourDisabled: false }); actions.notify('Rondleiding staat klaar'); }}>Toon tour opnieuw</Button>
-                                    </div>
-                                    <div>
+                                <div className="px-4 pb-4 space-y-3 bg-stone-50/70 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
+                                    <div className="pt-3">
                                         <p className="text-xs font-semibold text-stone-500 mb-1.5">Verborgen onderdelen</p>
                                         <div className="flex flex-wrap gap-1.5">
                                             {TAB_OPTIONS.map(([id, lbl]) => <Chip key={id} active={(u.hiddenTabs || []).includes(id)} onClick={() => toggleTab(u, id)}>{(u.hiddenTabs || []).includes(id) && <Icon name="Lock" size={12} />}{lbl}</Chip>)}
@@ -59,7 +72,10 @@ export function Gebruikers() {
                                         <Toggle checked={u.notificationsEnabled !== false} onChange={c => actions.setUserField(u.id, { notificationsEnabled: c })} label="Meldingen toestaan" />
                                         {u.id !== user.uid && <Toggle checked={!!u.disabled} onChange={c => actions.setUserField(u.id, { disabled: c })} label="Account blokkeren" description="De gebruiker kan de app niet meer gebruiken" />}
                                     </div>
-                                    <p className="text-[11px] font-mono text-stone-400 break-all">{u.id}</p>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <Button size="sm" variant="ghost" icon="Help" onClick={() => { actions.setUserField(u.id, { hasSeenTutorial: false, tourDisabled: false }); actions.notify('Rondleiding staat klaar'); }}>Toon tour opnieuw</Button>
+                                        <p className="text-[11px] font-mono text-stone-400 truncate">{u.id}</p>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -67,7 +83,7 @@ export function Gebruikers() {
                 })}
                 {list.length === 0 && <p className="p-4 text-sm text-stone-500">Geen gebruikers gevonden.</p>}
             </Card>
-        </div>
+        </>
     );
 }
 
