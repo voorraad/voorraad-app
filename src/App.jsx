@@ -118,7 +118,7 @@ function Shell() {
                     </nav>
                     <div className="flex-1" />
                     {accounts.length > 1 && <AccountButton acc={ownerAcc} isOwn={isOwnAccount} compact onClick={() => setSwitcher(true)} />}
-                    <Button icon="Plus" onClick={openAdd} className="hidden lg:inline-flex">Product toevoegen</Button>
+                    <span className="hidden lg:block"><Button icon="Plus" onClick={openAdd}>Product toevoegen</Button></span>
                     {me.showHelpButton && <IconButton icon="Help" label="Rondleiding" onClick={() => setShowTour(true)} className="text-red-500" />}
                 </div>
             </header>
