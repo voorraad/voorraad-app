@@ -230,7 +230,7 @@ export default function Stock() {
             )}
 
             {selecting && (
-                <div className="fixed left-0 right-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 lg:left-64 z-40 p-3 bg-white/95 dark:bg-stone-900/95 backdrop-blur border-t border-stone-200 dark:border-stone-800 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] print:hidden anim-fade">
+                <div className="fixed left-0 right-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 z-40 p-3 bg-white/95 dark:bg-stone-900/95 backdrop-blur border-t border-stone-200 dark:border-stone-800 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] print:hidden anim-fade">
                     <div className="max-w-3xl mx-auto flex items-center gap-2">
                         <span className="text-sm font-semibold flex-1">{selected.size} geselecteerd</span>
                         <Button size="sm" variant="secondary" icon="Utensils" disabled={!selected.size} onClick={findRecipe}>Recept</Button>
