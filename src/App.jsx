@@ -88,17 +88,10 @@ function Shell() {
     );
 
     return (
-        <div className="min-h-dvh lg:pl-64">
-            {/* Zijbalk (groot scherm) */}
-            <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 flex-col border-r border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 print:hidden">
-                <div className="px-6 pt-6 pb-4"><Logo /></div>
-                <div className="px-4"><Button block icon="Plus" onClick={openAdd} className="mb-3">Product toevoegen</Button></div>
-                {menuList}
-            </aside>
-
-            {/* Hamburgermenu (gsm) */}
+        <div className="min-h-dvh">
+            {/* Hamburgermenu */}
             {drawer && (
-                <div className="lg:hidden fixed inset-0 z-50 print:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+                <div className="fixed inset-0 z-50 print:hidden" role="dialog" aria-modal="true" aria-label="Menu">
                     <div className="absolute inset-0 bg-stone-900/40 anim-fade" onClick={() => setDrawer(false)} />
                     <div className="absolute inset-y-0 left-0 w-[82%] max-w-xs bg-white dark:bg-stone-900 shadow-2xl flex flex-col anim-drawer pt-[env(safe-area-inset-top)]">
                         <div className="flex items-center justify-between px-5 h-14"><Logo small /><IconButton icon="X" label="Menu sluiten" onClick={() => setDrawer(false)} className="-mr-2" /></div>
@@ -111,10 +104,21 @@ function Shell() {
             <header className="sticky top-0 z-30 bg-stone-50/85 dark:bg-stone-950/85 backdrop-blur-md print:hidden pt-[env(safe-area-inset-top)]">
                 <div className={cx('mx-auto px-4 h-14 flex items-center gap-2', page === 'voorraad' ? 'max-w-7xl' : 'max-w-5xl')}>
                     {sub ? <IconButton icon="ChevronLeft" label="Terug" onClick={() => go('meer')} className="-ml-2" />
-                        : <IconButton icon="Menu" label="Menu openen" onClick={() => setDrawer(true)} className="-ml-2 lg:hidden" />}
-                    <h1 className="text-xl font-bold text-stone-900 dark:text-white truncate">{title}</h1>
+                        : <IconButton icon="Menu" label="Menu openen" onClick={() => setDrawer(true)} className="-ml-2" />}
+                    <h1 className={cx('text-xl font-bold text-stone-900 dark:text-white truncate', (page === 'voorraad' || page === 'lijst') && !sub && 'lg:hidden')}>{title}</h1>
+                    <span className="hidden lg:block"><Logo small /></span>
+                    <nav className="hidden lg:flex items-center gap-1 ml-6">
+                        {bottom.map(n => (
+                            <a key={n.key} href={'#/' + n.key} className={cx('relative flex items-center gap-2 h-10 px-3.5 rounded-xl text-sm font-semibold transition-colors',
+                                activeKey === n.key ? 'bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-200' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800')}>
+                                <Icon name={n.icon} size={18} />{n.key === 'lijst' ? 'Boodschappen' : n.label}
+                                {n.badge > 0 && <span className="text-[11px] font-bold bg-teal-600 text-white rounded-full px-1.5">{n.badge}</span>}
+                            </a>
+                        ))}
+                    </nav>
                     <div className="flex-1" />
-                    {accounts.length > 1 && <span className="lg:hidden"><AccountButton acc={ownerAcc} isOwn={isOwnAccount} compact onClick={() => setSwitcher(true)} /></span>}
+                    {accounts.length > 1 && <AccountButton acc={ownerAcc} isOwn={isOwnAccount} compact onClick={() => setSwitcher(true)} />}
+                    <Button icon="Plus" onClick={openAdd} className="hidden lg:inline-flex">Product toevoegen</Button>
                     {me.showHelpButton && <IconButton icon="Help" label="Rondleiding" onClick={() => setShowTour(true)} className="text-red-500" />}
                 </div>
             </header>
