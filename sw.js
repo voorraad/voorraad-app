@@ -1,74 +1,83 @@
-// Service Worker voor Voorraad.
-// Zorgt voor offline-toegang (cachet de app-shell) en verwerkt kliks op meldingen.
-// Verhoog CACHE_NAME bij elke nieuwe release om oude caches automatisch te vervangen.
-const CACHE_NAME = 'voorraad-shell-v1';
+// Service worker voor Voorraad.
+// - Eigen bestanden (HTML/JS/CSS/iconen): eerst netwerk, bij geen internet de laatst bewaarde versie.
+//   Zo krijg je altijd meteen de nieuwste versie, en werkt de app toch offline.
+// - Firebase-scripts en lettertypes van CDN: uit de cache (die veranderen niet per versie).
+// - Firestore/inloggen worden NIET onderschept; Firestore heeft zijn eigen offline-opslag.
+const BUILD = 'mvwfg75w';
+const CACHE = 'voorraad-' + BUILD;
+const CDN_CACHE = 'voorraad-cdn-v1';
 
-const APP_SHELL = [
-    './',
-    './index.html',
-    './app.js',
-    './site.webmanifest.json',
-    './favicon.ico',
-    './icon_180x180.png',
-    './icon_192x192.png',
-    './icon_512x512.png'
+const SHELL = ['./', './index.html', './assets/app.js', './assets/app.css', './site.webmanifest.json', './favicon.ico', './icon_180x180.png', './icon_192x192.png', './icon_512x512.png'];
+const CDN = [
+    'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
+    'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js',
+    'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js'
 ];
 
 self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then((cache) => cache.addAll(APP_SHELL))
-            .catch(() => { /* ontbrekend bestand mag installatie niet blokkeren */ })
-    );
-    self.skipWaiting();
+    event.waitUntil((async () => {
+        const c = await caches.open(CACHE);
+        await Promise.all(SHELL.map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => { })));
+        const cdn = await caches.open(CDN_CACHE);
+        await Promise.all(CDN.map(u => cdn.match(u).then(hit => hit || cdn.add(u)).catch(() => { })));
+        await self.skipWaiting();
+    })());
 });
 
 self.addEventListener('activate', (event) => {
-    event.waitUntil(
-        caches.keys().then((keys) =>
-            Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-        )
-    );
-    self.clients.claim();
+    event.waitUntil((async () => {
+        const keys = await caches.keys();
+        await Promise.all(keys.filter(k => k !== CACHE && k !== CDN_CACHE).map(k => caches.delete(k)));
+        await self.clients.claim();
+    })());
 });
 
-// Stale-while-revalidate: toon direct de gecachete versie (werkt offline),
-// en ververs de cache op de achtergrond zodra er weer internet is.
-// Externe requests (CDN-scripts, Firebase/Firestore) worden NIET onderschept,
-// die lopen gewoon via het netwerk zodat authenticatie/sync altijd correct werkt.
+const isCdn = (url) => url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/')
+    || url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com'
+    || url.hostname === 'cdnjs.cloudflare.com';
+
 self.addEventListener('fetch', (event) => {
     const req = event.request;
     if (req.method !== 'GET') return;
-
     let url;
     try { url = new URL(req.url); } catch (e) { return; }
-    if (url.origin !== self.location.origin) return;
 
-    event.respondWith(
-        caches.match(req).then((cached) => {
-            const networkFetch = fetch(req)
-                .then((res) => {
-                    if (res && res.status === 200) {
-                        const clone = res.clone();
-                        caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
-                    }
-                    return res;
-                })
-                .catch(() => cached);
-            return cached || networkFetch;
-        })
-    );
+    if (url.origin === self.location.origin) {
+        // Network-first, met cache als vangnet (offline).
+        event.respondWith((async () => {
+            const c = await caches.open(CACHE);
+            try {
+                const res = await fetch(req);
+                if (res && res.ok && res.type === 'basic') c.put(req, res.clone());
+                return res;
+            } catch (e) {
+                const hit = await c.match(req, { ignoreSearch: true });
+                if (hit) return hit;
+                if (req.mode === 'navigate') return (await c.match('./index.html')) || (await c.match('./'));
+                throw e;
+            }
+        })());
+        return;
+    }
+
+    if (isCdn(url)) {
+        // Cache-first voor vaste CDN-bestanden.
+        event.respondWith((async () => {
+            const c = await caches.open(CDN_CACHE);
+            const hit = await c.match(req);
+            if (hit) return hit;
+            const res = await fetch(req);
+            if (res && (res.ok || res.type === 'opaque')) c.put(req, res.clone());
+            return res;
+        })());
+    }
 });
 
-// Klik op een melding (bv. "product X is bijna over datum") opent/focust de app.
+// Klik op een melding opent of focust de app.
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-            for (const client of clientList) {
-                if ('focus' in client) return client.focus();
-            }
-            if (clients.openWindow) return clients.openWindow('./');
-        })
-    );
+    event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+        for (const c of list) if ('focus' in c) return c.focus();
+        return self.clients.openWindow('./');
+    }));
 });

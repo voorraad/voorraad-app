@@ -1,20 +1,19 @@
 {
   "name": "Voorraad.",
-  "short_name": "Voorraad.",
-  "start_url": "index.html",
+  "short_name": "Voorraad",
+  "description": "Weet wat er in je vriezer, frigo en kast zit, en gooi minder weg.",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2563EB",
+  "background_color": "#fafaf9",
+  "theme_color": "#0d9488",
+  "lang": "nl",
   "icons": [
-    {
-      "src": "icon_192x192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icon_512x512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+    { "src": "icon_192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon_512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Overzicht", "url": "./#/overzicht" },
+    { "name": "Boodschappenlijst", "url": "./#/lijst" }
   ]
 }
