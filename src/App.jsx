@@ -102,7 +102,7 @@ function Shell() {
 
             {/* Kopbalk */}
             <header className="sticky top-0 z-30 bg-stone-50/85 dark:bg-stone-950/85 backdrop-blur-md print:hidden pt-[env(safe-area-inset-top)]">
-                <div className={cx('mx-auto px-4 h-14 flex items-center gap-2', page === 'voorraad' ? 'max-w-7xl' : 'max-w-5xl')}>
+                <div className={cx('mx-auto px-4 h-14 flex items-center gap-2', 'max-w-7xl')}>
                     {sub ? <IconButton icon="ChevronLeft" label="Terug" onClick={() => go('meer')} className="-ml-2" />
                         : <IconButton icon="Menu" label="Menu openen" onClick={() => setDrawer(true)} className="-ml-2" />}
                     <h1 className={cx('text-xl font-bold text-stone-900 dark:text-white truncate', (page === 'voorraad' || page === 'lijst') && !sub && 'lg:hidden')}>{title}</h1>
@@ -123,7 +123,7 @@ function Shell() {
                 </div>
             </header>
 
-            <main className={cx('mx-auto px-4 pt-2 pb-32 lg:pb-12', page === 'voorraad' ? 'max-w-7xl' : 'max-w-5xl')}>
+            <main className={cx('mx-auto px-4 pt-2 pb-32 lg:pb-12', 'max-w-7xl')}>
                 {page === 'voorraad' && <Stock />}
                 {page === 'lijst' && <Shopping />}
                 {page === 'menu' && <Menu />}
@@ -270,7 +270,11 @@ function CenterCard({ children }) {
 }
 
 function Splash() {
-    return <CenterCard><div className="animate-pulse"><Logo /></div></CenterCard>;
+    return (
+        <div className="min-h-dvh flex items-center justify-center bg-stone-50 dark:bg-stone-950">
+            <img src="./icon_192x192.png" alt="Voorraad wordt geladen" className="w-16 h-16 rounded-2xl animate-pulse" />
+        </div>
+    );
 }
 
 function Login() {
