@@ -23,7 +23,7 @@ export function Statistieken() {
 
     return (
         <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <Stat label="Producten in huis" value={items.length} />
                 <Stat label="Voorraadwaarde" value={euro(value)} />
                 <Stat label="Opgegeten" value={stats.consumed} sub={stats.consumedValue ? euro(stats.consumedValue) : null} tone="text-emerald-600" />

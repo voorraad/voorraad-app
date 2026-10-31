@@ -29,7 +29,7 @@ export default function More() {
     const { route } = useUi();
     const { isAdmin } = useStore();
     const sp = SUBPAGES[route.sub];
-    if (sp && (!sp.admin || isAdmin)) return <div className="max-w-2xl"><sp.C /></div>;
+    if (sp && (!sp.admin || isAdmin)) return <sp.C />;
     return <MoreHome />;
 }
 
@@ -56,7 +56,7 @@ function MoreHome() {
     const run = async (fn, okMsg) => { try { await fn(); if (okMsg) actions.notify(okMsg); } catch (e) { actions.notify(e.message || 'Er ging iets mis', 'error'); } };
 
     return (
-        <div className="max-w-2xl space-y-5">
+        <div className="space-y-5">
             <Card className="p-4 flex items-center gap-4">
                 {user.photoURL ? <img src={user.photoURL} alt="" className="w-14 h-14 rounded-full object-cover" referrerPolicy="no-referrer" />
                     : <span className="w-14 h-14 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-xl font-bold">{(user.displayName || user.email || '?')[0].toUpperCase()}</span>}
@@ -67,6 +67,7 @@ function MoreHome() {
                 {isAdmin && <span className="text-xs font-bold px-2 py-1 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300">Admin</span>}
             </Card>
 
+            <div className="grid gap-5 items-start md:grid-cols-2 xl:grid-cols-3">
             {accounts.length > 1 && (
                 <Group title="Voorraad">
                     {accounts.map(a => (
@@ -130,7 +131,9 @@ function MoreHome() {
                 </Group>
             )}
 
-            <Card className="overflow-hidden">
+            </div>
+
+            <Card className="overflow-hidden md:max-w-sm">
                 <Row icon="LogOut" title="Uitloggen" danger onClick={actions.logout} right={null} />
             </Card>
             <p className="text-center text-xs text-stone-400 pb-4">Voorraad · versie {APP_VERSION}</p>

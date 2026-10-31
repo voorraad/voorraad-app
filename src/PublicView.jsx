@@ -38,18 +38,18 @@ export default function PublicView({ token }) {
     );
     return (
         <div className="min-h-dvh">
-            <header className="sticky top-0 bg-white/90 dark:bg-stone-900/90 backdrop-blur border-b border-stone-200 dark:border-stone-800 px-4 py-3">
+            <header className="sticky top-0 bg-white/90 dark:bg-stone-900/90 backdrop-blur border-b border-stone-200 dark:border-stone-800 py-3"><div className="max-w-7xl mx-auto px-4">
                 <p className="font-extrabold text-lg">Voorraad<span className="text-teal-600">.</span></p>
                 <p className="text-xs text-stone-500">Voorraad van {state.label} · alleen bekijken</p>
-            </header>
-            <main className="max-w-2xl mx-auto p-4 space-y-6">
+            </div></header>
+            <main className="max-w-7xl mx-auto p-4 space-y-6">
                 {TYPES.map(t => {
                     const locs = sortLocaties(state.vriezers.filter(v => (v.type || 'vriezer') === t.id)).filter(l => state.items.some(i => i.vriezerId === l.id));
                     if (!locs.length) return null;
                     return (
                         <section key={t.id}>
                             <h2 className="text-[13px] font-semibold uppercase tracking-wide text-stone-500 mb-2 flex items-center gap-1.5"><Icon name={t.icon} size={14} />{t.label}</h2>
-                            <div className="space-y-3">
+                            <div className="grid gap-3 items-start md:grid-cols-2 xl:grid-cols-3">
                                 {locs.map(l => (
                                     <div key={l.id} className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 overflow-hidden">
                                         <p className="px-4 pt-3 pb-1 font-semibold">{l.naam}</p>
