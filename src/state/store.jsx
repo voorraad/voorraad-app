@@ -251,7 +251,8 @@ export function StoreProvider({ children }) {
 
         // Gebruik een deel van een product. Geeft true terug als het product daarmee op is
         // (dan moet de UI de verwijder-dialoog tonen).
-        async consume(item, amount) {
+        // reason: 'consumed' (opgegeten) | 'wasted' (weggegooid) | 'other' (foutje/anders, telt niet mee)
+        async consume(item, amount, reason = 'consumed') {
             const current = num(item.aantal, 1);
             amount = Math.min(num(amount), current);
             if (amount <= 0) return false;
@@ -260,14 +261,15 @@ export function StoreProvider({ children }) {
             const prijs = num(item.prijs);
             const usedValue = prijs * (amount / current);
             await db.collection('items').doc(item.id).update({ aantal: newAantal, prijs: item.prijs == null ? null : round2(prijs - usedValue) });
-            bumpStats('consumed', 1, usedValue);
-            log('Geconsumeerd', item.naam, `- ${amount} ${item.eenheid}`);
-            notify(`${formatAantal(amount)} ${item.eenheid} ${item.naam} gebruikt`, 'success', {
+            if (reason !== 'other') bumpStats(reason, 1, usedValue);
+            const verb = reason === 'wasted' ? 'weggegooid' : reason === 'other' ? 'afgetrokken' : 'gebruikt';
+            log(reason === 'consumed' ? 'Geconsumeerd' : 'Bewerkt', item.naam, `- ${amount} ${item.eenheid}${reason === 'wasted' ? ' (weggegooid)' : reason === 'other' ? ' (foutje/anders)' : ''}`);
+            notify(`${formatAantal(amount)} ${item.eenheid} ${item.naam} ${verb}`, 'success', {
                 label: 'Ongedaan',
                 fn: async () => {
                     await db.collection('items').doc(item.id).update({ aantal: current, prijs: item.prijs == null ? null : prijs });
-                    bumpStats('consumed', -1, -usedValue);
-                    log('Bewerkt', item.naam, 'Gebruik ongedaan gemaakt');
+                    if (reason !== 'other') bumpStats(reason, -1, -usedValue);
+                    log('Bewerkt', item.naam, 'Ongedaan gemaakt');
                 }
             });
             actions.checkMinimum({ ...item, aantal: newAantal });
