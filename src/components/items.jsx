@@ -152,14 +152,21 @@ function ActionTile({ icon, label, onClick }) {
     );
 }
 
+const REASONS = [
+    { id: 'consumed', label: 'Opgegeten', icon: 'Utensils', on: 'border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-950/40 dark:text-orange-200' },
+    { id: 'wasted', label: 'Weggegooid', icon: 'Trash', on: 'border-red-500 bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300' },
+    { id: 'other', label: 'Foutje / anders', icon: 'X', on: 'border-stone-500 bg-stone-100 text-stone-800 dark:bg-stone-800 dark:text-stone-100' }
+];
+
 // Kies zelf hoeveel je opeet/gebruikt (per ¼). Ongedaan maken blijft mogelijk via de melding.
 export function ConsumeSheet() {
     const { consumeFor, closeConsume, openRemove } = useUi();
     const { items, actions } = useStore();
     const item = consumeFor && (items.find(i => i.id === consumeFor.id) || consumeFor);
     const [amount, setAmount] = useState(1);
+    const [reason, setReason] = useState('consumed');
     const [busy, setBusy] = useState(false);
-    useEffect(() => { if (consumeFor) setAmount(Math.min(1, num(consumeFor.aantal, 1))); }, [consumeFor && consumeFor.id]);
+    useEffect(() => { if (consumeFor) { setAmount(Math.min(1, num(consumeFor.aantal, 1))); setReason('consumed'); } }, [consumeFor && consumeFor.id]);
     if (!item) return null;
     const max = num(item.aantal, 1);
     const val = Math.min(max, Math.max(0, num(amount)));
@@ -168,14 +175,14 @@ export function ConsumeSheet() {
         if (val <= 0) return;
         setBusy(true);
         try {
-            if (all) { closeConsume(); openRemove({ item, reason: 'consumed' }); return; }
-            await actions.consume(item, val);
+            if (all) { closeConsume(); openRemove({ item, reason }); return; }
+            await actions.consume(item, val, reason);
             closeConsume();
         } finally { setBusy(false); }
     };
     const quick = [0.25, 0.5, 1, 2].filter(q => q < max);
     return (
-        <Sheet open onClose={closeConsume} size="sm" title={`${item.naam}`} subtitle={`Je hebt ${formatAantal(item.aantal)} ${item.eenheid}. Hoeveel gebruik je?`}>
+        <Sheet open onClose={closeConsume} size="sm" title={`${item.naam}`} subtitle={`Je hebt ${formatAantal(item.aantal)} ${item.eenheid}. Hoeveel haal je eraf?`}>
             <form onSubmit={e => { e.preventDefault(); go(); }}>
                 <div className="flex items-center gap-3">
                     <Stepper value={amount} onChange={setAmount} min={0.25} max={max} step={0.25} className="flex-1" />
@@ -189,11 +196,21 @@ export function ConsumeSheet() {
                     <button type="button" onClick={() => setAmount(max)}
                         className={cx('h-9 px-3.5 rounded-full text-sm font-semibold', all ? 'bg-orange-500 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200 dark:bg-stone-800 dark:text-stone-200')}>Alles ({formatAantal(max)})</button>
                 </div>
+                <p className="text-xs font-semibold text-stone-500 mt-5 mb-1.5">Wat is er mee gebeurd?</p>
+                <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Reden">
+                    {REASONS.map(r => (
+                        <button key={r.id} type="button" role="radio" aria-checked={reason === r.id} onClick={() => setReason(r.id)}
+                            className={cx('h-16 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors',
+                                reason === r.id ? r.on : 'border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300')}>
+                            <Icon name={r.icon} size={18} />{r.label}
+                        </button>
+                    ))}
+                </div>
                 <div className="flex gap-2 mt-5">
                     <Button variant="secondary" className="flex-1" onClick={closeConsume}>Annuleren</Button>
                     <button type="submit" disabled={busy || val <= 0}
-                        className="flex-1 h-11 rounded-xl font-semibold bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center gap-2 disabled:opacity-50">
-                        <Icon name="Utensils" size={18} />{all ? 'Alles op' : `${formatAantal(val)} gebruiken`}
+                        className={cx('flex-1 h-11 rounded-xl font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-50', reason === 'wasted' ? 'bg-red-600 hover:bg-red-700' : reason === 'other' ? 'bg-stone-700 hover:bg-stone-800' : 'bg-orange-500 hover:bg-orange-600')}>
+                        <Icon name={REASONS.find(r => r.id === reason).icon} size={18} />{all ? (reason === 'consumed' ? 'Alles op' : 'Alles weg') : `${formatAantal(val)} ${reason === 'consumed' ? 'gebruiken' : reason === 'wasted' ? 'weggooien' : 'aftrekken'}`}
                     </button>
                 </div>
             </form>
