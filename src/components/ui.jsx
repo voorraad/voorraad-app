@@ -125,7 +125,7 @@ export function Stepper({ value, onChange, min = 0, max = 5000, step, className,
     return (
         <div className={cx('flex items-stretch rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 overflow-hidden', h, className)}>
             <button type="button" aria-label="Minder" onClick={() => set(v - stepFor(-1))} className="w-10 flex items-center justify-center text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-700 active:bg-stone-200"><Icon name="Minus" size={16} /></button>
-            <input inputMode="decimal" value={value} onChange={e => onChange(e.target.value.replace(',', '.'))} onBlur={() => set(v)}
+            <input inputMode="decimal" value={String(value ?? '').replace('.', ',')} onChange={e => onChange(e.target.value.replace(',', '.'))} onBlur={() => set(v)}
                 className="w-14 flex-1 min-w-0 text-center bg-transparent font-semibold text-stone-900 dark:text-stone-100 outline-none" />
             <button type="button" aria-label="Meer" onClick={() => set(v + stepFor(1))} className="w-10 flex items-center justify-center text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-700 active:bg-stone-200"><Icon name="Plus" size={16} /></button>
         </div>

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { db, auth, GoogleAuthProvider, serverTimestamp, increment, runBatched } from '../lib/firebase.js';
 import { CATEGORIEEN_VRIES, DEFAULT_TOUR_STEPS, MENU_LOCATION_ID, UNIT_FIELD } from '../lib/constants.js';
-import { isMenuEntry, num, round2, randomToken, sortLocaties, todayKey, emojiForCategory, normalize } from '../lib/utils.js';
+import { isMenuEntry, num, round2, randomToken, sortLocaties, todayKey, emojiForCategory, normalize, formatAantal } from '../lib/utils.js';
 
 const StoreCtx = createContext(null);
 export const useStore = () => useContext(StoreCtx);
@@ -262,7 +262,7 @@ export function StoreProvider({ children }) {
             await db.collection('items').doc(item.id).update({ aantal: newAantal, prijs: item.prijs == null ? null : round2(prijs - usedValue) });
             bumpStats('consumed', 1, usedValue);
             log('Geconsumeerd', item.naam, `- ${amount} ${item.eenheid}`);
-            notify(`${amount} ${item.eenheid} ${item.naam} gebruikt`, 'success', {
+            notify(`${formatAantal(amount)} ${item.eenheid} ${item.naam} gebruikt`, 'success', {
                 label: 'Ongedaan',
                 fn: async () => {
                     await db.collection('items').doc(item.id).update({ aantal: current, prijs: item.prijs == null ? null : prijs });

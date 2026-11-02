@@ -12,7 +12,7 @@ import {
 // Eén product in een lijst.
 export function ItemRow({ item, type, showWhere, selectable, selected, onToggle, compact }) {
     const { locById, ladeById, owner, actions } = useStore();
-    const { openItem, openRemove } = useUi();
+    const { openItem, openConsume } = useUi();
     const st = itemStatus(item, type);
     const cat = categoriesFor(owner.customCategories, type).find(c => c.name === item.categorie);
     const loc = locById[item.vriezerId];
@@ -22,12 +22,7 @@ export function ItemRow({ item, type, showWhere, selectable, selected, onToggle,
     if (showWhere) meta.push(`${loc ? loc.naam : '?'}${lade ? ' › ' + lade.naam : ''}`);
     else if (type === 'vriezer' && st.kind !== 'age' && item.ingevrorenOp) meta.push(`ingevroren ${formatDate(item.ingevrorenOp)}`);
 
-    const quickUse = async (e) => {
-        e.stopPropagation();
-        const a = num(item.aantal, 1);
-        if (a <= 1) { openRemove({ item, reason: 'consumed' }); return; }
-        await actions.consume(item, 1);
-    };
+    const quickUse = (e) => { e.stopPropagation(); openConsume(item); };
 
     return (
         <li className={cx('relative flex items-center gap-3 pl-4 pr-2 py-2.5 cursor-pointer select-none transition-colors',
@@ -55,7 +50,7 @@ export function ItemRow({ item, type, showWhere, selectable, selected, onToggle,
                 {!compact && item.notitie && <p className="text-xs text-stone-400 dark:text-stone-500 truncate italic mt-0.5">{item.notitie}</p>}
             </div>
             {!selectable && (
-                <button type="button" onClick={quickUse} aria-label={`Eén ${item.eenheid} ${item.naam} gebruiken`} title="Eén opeten / gebruiken"
+                <button type="button" onClick={quickUse} aria-label={`${item.naam} opeten of gebruiken`} title="Opeten / gebruiken"
                     className="w-10 h-10 rounded-full flex items-center justify-center bg-orange-500 text-white shadow-sm shadow-orange-500/30 hover:bg-orange-600 active:scale-90 transition flex-shrink-0 print:hidden">
                     <Icon name="Utensils" size={18} strokeWidth={2.2} />
                 </button>
@@ -118,7 +113,7 @@ export function ItemSheet() {
             </div>
 
             <div className="mt-5 p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/60 flex items-center gap-2">
-                <Stepper value={amount} onChange={setAmount} min={0.25} max={num(item.aantal, 1)} className="w-36 flex-shrink-0" />
+                <Stepper value={amount} onChange={setAmount} min={0.25} max={num(item.aantal, 1)} step={0.25} className="w-36 flex-shrink-0" />
                 <span className="text-sm text-stone-500 truncate flex-1">{item.eenheid}</span>
                 <Button onClick={use} disabled={busy} icon={all ? 'Check' : 'Minus'}>{all ? 'Alles op' : 'Gebruik'}</Button>
             </div>
@@ -154,5 +149,54 @@ function ActionTile({ icon, label, onClick }) {
         <button type="button" onClick={onClick} className="flex flex-col items-center justify-center gap-1 h-16 rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 text-xs font-semibold">
             <Icon name={icon} size={20} />{label}
         </button>
+    );
+}
+
+// Kies zelf hoeveel je opeet/gebruikt (per ¼). Ongedaan maken blijft mogelijk via de melding.
+export function ConsumeSheet() {
+    const { consumeFor, closeConsume, openRemove } = useUi();
+    const { items, actions } = useStore();
+    const item = consumeFor && (items.find(i => i.id === consumeFor.id) || consumeFor);
+    const [amount, setAmount] = useState(1);
+    const [busy, setBusy] = useState(false);
+    useEffect(() => { if (consumeFor) setAmount(Math.min(1, num(consumeFor.aantal, 1))); }, [consumeFor && consumeFor.id]);
+    if (!item) return null;
+    const max = num(item.aantal, 1);
+    const val = Math.min(max, Math.max(0, num(amount)));
+    const all = val >= max;
+    const go = async () => {
+        if (val <= 0) return;
+        setBusy(true);
+        try {
+            if (all) { closeConsume(); openRemove({ item, reason: 'consumed' }); return; }
+            await actions.consume(item, val);
+            closeConsume();
+        } finally { setBusy(false); }
+    };
+    const quick = [0.25, 0.5, 1, 2].filter(q => q < max);
+    return (
+        <Sheet open onClose={closeConsume} size="sm" title={`${item.naam}`} subtitle={`Je hebt ${formatAantal(item.aantal)} ${item.eenheid}. Hoeveel gebruik je?`}>
+            <form onSubmit={e => { e.preventDefault(); go(); }}>
+                <div className="flex items-center gap-3">
+                    <Stepper value={amount} onChange={setAmount} min={0.25} max={max} step={0.25} className="flex-1" />
+                    <span className="text-stone-500 w-16 truncate">{item.eenheid}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                    {quick.map(q => (
+                        <button key={q} type="button" onClick={() => setAmount(q)}
+                            className={cx('h-9 px-3.5 rounded-full text-sm font-semibold', val === q ? 'bg-orange-500 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200 dark:bg-stone-800 dark:text-stone-200')}>{formatAantal(q)}</button>
+                    ))}
+                    <button type="button" onClick={() => setAmount(max)}
+                        className={cx('h-9 px-3.5 rounded-full text-sm font-semibold', all ? 'bg-orange-500 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200 dark:bg-stone-800 dark:text-stone-200')}>Alles ({formatAantal(max)})</button>
+                </div>
+                <div className="flex gap-2 mt-5">
+                    <Button variant="secondary" className="flex-1" onClick={closeConsume}>Annuleren</Button>
+                    <button type="submit" disabled={busy || val <= 0}
+                        className="flex-1 h-11 rounded-xl font-semibold bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center gap-2 disabled:opacity-50">
+                        <Icon name="Utensils" size={18} />{all ? 'Alles op' : `${formatAantal(val)} gebruiken`}
+                    </button>
+                </div>
+            </form>
+        </Sheet>
     );
 }
