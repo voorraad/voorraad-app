@@ -55,9 +55,9 @@ export function ItemRow({ item, type, showWhere, selectable, selected, onToggle,
                 {!compact && item.notitie && <p className="text-xs text-stone-400 dark:text-stone-500 truncate italic mt-0.5">{item.notitie}</p>}
             </div>
             {!selectable && (
-                <button type="button" onClick={quickUse} aria-label={`Eén ${item.eenheid} ${item.naam} gebruiken`} title="Eén gebruiken"
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-stone-400 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-950/60 dark:hover:text-teal-300 flex-shrink-0 print:hidden">
-                    <Icon name="Minus" size={18} strokeWidth={2.5} />
+                <button type="button" onClick={quickUse} aria-label={`Eén ${item.eenheid} ${item.naam} gebruiken`} title="Eén opeten / gebruiken"
+                    className="w-10 h-10 rounded-full flex items-center justify-center bg-orange-500 text-white shadow-sm shadow-orange-500/30 hover:bg-orange-600 active:scale-90 transition flex-shrink-0 print:hidden">
+                    <Icon name="Utensils" size={18} strokeWidth={2.2} />
                 </button>
             )}
         </li>
