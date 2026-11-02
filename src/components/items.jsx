@@ -12,7 +12,7 @@ import {
 // Eén product in een lijst.
 export function ItemRow({ item, type, showWhere, selectable, selected, onToggle, compact }) {
     const { locById, ladeById, owner, actions } = useStore();
-    const { openItem, openConsume } = useUi();
+    const { openItem, openConsume, openForm } = useUi();
     const st = itemStatus(item, type);
     const cat = categoriesFor(owner.customCategories, type).find(c => c.name === item.categorie);
     const loc = locById[item.vriezerId];
@@ -49,6 +49,12 @@ export function ItemRow({ item, type, showWhere, selectable, selected, onToggle,
                 </div>
                 {!compact && item.notitie && <p className="text-xs text-stone-400 dark:text-stone-500 truncate italic mt-0.5">{item.notitie}</p>}
             </div>
+            {!selectable && (
+                <button type="button" onClick={(e) => { e.stopPropagation(); openForm({ item }); }} aria-label={`${item.naam} bewerken`} title="Bewerken"
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-stone-500 bg-stone-100 hover:bg-stone-200 hover:text-stone-800 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700 active:scale-90 transition flex-shrink-0 print:hidden">
+                    <Icon name="Edit" size={17} />
+                </button>
+            )}
             {!selectable && (
                 <button type="button" onClick={quickUse} aria-label={`${item.naam} opeten of gebruiken`} title="Opeten / gebruiken"
                     className="w-10 h-10 rounded-full flex items-center justify-center bg-orange-500 text-white shadow-sm shadow-orange-500/30 hover:bg-orange-600 active:scale-90 transition flex-shrink-0 print:hidden">
