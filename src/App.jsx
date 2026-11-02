@@ -3,7 +3,7 @@ import Icon from './lib/icons.jsx';
 import { useStore } from './state/store.jsx';
 import { useUi } from './state/ui.jsx';
 import { Toast, Button, IconButton, Sheet } from './components/ui.jsx';
-import { ItemSheet } from './components/items.jsx';
+import { ItemSheet, ConsumeSheet } from './components/items.jsx';
 import ItemForm from './components/ItemForm.jsx';
 import AuditSheet from './components/AuditSheet.jsx';
 import { ConfirmDialog, PromptDialog, RemoveDialog, MoveSheet, PlanSheet, NewsSheet, Tour } from './components/dialogs.jsx';
@@ -171,6 +171,7 @@ function Shell() {
             <ItemSheet />
             <AuditSheet />
             <ItemForm />
+            <ConsumeSheet />
             <RemoveDialog />
             <MoveSheet />
             <PlanSheet />

@@ -25,6 +25,7 @@ export function UiProvider({ children }) {
     const [itemId, setItemId] = useState(null);
     const [form, setForm] = useState(null);
     const [removeFor, setRemoveFor] = useState(null);
+    const [consumeFor, setConsumeFor] = useState(null);
     const [moveIds, setMoveIds] = useState(null);
     const [plan, setPlan] = useState(null);
     const [auditLadeId, setAuditLadeId] = useState(null);
@@ -41,6 +42,7 @@ export function UiProvider({ children }) {
         itemId, openItem: setItemId, closeItem: () => setItemId(null),
         form, openForm: setForm, closeForm: () => setForm(null),
         removeFor, openRemove: setRemoveFor, closeRemove: () => setRemoveFor(null),
+        consumeFor, openConsume: setConsumeFor, closeConsume: () => setConsumeFor(null),
         moveIds, openMove: setMoveIds, closeMove: () => setMoveIds(null),
         plan, openPlan: setPlan, closePlan: () => setPlan(null),
         auditLadeId, openAudit: setAuditLadeId, closeAudit: () => setAuditLadeId(null),
