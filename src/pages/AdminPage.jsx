@@ -39,7 +39,7 @@ export default function AdminPage() {
                     </span>
                     <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-200">Beheer</span>
                     <div className="flex-1" />
-                    <Button size="sm" variant="soft" icon="Box" onClick={() => go('voorraad')}><span className="hidden sm:inline">Naar de app</span><span className="sm:hidden">App</span></Button>
+                    <Button size="sm" icon="Home" onClick={() => { actions.switchAccount(user.uid, true); go('voorraad'); }}>Mijn voorraad</Button>
                     <IconButton icon={me.darkMode ? 'Sun' : 'Moon'} label="Thema wisselen" onClick={actions.toggleDark} />
                     <IconButton icon="LogOut" label="Uitloggen" onClick={actions.logout} />
                 </div>
