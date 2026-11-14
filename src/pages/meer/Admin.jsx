@@ -7,7 +7,7 @@ import { Card, Button, Toggle, Select, Input, Textarea, Field, IconButton, Empty
 import { TYPES, TOUR_COLORS, TOUR_TONE, DEFAULT_TOUR_STEPS } from '../../lib/constants.js';
 import { cx, formatDateTime, sortLocaties, byName, emojiFor, formatAantal, smartMatch } from '../../lib/utils.js';
 
-const TAB_OPTIONS = [['frig', 'Frigo'], ['voorraad', 'Stock'], ['weekmenu', 'Weekmenu'], ['recepten', 'Recepten'], ['balans', 'Controle-knop']];
+export const TAB_OPTIONS = [['frig', 'Frigo'], ['voorraad', 'Stock'], ['weekmenu', 'Weekmenu'], ['recepten', 'Recepten'], ['balans', 'Controle-knop']];
 
 export function Gebruikers() {
     const { actions } = useStore();

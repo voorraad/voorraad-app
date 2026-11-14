@@ -5,7 +5,7 @@ import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
 import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select } from '../components/ui.jsx';
 import Stock from './Stock.jsx';
-import { UserRights, TourEditor } from './meer/Admin.jsx';
+import { UserRights, TourEditor, TAB_OPTIONS } from './meer/Admin.jsx';
 import { Logboek, Statistieken, logTone } from './meer/Inzicht.jsx';
 import { Locaties, Categorieen, Eenheden } from './meer/Beheer.jsx';
 import Shopping from './Shopping.jsx';
@@ -342,18 +342,18 @@ function AdminUser() {
             {/* Profiel van de gebruiker */}
             <Card className="p-4">
                 <div className="flex flex-wrap items-start gap-4">
-                    <span className="w-12 h-12 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-200 flex items-center justify-center text-lg font-bold">{(u.email || u.displayName || '?')[0].toUpperCase()}</span>
+                    <span className="w-12 h-12 flex-shrink-0 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-200 flex items-center justify-center text-lg font-bold">{(u.email || u.displayName || '?')[0].toUpperCase()}</span>
                     <div className="min-w-0 flex-1">
                         <p className="font-bold text-lg truncate">{u.displayName || u.email || 'Gebruiker'}</p>
                         <p className="text-sm text-stone-500 truncate">{u.email}</p>
                         <div className="flex flex-wrap gap-1.5 mt-2 text-[11px] font-bold">
                             {isAdminUser && <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-200">Admin</span>}
                             {u.disabled ? <span className="px-2 py-0.5 rounded bg-red-100 text-red-700">Geblokkeerd</span> : <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">Actief</span>}
-                            {(u.hiddenTabs || []).map(t => <span key={t} className="px-2 py-0.5 rounded bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300">verborgen: {t}</span>)}
+                            {(u.hiddenTabs || []).length > 0 && <span className="px-2 py-0.5 rounded bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300 inline-flex items-center gap-1"><Icon name="Lock" size={11} />Verborgen: {(u.hiddenTabs || []).map(t => (TAB_OPTIONS.find(o => o[0] === t) || [t, t])[1]).join(', ')}</span>}
                             {u.publicShareEnabled && <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">bekijk-link aan</span>}
                         </div>
                     </div>
-                    <div className="text-xs text-stone-500 space-y-0.5 sm:text-right">
+                    <div className="w-full sm:w-auto text-xs text-stone-500 space-y-0.5 sm:text-right">
                         <p>Laatst gezien: <b className="text-stone-700 dark:text-stone-200">{u.laatstGezien ? formatDateTime(u.laatstGezien) : 'nooit'}</b></p>
                         <p className="font-mono break-all">{u.id}</p>
                     </div>
