@@ -20,7 +20,7 @@ export default function Menu() {
 }
 
 // ---------------- Weekmenu ----------------
-function Week() {
+export function Week() {
     const { items, menuEntries, recepten, actions } = useStore();
     const { openPlan, openItem } = useUi();
     const [offset, setOffset] = useState(0);
@@ -82,7 +82,7 @@ function Week() {
 // ---------------- Recepten ----------------
 const emptyRecipe = () => ({ naam: '', fotoUrl: '', personen: 4, categorie: 'Hoofdgerecht', ingredienten: [{ naam: '', aantal: '', eenheid: 'gram' }], stappen: [''] });
 
-function Recipes() {
+export function Recipes() {
     const { recepten, items } = useStore();
     const [view, setView] = useState(null);
     const [edit, setEdit] = useState(null); // {data, id}

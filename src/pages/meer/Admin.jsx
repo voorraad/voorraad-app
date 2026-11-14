@@ -58,24 +58,8 @@ export function UserList({ extra, onNavigate, autoFocus, dashPath = 'meer/dashbo
                                 <IconButton icon={isOpen ? 'ChevronUp' : 'Settings'} label="Rechten bewerken" onClick={() => setOpen(isOpen ? null : u.id)} className={cx(isOpen && 'bg-stone-100 dark:bg-stone-800')} />
                             </div>
                             {isOpen && (
-                                <div className="px-4 pb-4 space-y-3 bg-stone-50/70 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
-                                    <div className="pt-3">
-                                        <p className="text-xs font-semibold text-stone-500 mb-1.5">Verborgen onderdelen</p>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {TAB_OPTIONS.map(([id, lbl]) => <Chip key={id} active={(u.hiddenTabs || []).includes(id)} onClick={() => toggleTab(u, id)}>{(u.hiddenTabs || []).includes(id) && <Icon name="Lock" size={12} />}{lbl}</Chip>)}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <Toggle checked={!!u.showBalans} onChange={c => actions.setUserField(u.id, { showBalans: c })} label="Controle-modus aan" />
-                                        <Toggle checked={!!u.showHelpButton} onChange={c => actions.setUserField(u.id, { showHelpButton: c })} label="Hulpknop tonen" description="Toont een ?-knop bovenaan om de rondleiding te openen" />
-                                        <Toggle checked={!!u.tourDisabled} onChange={c => actions.setUserField(u.id, { tourDisabled: c })} label="Rondleiding uitschakelen" />
-                                        <Toggle checked={u.notificationsEnabled !== false} onChange={c => actions.setUserField(u.id, { notificationsEnabled: c })} label="Meldingen toestaan" />
-                                        {u.id !== user.uid && <Toggle checked={!!u.disabled} onChange={c => actions.setUserField(u.id, { disabled: c })} label="Account blokkeren" description="De gebruiker kan de app niet meer gebruiken" />}
-                                    </div>
-                                    <div className="flex items-center justify-between gap-2">
-                                        <Button size="sm" variant="ghost" icon="Help" onClick={() => { actions.setUserField(u.id, { hasSeenTutorial: false, tourDisabled: false }); actions.notify('Rondleiding staat klaar'); }}>Toon tour opnieuw</Button>
-                                        <p className="text-[11px] font-mono text-stone-400 truncate">{u.id}</p>
-                                    </div>
+                                <div className="px-4 pb-4 bg-stone-50/70 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
+                                    <UserRights u={u} />
                                 </div>
                             )}
                         </div>
@@ -84,6 +68,37 @@ export function UserList({ extra, onNavigate, autoFocus, dashPath = 'meer/dashbo
                 {list.length === 0 && <p className="p-4 text-sm text-stone-500">Geen gebruikers gevonden.</p>}
             </Card>
         </>
+    );
+}
+
+// Alle rechten/instellingen van één gebruiker.
+export function UserRights({ u }) {
+    const { user, actions } = useStore();
+    const toggleTab = (tab) => {
+        const hidden = u.hiddenTabs || [];
+        actions.setUserField(u.id, { hiddenTabs: hidden.includes(tab) ? hidden.filter(t => t !== tab) : [...hidden, tab] });
+    };
+    return (
+        <div className="space-y-3">
+            <div className="pt-3">
+                <p className="text-xs font-semibold text-stone-500 mb-1.5">Verborgen onderdelen</p>
+                <div className="flex flex-wrap gap-1.5">
+                    {TAB_OPTIONS.map(([id, lbl]) => <Chip key={id} active={(u.hiddenTabs || []).includes(id)} onClick={() => toggleTab(id)}>{(u.hiddenTabs || []).includes(id) && <Icon name="Lock" size={12} />}{lbl}</Chip>)}
+                </div>
+            </div>
+            <div>
+                <Toggle checked={!!u.showBalans} onChange={c => actions.setUserField(u.id, { showBalans: c })} label="Controle-modus aan" />
+                <Toggle checked={!!u.showHelpButton} onChange={c => actions.setUserField(u.id, { showHelpButton: c })} label="Hulpknop tonen" description="Toont een ?-knop bovenaan om de rondleiding te openen" />
+                <Toggle checked={!!u.tourDisabled} onChange={c => actions.setUserField(u.id, { tourDisabled: c })} label="Rondleiding uitschakelen" />
+                <Toggle checked={u.notificationsEnabled !== false} onChange={c => actions.setUserField(u.id, { notificationsEnabled: c })} label="Meldingen toestaan" />
+                <Toggle checked={!!u.darkMode} onChange={c => actions.setUserField(u.id, { darkMode: c })} label="Donker thema" />
+                {u.id !== user.uid && <Toggle checked={!!u.disabled} onChange={c => actions.setUserField(u.id, { disabled: c })} label="Account blokkeren" description="De gebruiker kan de app niet meer gebruiken" />}
+            </div>
+            <div className="flex items-center justify-between gap-2">
+                <Button size="sm" variant="ghost" icon="Help" onClick={() => { actions.setUserField(u.id, { hasSeenTutorial: false, tourDisabled: false }); actions.notify('Rondleiding staat klaar'); }}>Toon tour opnieuw</Button>
+                <p className="text-[11px] font-mono text-stone-400 truncate">{u.id}</p>
+            </div>
+        </div>
     );
 }
 
