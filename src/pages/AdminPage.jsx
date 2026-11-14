@@ -18,10 +18,10 @@ import { cx, formatDateTime, toDate, itemStatus, isMenuEntry, smartMatch, status
 // Aparte beheerpagina voor admins (#/admin). Admins komen hier na het inloggen terecht.
 const TABS = [
     { id: 'overzicht', label: 'Overzicht', icon: 'Dashboard' },
-    { id: 'dashboard', label: 'Per gebruiker', icon: 'User' },
+    { id: 'dashboard', label: 'Per gebruiker', short: 'Gebruiker', icon: 'User' },
     { id: 'verlopen', label: 'Verlopen', icon: 'Alert' },
     { id: 'logboek', label: 'Logboek', icon: 'Log' },
-    { id: 'app', label: 'App-instellingen', icon: 'Settings' }
+    { id: 'app', label: 'App-instellingen', short: 'Instellingen', icon: 'Settings' }
 ];
 
 export default function AdminPage() {
@@ -43,7 +43,7 @@ export default function AdminPage() {
                     <IconButton icon={me.darkMode ? 'Sun' : 'Moon'} label="Thema wisselen" onClick={actions.toggleDark} />
                     <IconButton icon="LogOut" label="Uitloggen" onClick={actions.logout} />
                 </div>
-                <nav className="max-w-7xl mx-auto px-2 flex flex-wrap gap-1 pb-2">
+                <nav className="hidden lg:flex max-w-7xl mx-auto px-2 flex-wrap gap-1 pb-2">
                     {TABS.map(t => (
                         <a key={t.id} href={'#/admin/' + t.id}
                             className={cx('h-10 px-3.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors',
@@ -53,7 +53,7 @@ export default function AdminPage() {
                     ))}
                 </nav>
             </header>
-            <main className="max-w-7xl mx-auto px-4 pt-4 pb-16">
+            <main className="max-w-7xl mx-auto px-4 pt-4 pb-28 lg:pb-16">
                 {tab === 'overzicht' && <AdminOverview />}
                 {tab === 'dashboard' && <AdminUser />}
                 {tab === 'verlopen' && <AllExpired />}
@@ -61,6 +61,17 @@ export default function AdminPage() {
                 {tab === 'app' && <AppSettings />}
                 <p className="text-xs text-stone-400 mt-10">Ingelogd als {user.email}</p>
             </main>
+            {/* Zwevende navigatie onderaan op gsm/tablet, zoals in de app */}
+            <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200 dark:border-stone-800 pb-[env(safe-area-inset-bottom)] print:hidden">
+                <div className="max-w-md mx-auto grid h-16 items-center" style={{ gridTemplateColumns: `repeat(${TABS.length}, minmax(0, 1fr))` }}>
+                    {TABS.map(t => (
+                        <a key={t.id} href={'#/admin/' + t.id} className={cx('flex flex-col items-center justify-center gap-0.5 h-full text-[11px] font-semibold', tab === t.id ? 'text-teal-700 dark:text-teal-300' : 'text-stone-400 dark:text-stone-500')}>
+                            <span className={cx('w-12 h-7 rounded-full flex items-center justify-center transition-colors', tab === t.id && 'bg-teal-50 dark:bg-teal-950/60')}><Icon name={t.icon} size={21} /></span>
+                            {t.short || t.label}
+                        </a>
+                    ))}
+                </div>
+            </nav>
         </div>
     );
 }
