@@ -12,23 +12,37 @@ export default function PublicView({ token }) {
         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
         (async () => {
             try {
-                const us = await db.collection('users').where('publicShareToken', '==', token).where('publicShareEnabled', '==', true).limit(1).get();
-                if (us.empty) return setState({ status: 'notfound' });
-                const owner = us.docs[0];
+                // 1) Nieuwe manier: publicShares/{token} → eigenaar
+                let ownerId = null, label = '';
+                const ps = await db.collection('publicShares').doc(token).get().catch(() => null);
+                if (ps && ps.exists) { ownerId = ps.data().ownerId; label = ps.data().label; }
+                // 2) Oude manier (werkt alleen als de regels het toelaten)
+                if (!ownerId) {
+                    const us = await db.collection('users').where('publicShareToken', '==', token).where('publicShareEnabled', '==', true).limit(1).get().catch(() => null);
+                    if (us && !us.empty) { ownerId = us.docs[0].id; label = us.docs[0].data().displayName || us.docs[0].data().email; }
+                }
+                if (!ownerId) return setState({ status: 'notfound' });
                 const [v, i] = await Promise.all([
-                    db.collection('vriezers').where('userId', '==', owner.id).get(),
-                    db.collection('items').where('userId', '==', owner.id).get()
+                    db.collection('vriezers').where('userId', '==', ownerId).get(),
+                    db.collection('items').where('userId', '==', ownerId).get()
                 ]);
                 setState({
-                    status: 'ok', label: owner.data().displayName || owner.data().email || 'iemand',
+                    status: 'ok', label: label || 'iemand',
                     vriezers: v.docs.map(d => ({ id: d.id, type: 'vriezer', ...d.data() })),
                     items: i.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => !isMenuEntry(x))
                 });
-            } catch (e) { console.warn(e); setState({ status: 'notfound' }); }
+            } catch (e) { console.warn(e); setState({ status: e && e.code === 'permission-denied' ? 'off' : 'notfound' }); }
         })();
     }, [token]);
 
     if (state.status === 'loading') return <div className="min-h-dvh flex items-center justify-center text-stone-400">Laden…</div>;
+    if (state.status === 'off') return (
+        <div className="min-h-dvh flex flex-col items-center justify-center gap-3 p-6 text-center">
+            <Icon name="Lock" size={36} className="text-stone-300" />
+            <h1 className="text-lg font-bold">Deze voorraad wordt niet (meer) gedeeld</h1>
+            <p className="text-sm text-stone-500">De eigenaar heeft de bekijk-link uitgezet. Vraag om een nieuwe link.</p>
+        </div>
+    );
     if (state.status === 'notfound') return (
         <div className="min-h-dvh flex flex-col items-center justify-center gap-3 p-6 text-center">
             <Icon name="Lock" size={36} className="text-stone-300" />

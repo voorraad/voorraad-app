@@ -170,6 +170,11 @@ export function StoreProvider({ children }) {
     const stats = { wasted: 0, consumed: 0, wastedValue: 0, consumedValue: 0, ...(owner.stats || {}) };
     const isOwnAccount = user && ownerId === user.uid;
 
+    // Bestaande bekijk-links (van vóór publicShares) automatisch omzetten.
+    useEffect(() => {
+        if (user && me && me.publicShareEnabled && me.publicShareToken) syncPublicShare(me.publicShareToken, null);
+    }, [user && user.uid, me && me.publicShareEnabled, me && me.publicShareToken]);
+
     // ---------- Acties ----------
     const ownerDoc = () => db.collection('users').doc(ownerId);
 
@@ -186,6 +191,15 @@ export function StoreProvider({ children }) {
 
     const touchLade = (ladeId) => { if (ladeId) db.collection('lades').doc(ladeId).update({ laatstGewijzigd: new Date() }).catch(() => { }); };
 
+    // Bekijk-link: publicShares/{token} wijst naar de eigenaar, zodat iemand zonder account
+    // de link kan openen zonder de hele users-collectie te mogen doorzoeken.
+    const syncPublicShare = async (addToken, removeToken) => {
+        if (!user) return;
+        try {
+            if (removeToken && removeToken !== addToken) await db.collection('publicShares').doc(removeToken).delete();
+            if (addToken) await db.collection('publicShares').doc(addToken).set({ ownerId: user.uid, label: user.displayName || (user.email || '').split('@')[0] || '' });
+        } catch (e) { console.warn('Bekijk-link bijwerken mislukt', e); }
+    };
     const setMine = (patch) => user && db.collection('users').doc(user.uid).set(patch, { merge: true }).catch(e => console.warn(e));
 
     const actions = {
@@ -449,9 +463,17 @@ export function StoreProvider({ children }) {
         async revokeShare(s) { await db.collection('shares').doc(s.id).delete(); notify('Toegang ingetrokken'); },
         async togglePublicLink() {
             const token = (me && me.publicShareToken) || randomToken();
-            await setMine({ publicShareToken: token, publicShareEnabled: !(me && me.publicShareEnabled) });
+            const enabled = !(me && me.publicShareEnabled);
+            await setMine({ publicShareToken: token, publicShareEnabled: enabled });
+            await syncPublicShare(enabled ? token : null, enabled ? null : token);
         },
-        async regeneratePublicLink() { await setMine({ publicShareToken: randomToken() }); notify('Nieuwe link gemaakt. De oude werkt niet meer.'); },
+        async regeneratePublicLink() {
+            const old = me && me.publicShareToken;
+            const token = randomToken();
+            await setMine({ publicShareToken: token });
+            await syncPublicShare(me && me.publicShareEnabled ? token : null, old);
+            notify('Nieuwe link gemaakt. De oude werkt niet meer.');
+        },
 
         // ----- Admin -----
         setUserField: (uid, patch) => db.collection('users').doc(uid).set(patch, { merge: true }),
