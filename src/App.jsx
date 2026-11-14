@@ -41,9 +41,7 @@ export default function App() {
     if (isAdmin && route.page === 'admin') return (
         <>
             <AdminPage />
-            <PromptDialog />
-            <ConfirmDialog />
-            <Toast toast={toast} onClose={() => setToast(null)} />
+            <GlobalSheets />
         </>
     );
     return <Shell />;
@@ -188,6 +186,16 @@ function Shell() {
                 </Sheet>
             )}
 
+            <GlobalSheets />
+        </div>
+    );
+}
+
+// Alle pop-ups/sheets die zowel in de app als op de beheerpagina gebruikt worden.
+function GlobalSheets() {
+    const { toast, setToast } = useStore();
+    return (
+        <>
             <ItemSheet />
             <AuditSheet />
             <ItemForm />
@@ -200,7 +208,7 @@ function Shell() {
             <PromptDialog />
             <ConfirmDialog />
             <Toast toast={toast} onClose={() => setToast(null)} />
-        </div>
+        </>
     );
 }
 

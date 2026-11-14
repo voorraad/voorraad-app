@@ -3,17 +3,18 @@ import Icon from '../lib/icons.jsx';
 import { db } from '../lib/firebase.js';
 import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
-import { Card, Button, Toggle, IconButton, SectionTitle } from '../components/ui.jsx';
+import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select } from '../components/ui.jsx';
+import Stock from './Stock.jsx';
 import { UserList, Dashboard, TourEditor } from './meer/Admin.jsx';
 import { Logboek } from './meer/Inzicht.jsx';
-import { APP_VERSION } from '../lib/constants.js';
+import { APP_VERSION, TYPES } from '../lib/constants.js';
 import { cx, formatDateTime, toDate, itemStatus, isMenuEntry, smartMatch } from '../lib/utils.js';
 
 // Aparte beheerpagina voor admins (#/admin). Admins komen hier na het inloggen terecht.
 const TABS = [
     { id: 'overzicht', label: 'Overzicht', icon: 'Dashboard' },
     { id: 'gebruikers', label: 'Gebruikers', icon: 'Users' },
-    { id: 'dashboard', label: 'Voorraad bekijken', icon: 'Box' },
+    { id: 'dashboard', label: 'Voorraad', icon: 'Box' },
     { id: 'logboek', label: 'Logboek', icon: 'Log' },
     { id: 'app', label: 'App-instellingen', icon: 'Settings' }
 ];
@@ -47,7 +48,7 @@ export default function AdminPage() {
             <main className="max-w-7xl mx-auto px-4 py-5 pb-16">
                 {tab === 'overzicht' && <AdminOverview />}
                 {tab === 'gebruikers' && <UserList dashPath="admin/dashboard" />}
-                {tab === 'dashboard' && <Dashboard basePath="admin/dashboard" />}
+                {tab === 'dashboard' && <AdminStock />}
                 {tab === 'logboek' && <Logboek defaultAll />}
                 {tab === 'app' && <AppSettings />}
                 <p className="text-xs text-stone-400 mt-10">Ingelogd als {user.email}</p>
@@ -168,7 +169,7 @@ function AdminOverview() {
                             </tbody>
                         </table>
                     </Card>
-                    <p className="text-xs text-stone-400 mt-2">"Bekijk" toont de voorraad zonder te wisselen. "Open" opent de app met de voorraad van die gebruiker, zodat je alles kan aanpassen.</p>
+                    <p className="text-xs text-stone-400 mt-2">"Bekijk" toont de voorraad hier op de beheerpagina. "Open" opent de app zelf met de voorraad van die gebruiker.</p>
                 </section>
 
                 <section>
@@ -219,6 +220,37 @@ function AppSettings() {
                 <SectionTitle>Stappen van de rondleiding</SectionTitle>
                 <TourEditor />
             </section>
+        </div>
+    );
+}
+
+// Hetzelfde voorraadoverzicht als in de app, voor eender welke gebruiker.
+function AdminStock() {
+    const { usersList, ownerId, user, actions, vriezers, items, typeOf, owner } = useStore();
+    const { route, go, openForm } = useUi();
+    const [type, setType] = useState('vriezer');
+    const uid = route.extra;
+    useEffect(() => { if (uid && uid !== ownerId) actions.switchAccount(uid, true); }, [uid]);
+    const current = usersList.find(u => u.id === ownerId);
+    const counts = Object.fromEntries(TYPES.map(t => [t.id, items.filter(i => typeOf(i) === t.id).length]));
+    return (
+        <div className="space-y-4">
+            <Card className="p-3 flex flex-wrap items-center gap-3">
+                <span className="text-sm font-semibold text-stone-500 flex items-center gap-1.5"><Icon name="Users" size={16} />Voorraad van</span>
+                <div className="flex-1 min-w-[14rem]">
+                    <Select value={ownerId || ''} onChange={e => go('admin/dashboard/' + e.target.value)}>
+                        {usersList.map(u => <option key={u.id} value={u.id}>{(u.email || u.displayName || u.id) + (u.id === user.uid ? ' (jij)' : '')}</option>)}
+                    </Select>
+                </div>
+                {ownerId !== user.uid && <Button size="sm" variant="secondary" icon="Home" onClick={() => go('admin/dashboard/' + user.uid)}>Mijn voorraad</Button>}
+                <Button size="sm" icon="Plus" onClick={() => openForm({ type, nonce: Date.now() })}>Product</Button>
+            </Card>
+            {ownerId !== user.uid && (
+                <p className="text-sm text-purple-700 dark:text-purple-300 flex items-center gap-1.5 px-1"><Icon name="Info" size={15} />
+                    Je bekijkt de voorraad van {(current && current.email) || 'deze gebruiker'}. Wat je hier aanpast, wordt in hun voorraad opgeslagen.</p>
+            )}
+            <Segmented value={type} onChange={setType} className="max-w-xl" options={TYPES.map(t => ({ id: t.id, label: t.label, icon: t.icon, count: counts[t.id] }))} />
+            <Stock type={type} embedded />
         </div>
     );
 }
