@@ -10,12 +10,13 @@ import { cx, smartMatch, sortLocaties, byName, itemStatus, URGENCY, daysUntil, d
 
 const GROUP_KEY = 'voorraad_groep';
 
-export default function Stock() {
+export default function Stock({ type: typeProp, embedded } = {}) {
     const store = useStore();
     const { vriezers, lades, items, me, owner, typeOf, canSee, actions, dataLoaded } = store;
     const { route, go, openForm, openMove, openAudit, prompt, confirm } = useUi();
     const visibleTypes = TYPES.filter(t => t.id === 'vriezer' || canSee(t.id));
-    const type = visibleTypes.some(t => t.id === route.sub) ? route.sub : 'vriezer';
+    const wanted = typeProp || route.sub;
+    const type = visibleTypes.some(t => t.id === wanted) ? wanted : 'vriezer';
 
     const [group, setGroup] = useState(() => localStorage.getItem(GROUP_KEY) || 'Thuis');
     const [search, setSearch] = useState('');
@@ -117,7 +118,7 @@ export default function Stock() {
 
     return (
         <div className="space-y-4">
-            <PendingInvites />
+            {!embedded && <PendingInvites />}
             <UrgentBanner />
 
             {(groups.length > 1) && (
