@@ -6,7 +6,7 @@ import { useUi } from '../state/ui.jsx';
 import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select } from '../components/ui.jsx';
 import Stock from './Stock.jsx';
 import { UserRights, TourEditor, TAB_OPTIONS } from './meer/Admin.jsx';
-import { Logboek, Statistieken, logTone } from './meer/Inzicht.jsx';
+import { Logboek, Statistieken, logTone, userTone } from './meer/Inzicht.jsx';
 import { Locaties, Categorieen, Eenheden } from './meer/Beheer.jsx';
 import Shopping from './Shopping.jsx';
 import { Week, Recipes } from './Menu.jsx';
@@ -200,17 +200,18 @@ function AdminOverview() {
 
                 <section>
                     <SectionTitle action={<a href="#/admin/logboek" className="text-sm font-semibold text-teal-700 dark:text-teal-300">Alles</a>}>Recente activiteit</SectionTitle>
-                    <Card className="divide-y divide-stone-100 dark:divide-stone-800">
+                    <Card className="overflow-hidden divide-y divide-stone-100 dark:divide-stone-800">
                         {logs.length === 0 && <p className="p-4 text-sm text-stone-500">Nog geen activiteit.</p>}
                         {logs.map(l => {
                             const [ic, cl] = logTone(l.action);
+                            const ut = userTone(l.targetUserId, usersList);
                             return (
-                                <div key={l.id} className="flex gap-3 px-4 py-2.5">
+                                <div key={l.id} className={cx('flex gap-3 px-4 py-2.5 border-l-4', ut.bar)}>
                                     <span className={cx('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5', cl)}><Icon name={ic} size={15} /></span>
                                     <div className="min-w-0 flex-1">
                                         <div className="flex justify-between gap-2"><p className="font-semibold text-sm truncate">{l.item || l.action}</p><p className="text-xs text-stone-400 flex-shrink-0 tabular-nums">{formatDateTime(l.timestamp)}</p></div>
                                         {l.details && <p className="text-xs text-stone-500 dark:text-stone-400 truncate">{l.details}</p>}
-                                        <p className="text-[11px] text-stone-400 mt-0.5 truncate">{l.action} door {l.actorName} · {emailOf(l.targetUserId).split('@')[0]}</p>
+                                        <p className="text-[11px] text-stone-400 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1"><span>{l.action} door {l.actorName}</span><span className={cx('px-1.5 py-px rounded font-bold', ut.pill)}>{emailOf(l.targetUserId).split('@')[0]}</span></p>
                                     </div>
                                 </div>
                             );

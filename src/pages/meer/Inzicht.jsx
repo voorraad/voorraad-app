@@ -83,6 +83,27 @@ function Stat({ label, value, sub, tone }) {
     );
 }
 
+// Vaste kleur per gebruiker (volgorde op id, zodat elke gebruiker een eigen kleur krijgt)
+const USER_TONES = [
+    { bar: 'border-l-sky-500', pill: 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200', dot: 'bg-sky-500' },
+    { bar: 'border-l-fuchsia-500', pill: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/50 dark:text-fuchsia-200', dot: 'bg-fuchsia-500' },
+    { bar: 'border-l-amber-500', pill: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200', dot: 'bg-amber-500' },
+    { bar: 'border-l-emerald-500', pill: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200', dot: 'bg-emerald-500' },
+    { bar: 'border-l-violet-500', pill: 'bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-200', dot: 'bg-violet-500' },
+    { bar: 'border-l-rose-500', pill: 'bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-200', dot: 'bg-rose-500' },
+    { bar: 'border-l-lime-500', pill: 'bg-lime-100 text-lime-800 dark:bg-lime-900/50 dark:text-lime-200', dot: 'bg-lime-500' },
+    { bar: 'border-l-orange-500', pill: 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-200', dot: 'bg-orange-500' },
+    { bar: 'border-l-cyan-500', pill: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-200', dot: 'bg-cyan-500' },
+    { bar: 'border-l-indigo-500', pill: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200', dot: 'bg-indigo-500' }
+];
+export const userTone = (id, usersList) => {
+    const ids = usersList.map(u => u.id).sort();
+    const i = ids.indexOf(id);
+    if (i >= 0) return USER_TONES[i % USER_TONES.length];
+    let h = 0; for (const c of String(id || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return USER_TONES[h % USER_TONES.length];
+};
+
 // Icoon + kleur per logactie (ook gebruikt op de beheerpagina)
 export const logTone = (a) => a === 'Toevoegen' ? ['Plus', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300']
     : a === 'Verwijderd' ? ['Trash', 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300']
@@ -93,6 +114,7 @@ export function Logboek({ defaultAll = false }) {
     const { isAdmin, ownerId, user, usersList } = useStore();
     const [logs, setLogs] = useState(null);
     const [onlyThis, setOnlyThis] = useState(!defaultAll);
+    const [who, setWho] = useState(null); // filter op één gebruiker bij 'Alle gebruikers'
     const emailOf = (id) => ((usersList.find(u => u.id === id) || {}).email || '').split('@')[0] || 'andere voorraad';
     useEffect(() => {
         const q = isAdmin
@@ -101,7 +123,9 @@ export function Logboek({ defaultAll = false }) {
         return q.onSnapshot(s => setLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => { console.warn(e); setLogs([]); });
     }, [isAdmin, ownerId]);
     if (!logs) return <div className="h-40 rounded-2xl bg-stone-200/60 dark:bg-stone-800/60 animate-pulse" />;
-    const shown = isAdmin && onlyThis ? logs.filter(l => l.targetUserId === ownerId) : logs;
+    const all = isAdmin && !onlyThis;
+    const shown = isAdmin && onlyThis ? logs.filter(l => l.targetUserId === ownerId) : who ? logs.filter(l => l.targetUserId === who) : logs;
+    const inLogs = [...new Set(logs.map(l => l.targetUserId))];
     const tone = logTone;
     return (
         <div className="space-y-3">
@@ -111,12 +135,27 @@ export function Logboek({ defaultAll = false }) {
                     <Chip active={!onlyThis} onClick={() => setOnlyThis(false)}>Alle gebruikers</Chip>
                 </div>
             )}
+            {all && inLogs.length > 1 && (
+                <div className="flex flex-wrap gap-1.5">
+                    {inLogs.map(id => {
+                        const t = userTone(id, usersList);
+                        const on = who === id;
+                        return (
+                            <button key={id} type="button" onClick={() => setWho(on ? null : id)}
+                                className={cx('h-8 px-2.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 border-2 transition', t.pill, on ? 'border-current' : 'border-transparent', who && !on && 'opacity-50')}>
+                                <span className={cx('w-2.5 h-2.5 rounded-full', t.dot)} />{emailOf(id)}{on && <Icon name="X" size={12} />}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
             {shown.length === 0 ? <Card><EmptyState icon="Log" title="Nog geen activiteit" /></Card> : (
                 <Card className="overflow-hidden divide-y divide-stone-100 dark:divide-stone-800">
                     {shown.map(l => {
                         const [ic, cl] = tone(l.action);
+                        const ut = all ? userTone(l.targetUserId, usersList) : null;
                         return (
-                            <div key={l.id} className="flex gap-3 px-4 py-2.5">
+                            <div key={l.id} className={cx('flex gap-3 px-4 py-2.5', ut && 'border-l-4', ut && ut.bar)}>
                                 <span className={cx('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5', cl)}><Icon name={ic} size={15} /></span>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex justify-between gap-2">
@@ -124,7 +163,10 @@ export function Logboek({ defaultAll = false }) {
                                         <p className="text-xs text-stone-400 flex-shrink-0 tabular-nums">{formatDateTime(l.timestamp)}</p>
                                     </div>
                                     {l.details && <p className="text-xs text-stone-500 dark:text-stone-400 break-words">{l.details}</p>}
-                                    <p className="text-[11px] text-stone-400 mt-0.5">{l.action} · {l.actorId === (user && user.uid) ? 'jij' : l.actorName}{isAdmin && !onlyThis ? ' · voorraad van ' + emailOf(l.targetUserId) : ''}</p>
+                                    <p className="text-[11px] text-stone-400 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                                        <span>{l.action} · {l.actorId === (user && user.uid) ? 'jij' : l.actorName}</span>
+                                        {ut && <span className={cx('px-1.5 py-px rounded font-bold', ut.pill)}>{emailOf(l.targetUserId)}</span>}
+                                    </p>
                                 </div>
                             </div>
                         );
