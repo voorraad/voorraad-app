@@ -5,7 +5,7 @@ import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
 import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select } from '../components/ui.jsx';
 import Stock from './Stock.jsx';
-import { UserList, UserRights, TourEditor } from './meer/Admin.jsx';
+import { UserRights, TourEditor } from './meer/Admin.jsx';
 import { Logboek, Statistieken, logTone } from './meer/Inzicht.jsx';
 import { Locaties, Categorieen, Eenheden } from './meer/Beheer.jsx';
 import Shopping from './Shopping.jsx';
@@ -18,7 +18,6 @@ import { cx, formatDateTime, toDate, itemStatus, isMenuEntry, smartMatch, status
 // Aparte beheerpagina voor admins (#/admin). Admins komen hier na het inloggen terecht.
 const TABS = [
     { id: 'overzicht', label: 'Overzicht', icon: 'Dashboard' },
-    { id: 'gebruikers', label: 'Gebruikers', icon: 'Users' },
     { id: 'dashboard', label: 'Per gebruiker', icon: 'User' },
     { id: 'verlopen', label: 'Verlopen', icon: 'Alert' },
     { id: 'logboek', label: 'Logboek', icon: 'Log' },
@@ -28,7 +27,8 @@ const TABS = [
 export default function AdminPage() {
     const { user, me, actions } = useStore();
     const { route, go } = useUi();
-    const tab = TABS.some(t => t.id === route.sub) ? route.sub : 'overzicht';
+    const sub = route.sub === 'gebruikers' ? 'dashboard' : route.sub; // oude link
+    const tab = TABS.some(t => t.id === sub) ? sub : 'overzicht';
 
     return (
         <div className="min-h-dvh">
@@ -55,7 +55,6 @@ export default function AdminPage() {
             </header>
             <main className="max-w-7xl mx-auto px-4 pt-4 pb-16">
                 {tab === 'overzicht' && <AdminOverview />}
-                {tab === 'gebruikers' && <UserList dashPath="admin/dashboard" />}
                 {tab === 'dashboard' && <AdminUser />}
                 {tab === 'verlopen' && <AllExpired />}
                 {tab === 'logboek' && <Logboek defaultAll />}
@@ -137,7 +136,7 @@ function AdminOverview() {
             )}
 
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
-                <Kpi label="Gebruikers" value={usersList.length} icon="Users" onClick={() => go('admin/gebruikers')} />
+                <Kpi label="Gebruikers" value={usersList.length} icon="Users" onClick={() => go('admin/dashboard')} />
                 <Kpi label="Actief (7 dagen)" value={active7} icon="Clock" />
                 <Kpi label="Geblokkeerd" value={blocked} icon="Lock" tone={blocked ? 'text-red-600' : undefined} />
                 <Kpi label="Producten (alle)" value={done ? totalItems : '…'} icon="Box" />
@@ -326,8 +325,7 @@ function AdminUser() {
                         {usersList.map(x => <option key={x.id} value={x.id}>{(x.email || x.displayName || x.id) + (x.id === user.uid ? ' (jij)' : '')}</option>)}
                     </Select>
                 </div>
-                {ownerId !== user.uid && <Button size="sm" variant="secondary" icon="Home" onClick={() => go(`admin/dashboard/${user.uid}/${sub}`)}>Mijn voorraad</Button>}
-                <Button size="sm" variant="soft" icon="Swap" onClick={() => go('voorraad')}>Open in de app</Button>
+                {ownerId !== user.uid && <Button size="sm" variant="soft" icon="Swap" title="Open de app met de voorraad van deze gebruiker" onClick={() => { actions.switchAccount(ownerId); go('voorraad'); }}>Wissel</Button>}
             </Card>
 
             {/* Profiel van de gebruiker */}
