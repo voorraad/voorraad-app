@@ -11,7 +11,7 @@ const GROUPS = [
     { id: 'week', title: 'Deze week', short: 'deze week', levels: ['week', 'old'], tone: 'text-amber-600 dark:text-amber-400', icon: 'Calendar' }
 ];
 
-function useUrgent() {
+export function useUrgent() {
     const { items, typeOf, canSee } = useStore();
     return useMemo(() => {
         const out = { now: [], soon: [], week: [] };
@@ -83,6 +83,29 @@ export function PendingInvites() {
                         <Button size="sm" variant="secondary" onClick={() => actions.declineInvite(inv)}>Weigeren</Button>
                         <Button size="sm" onClick={() => actions.acceptInvite(inv)}>Accepteren</Button>
                     </div>
+                </Card>
+            ))}
+        </div>
+    );
+}
+
+// Volledige lijst (gebruikt op de beheerpagina).
+export function UrgentList() {
+    const urgent = useUrgent();
+    const parts = GROUPS.filter(g => urgent[g.id].length);
+    if (!parts.length) return <Card className="p-5 text-sm text-stone-500 flex items-center gap-2"><Icon name="Check" size={18} className="text-emerald-600" />Niets verlopen en niets dat deze week op moet.</Card>;
+    return (
+        <div className="grid gap-4 items-start md:grid-cols-2 xl:grid-cols-3">
+            {parts.map(g => (
+                <Card key={g.id} className="overflow-hidden">
+                    <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+                        <Icon name={g.icon} size={16} className={g.tone} />
+                        <h4 className={cx('font-semibold text-sm', g.tone)}>{g.title}</h4>
+                        <span className="text-xs text-stone-400 tabular-nums">{urgent[g.id].length}</span>
+                    </div>
+                    <ul className="divide-y divide-stone-100 dark:divide-stone-800/80">
+                        {urgent[g.id].map(({ item, type }) => <ItemRow key={item.id} item={item} type={type} showWhere />)}
+                    </ul>
                 </Card>
             ))}
         </div>

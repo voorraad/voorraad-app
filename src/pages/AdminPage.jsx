@@ -5,16 +5,22 @@ import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
 import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select } from '../components/ui.jsx';
 import Stock from './Stock.jsx';
-import { UserList, Dashboard, TourEditor } from './meer/Admin.jsx';
-import { Logboek } from './meer/Inzicht.jsx';
+import { UserList, UserRights, TourEditor } from './meer/Admin.jsx';
+import { Logboek, Statistieken } from './meer/Inzicht.jsx';
+import { Locaties, Categorieen, Eenheden } from './meer/Beheer.jsx';
+import Shopping from './Shopping.jsx';
+import { Week, Recipes } from './Menu.jsx';
+import { UrgentList } from '../components/Urgent.jsx';
+import { exportCSV, exportPDF, exportBackup } from '../lib/exporters.js';
 import { APP_VERSION, TYPES } from '../lib/constants.js';
-import { cx, formatDateTime, toDate, itemStatus, isMenuEntry, smartMatch } from '../lib/utils.js';
+import { cx, formatDateTime, toDate, itemStatus, isMenuEntry, smartMatch, statusText, STATUS_TONE, emojiFor, formatAantal, URGENCY } from '../lib/utils.js';
 
 // Aparte beheerpagina voor admins (#/admin). Admins komen hier na het inloggen terecht.
 const TABS = [
     { id: 'overzicht', label: 'Overzicht', icon: 'Dashboard' },
     { id: 'gebruikers', label: 'Gebruikers', icon: 'Users' },
-    { id: 'dashboard', label: 'Voorraad', icon: 'Box' },
+    { id: 'dashboard', label: 'Per gebruiker', icon: 'User' },
+    { id: 'verlopen', label: 'Verlopen', icon: 'Alert' },
     { id: 'logboek', label: 'Logboek', icon: 'Log' },
     { id: 'app', label: 'App-instellingen', icon: 'Settings' }
 ];
@@ -48,7 +54,8 @@ export default function AdminPage() {
             <main className="max-w-7xl mx-auto px-4 py-5 pb-16">
                 {tab === 'overzicht' && <AdminOverview />}
                 {tab === 'gebruikers' && <UserList dashPath="admin/dashboard" />}
-                {tab === 'dashboard' && <AdminStock />}
+                {tab === 'dashboard' && <AdminUser />}
+                {tab === 'verlopen' && <AllExpired />}
                 {tab === 'logboek' && <Logboek defaultAll />}
                 {tab === 'app' && <AppSettings />}
                 <p className="text-xs text-stone-400 mt-10">Ingelogd als {user.email}</p>
@@ -71,10 +78,17 @@ function useUserStats(usersList) {
                         db.collection('vriezers').where('userId', '==', u.id).get(),
                         db.collection('items').where('userId', '==', u.id).get()
                     ]);
-                    const types = Object.fromEntries(v.docs.map(d => [d.id, d.data().type || 'vriezer']));
-                    const items = i.docs.map(d => d.data()).filter(x => !isMenuEntry(x));
-                    const expired = items.filter(x => ['expired', 'veryold'].includes(itemStatus(x, types[x.vriezerId] || 'vriezer').level)).length;
-                    if (live) setStats(s => ({ ...s, [u.id]: { items: items.length, locs: v.size, expired } }));
+                    const locs = Object.fromEntries(v.docs.map(d => [d.id, d.data()]));
+                    const items = i.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => !isMenuEntry(x));
+                    const urgent = [];
+                    items.forEach(x => {
+                        const t = (locs[x.vriezerId] || {}).type || 'vriezer';
+                        const st = itemStatus(x, t);
+                        if (['expired', 'veryold', 'soon'].includes(st.level)) urgent.push({ item: x, st, loc: (locs[x.vriezerId] || {}).naam || '?' });
+                    });
+                    urgent.sort((a, b) => URGENCY[a.st.level] - URGENCY[b.st.level]);
+                    const expired = urgent.filter(x => x.st.level !== 'soon').length;
+                    if (live) setStats(s => ({ ...s, [u.id]: { items: items.length, locs: v.size, expired, urgent } }));
                 } catch (e) {
                     if (live) setStats(s => ({ ...s, [u.id]: { error: true } }));
                 }
@@ -224,33 +238,214 @@ function AppSettings() {
     );
 }
 
-// Hetzelfde voorraadoverzicht als in de app, voor eender welke gebruiker.
-function AdminStock() {
-    const { usersList, ownerId, user, actions, vriezers, items, typeOf, owner } = useStore();
+
+// ---------------- Alles over één gebruiker ----------------
+const USER_TABS = [
+    { id: 'voorraad', label: 'Voorraad', icon: 'Box' },
+    { id: 'eerst', label: 'Verlopen & eerst op', icon: 'Alert' },
+    { id: 'lijst', label: 'Boodschappen', icon: 'Cart' },
+    { id: 'week', label: 'Weekmenu', icon: 'Calendar' },
+    { id: 'recepten', label: 'Recepten', icon: 'Book' },
+    { id: 'locaties', label: 'Locaties & lades', icon: 'Layers' },
+    { id: 'categorieen', label: 'Categorieën', icon: 'Tag' },
+    { id: 'eenheden', label: 'Eenheden', icon: 'List' },
+    { id: 'stats', label: 'Statistieken', icon: 'Chart' },
+    { id: 'log', label: 'Logboek', icon: 'Log' },
+    { id: 'rechten', label: 'Rechten', icon: 'Lock' },
+    { id: 'delen', label: 'Delen & export', icon: 'Share' }
+];
+
+function AdminUser() {
+    const { usersList, ownerId, user, actions, items, vriezers, lades, shopping, recepten, typeOf, locById, ladeById, loaded } = useStore();
     const { route, go, openForm } = useUi();
+    const uid = route.extra || ownerId;
+    const sub = USER_TABS.some(t => t.id === route.extra2) ? route.extra2 : 'voorraad';
     const [type, setType] = useState('vriezer');
-    const uid = route.extra;
+    const [isAdminUser, setIsAdminUser] = useState(false);
     useEffect(() => { if (uid && uid !== ownerId) actions.switchAccount(uid, true); }, [uid]);
-    const current = usersList.find(u => u.id === ownerId);
+    useEffect(() => { db.collection('admins').doc(ownerId).get().then(d => setIsAdminUser(!!d.exists)).catch(() => setIsAdminUser(false)); }, [ownerId]);
+    const u = usersList.find(x => x.id === ownerId) || { id: ownerId };
+    const ready = uid === ownerId && loaded.items;
+    const urgentCount = items.filter(i => ['expired', 'veryold'].includes(itemStatus(i, typeOf(i)).level)).length;
     const counts = Object.fromEntries(TYPES.map(t => [t.id, items.filter(i => typeOf(i) === t.id).length]));
+    const to = (tab) => go(`admin/dashboard/${ownerId}/${tab}`);
+
     return (
         <div className="space-y-4">
             <Card className="p-3 flex flex-wrap items-center gap-3">
-                <span className="text-sm font-semibold text-stone-500 flex items-center gap-1.5"><Icon name="Users" size={16} />Voorraad van</span>
+                <span className="text-sm font-semibold text-stone-500 flex items-center gap-1.5"><Icon name="Users" size={16} />Gebruiker</span>
                 <div className="flex-1 min-w-[14rem]">
-                    <Select value={ownerId || ''} onChange={e => go('admin/dashboard/' + e.target.value)}>
-                        {usersList.map(u => <option key={u.id} value={u.id}>{(u.email || u.displayName || u.id) + (u.id === user.uid ? ' (jij)' : '')}</option>)}
+                    <Select value={ownerId || ''} onChange={e => go(`admin/dashboard/${e.target.value}/${sub}`)}>
+                        {usersList.map(x => <option key={x.id} value={x.id}>{(x.email || x.displayName || x.id) + (x.id === user.uid ? ' (jij)' : '')}</option>)}
                     </Select>
                 </div>
-                {ownerId !== user.uid && <Button size="sm" variant="secondary" icon="Home" onClick={() => go('admin/dashboard/' + user.uid)}>Mijn voorraad</Button>}
-                <Button size="sm" icon="Plus" onClick={() => openForm({ type, nonce: Date.now() })}>Product</Button>
+                {ownerId !== user.uid && <Button size="sm" variant="secondary" icon="Home" onClick={() => go(`admin/dashboard/${user.uid}/${sub}`)}>Mijn voorraad</Button>}
+                <Button size="sm" variant="soft" icon="Swap" onClick={() => go('voorraad')}>Open in de app</Button>
             </Card>
+
+            {/* Profiel van de gebruiker */}
+            <Card className="p-4">
+                <div className="flex flex-wrap items-start gap-4">
+                    <span className="w-12 h-12 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-200 flex items-center justify-center text-lg font-bold">{(u.email || u.displayName || '?')[0].toUpperCase()}</span>
+                    <div className="min-w-0 flex-1">
+                        <p className="font-bold text-lg truncate">{u.displayName || u.email || 'Gebruiker'}</p>
+                        <p className="text-sm text-stone-500 truncate">{u.email}</p>
+                        <div className="flex flex-wrap gap-1.5 mt-2 text-[11px] font-bold">
+                            {isAdminUser && <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-200">Admin</span>}
+                            {u.disabled ? <span className="px-2 py-0.5 rounded bg-red-100 text-red-700">Geblokkeerd</span> : <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">Actief</span>}
+                            {(u.hiddenTabs || []).map(t => <span key={t} className="px-2 py-0.5 rounded bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300">verborgen: {t}</span>)}
+                            {u.publicShareEnabled && <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">bekijk-link aan</span>}
+                        </div>
+                    </div>
+                    <div className="text-xs text-stone-500 space-y-0.5 sm:text-right">
+                        <p>Laatst gezien: <b className="text-stone-700 dark:text-stone-200">{u.laatstGezien ? formatDateTime(u.laatstGezien) : 'nooit'}</b></p>
+                        <p className="font-mono break-all">{u.id}</p>
+                    </div>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-2 mt-4">
+                    {[...TYPES.map(t => [t.label, counts[t.id], 'voorraad']), ['Verlopen', urgentCount, 'eerst'], ['Locaties', vriezers.length, 'locaties'], ['Lades', lades.length, 'locaties'], ['Op lijstje', shopping.filter(x => !x.checked).length, 'lijst'], ['Recepten', recepten.length, 'recepten']]
+                        .map(([lbl, n, tab]) => (
+                            <button key={lbl} type="button" onClick={() => to(tab)} className="text-left rounded-xl bg-stone-50 dark:bg-stone-800/60 hover:bg-stone-100 dark:hover:bg-stone-800 px-3 py-2">
+                                <p className={cx('text-lg font-bold tabular-nums', lbl === 'Verlopen' && n ? 'text-red-600' : '')}>{ready ? n : '…'}</p>
+                                <p className="text-xs text-stone-500">{lbl}</p>
+                            </button>
+                        ))}
+                </div>
+            </Card>
+
+            <nav className="flex flex-wrap gap-1.5">
+                {USER_TABS.map(t => (
+                    <a key={t.id} href={`#/admin/dashboard/${ownerId}/${t.id}`}
+                        className={cx('h-9 px-3 rounded-full text-sm font-semibold flex items-center gap-1.5 border transition-colors',
+                            sub === t.id ? 'bg-stone-900 text-white border-stone-900 dark:bg-white dark:text-stone-900' : 'bg-white border-stone-200 text-stone-600 hover:border-stone-300 dark:bg-stone-900 dark:border-stone-800 dark:text-stone-300')}>
+                        <Icon name={t.icon} size={15} />{t.label}
+                    </a>
+                ))}
+            </nav>
+
             {ownerId !== user.uid && (
                 <p className="text-sm text-purple-700 dark:text-purple-300 flex items-center gap-1.5 px-1"><Icon name="Info" size={15} />
-                    Je bekijkt de voorraad van {(current && current.email) || 'deze gebruiker'}. Wat je hier aanpast, wordt in hun voorraad opgeslagen.</p>
+                    Je beheert de gegevens van {u.email || 'deze gebruiker'}. Wat je hier aanpast, wordt in hun account opgeslagen.</p>
             )}
-            <Segmented value={type} onChange={setType} className="max-w-xl" options={TYPES.map(t => ({ id: t.id, label: t.label, icon: t.icon, count: counts[t.id] }))} />
-            <Stock type={type} embedded />
+
+            {!ready ? <div className="h-40 rounded-2xl bg-stone-200/60 dark:bg-stone-800/60 animate-pulse" /> : (
+                <div key={ownerId + sub}>
+                    {sub === 'voorraad' && (
+                        <div className="space-y-4">
+                            <div className="flex flex-wrap items-center gap-3">
+                                <Segmented value={type} onChange={setType} className="max-w-xl flex-1" options={TYPES.map(t => ({ id: t.id, label: t.label, icon: t.icon, count: counts[t.id] }))} />
+                                <Button icon="Plus" onClick={() => openForm({ type, nonce: Date.now() })}>Product</Button>
+                            </div>
+                            <Stock type={type} embedded />
+                        </div>
+                    )}
+                    {sub === 'eerst' && <UrgentList />}
+                    {sub === 'lijst' && <Shopping />}
+                    {sub === 'week' && <Week />}
+                    {sub === 'recepten' && <Recipes />}
+                    {sub === 'locaties' && <div className="max-w-3xl"><Locaties /></div>}
+                    {sub === 'categorieen' && <div className="max-w-3xl"><Categorieen /></div>}
+                    {sub === 'eenheden' && <div className="max-w-3xl"><Eenheden /></div>}
+                    {sub === 'stats' && <Statistieken />}
+                    {sub === 'log' && <Logboek />}
+                    {sub === 'rechten' && <Card className="px-4 pb-4 max-w-2xl"><UserRights u={u} /></Card>}
+                    {sub === 'delen' && <SharesAndExport u={u} />}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function SharesAndExport({ u }) {
+    const { items, locById, ladeById, ownerId, actions } = useStore();
+    const { confirm } = useUi();
+    const [out, setOut] = useState(null);
+    const [inc, setInc] = useState(null);
+    useEffect(() => {
+        const a = db.collection('shares').where('ownerId', '==', u.id).onSnapshot(s => setOut(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => setOut('error'));
+        const b = u.email ? db.collection('shares').where('sharedWithEmail', '==', u.email.toLowerCase()).onSnapshot(s => setInc(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => setInc('error')) : () => { };
+        if (!u.email) setInc([]);
+        return () => { a(); b(); };
+    }, [u.id, u.email]);
+    const status = (st) => st === 'accepted' ? ['Heeft toegang', 'text-emerald-600'] : st === 'declined' ? ['Geweigerd', 'text-red-500'] : ['Wacht op antwoord', 'text-amber-600'];
+    const revoke = async (sh) => { if (await confirm({ title: 'Toegang intrekken?', message: `${sh.ownerEmail} → ${sh.sharedWithEmail}`, confirmLabel: 'Intrekken', danger: true })) actions.revokeShare(sh); };
+    const List = ({ data, empty, render }) => data === null ? <p className="p-4 text-sm text-stone-400">Laden…</p>
+        : data === 'error' ? <p className="p-4 text-sm text-stone-500">Kon niet geladen worden (geen leesrechten).</p>
+            : data.length === 0 ? <p className="p-4 text-sm text-stone-500">{empty}</p>
+                : data.map(sh => (
+                    <div key={sh.id} className="flex items-center gap-3 pl-4 pr-1.5 py-2">
+                        <div className="flex-1 min-w-0"><p className="font-medium truncate">{render(sh)}</p><p className={cx('text-xs font-semibold', status(sh.status)[1])}>{status(sh.status)[0]}</p></div>
+                        <IconButton icon="Trash" label="Intrekken" className="text-red-500" onClick={() => revoke(sh)} />
+                    </div>
+                ));
+    return (
+        <div className="grid gap-6 lg:grid-cols-2 items-start">
+            <section>
+                <SectionTitle>Deelt eigen voorraad met</SectionTitle>
+                <Card className="divide-y divide-stone-100 dark:divide-stone-800"><List data={out} empty="Deelt met niemand." render={sh => sh.sharedWithEmail} /></Card>
+                <SectionTitle className="mt-6">Heeft toegang tot voorraad van</SectionTitle>
+                <Card className="divide-y divide-stone-100 dark:divide-stone-800"><List data={inc} empty="Geen gedeelde voorraden." render={sh => sh.ownerEmail} /></Card>
+                <SectionTitle className="mt-6">Bekijk-link</SectionTitle>
+                <Card className="px-4 py-1">
+                    <Toggle checked={!!u.publicShareEnabled} onChange={c => actions.setUserField(u.id, { publicShareEnabled: c })} label="Bekijk-link actief" description={u.publicShareToken ? `Token: ${u.publicShareToken}` : 'Nog geen link aangemaakt'} />
+                </Card>
+            </section>
+            <section>
+                <SectionTitle>Gegevens exporteren</SectionTitle>
+                <Card className="divide-y divide-stone-100 dark:divide-stone-800">
+                    {[['Excel (CSV)', 'Alle producten van deze gebruiker', () => exportCSV(items, locById, ladeById)],
+                    ['PDF', 'Overzicht om te printen', () => exportPDF(items, locById, ladeById)],
+                    ['Volledige back-up', 'Alles als JSON-bestand', () => exportBackup(ownerId)]].map(([t, d, fn]) => (
+                        <button key={t} type="button" onClick={async () => { try { await fn(); } catch (e) { actions.notify(e.message || 'Mislukt', 'error'); } }} className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-stone-50 dark:hover:bg-stone-800/60">
+                            <span className="w-9 h-9 rounded-xl bg-stone-100 dark:bg-stone-800 flex items-center justify-center"><Icon name="Download" size={18} /></span>
+                            <span><span className="block font-medium">{t}</span><span className="block text-xs text-stone-500">{d}</span></span>
+                        </button>
+                    ))}
+                </Card>
+            </section>
+        </div>
+    );
+}
+
+// ---------------- Verlopen over alle gebruikers ----------------
+function AllExpired() {
+    const { usersList } = useStore();
+    const { go } = useUi();
+    const stats = useUserStats(usersList);
+    const [onlyExpired, setOnlyExpired] = useState(false);
+    const done = Object.keys(stats).length >= usersList.length;
+    const rows = usersList.map(u => ({ u, list: ((stats[u.id] || {}).urgent || []).filter(x => !onlyExpired || x.st.level !== 'soon') }))
+        .filter(r => r.list.length).sort((a, b) => b.list.length - a.list.length);
+    const total = rows.reduce((a, r) => a + r.list.length, 0);
+    return (
+        <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm text-stone-500 flex-1">{done ? `${total} producten bij ${rows.length} gebruikers` : 'Gegevens van alle gebruikers laden…'}</p>
+                <button type="button" onClick={() => setOnlyExpired(false)} className={cx('h-9 px-3 rounded-xl text-sm font-semibold', !onlyExpired ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-900' : 'bg-white border border-stone-200 dark:bg-stone-900 dark:border-stone-800')}>Verlopen + binnen 3 dagen</button>
+                <button type="button" onClick={() => setOnlyExpired(true)} className={cx('h-9 px-3 rounded-xl text-sm font-semibold', onlyExpired ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-900' : 'bg-white border border-stone-200 dark:bg-stone-900 dark:border-stone-800')}>Enkel verlopen</button>
+            </div>
+            {done && rows.length === 0 && <Card className="p-5 text-sm text-stone-500 flex items-center gap-2"><Icon name="Check" size={18} className="text-emerald-600" />Bij niemand is iets verlopen.</Card>}
+            <div className="grid gap-4 items-start md:grid-cols-2 xl:grid-cols-3">
+                {rows.map(({ u, list }) => (
+                    <Card key={u.id} className="overflow-hidden">
+                        <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+                            <p className="font-semibold truncate flex-1">{u.email || u.displayName}</p>
+                            <span className="text-xs font-bold text-red-600 tabular-nums">{list.length}</span>
+                            <Button size="sm" variant="soft" onClick={() => go(`admin/dashboard/${u.id}/eerst`)}>Openen</Button>
+                        </div>
+                        <ul className="divide-y divide-stone-100 dark:divide-stone-800">
+                            {list.slice(0, 12).map(({ item, st, loc }) => (
+                                <li key={item.id} className="flex items-center gap-3 px-4 py-2 text-sm">
+                                    <span className="text-xl w-7 text-center">{emojiFor(item)}</span>
+                                    <span className="flex-1 min-w-0"><span className="block font-medium truncate">{item.naam}</span><span className="block text-xs text-stone-500 truncate">{formatAantal(item.aantal)} {item.eenheid} · {loc}</span></span>
+                                    <span className={cx('text-xs font-semibold text-right', STATUS_TONE[st.level])}>{statusText(st)}</span>
+                                </li>
+                            ))}
+                            {list.length > 12 && <li className="px-4 py-2 text-xs text-stone-500">en nog {list.length - 12}…</li>}
+                        </ul>
+                    </Card>
+                ))}
+            </div>
         </div>
     );
 }
