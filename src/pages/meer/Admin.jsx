@@ -21,7 +21,7 @@ export function Gebruikers() {
 
 // Lijst van gebruikers met snelle acties: wisselen, dashboard en rechten. Gebruikt op de
 // pagina Gebruikers en in de admin-snelknop bovenaan.
-export function UserList({ extra, onNavigate, autoFocus }) {
+export function UserList({ extra, onNavigate, autoFocus, dashPath = 'meer/dashboard' }) {
     const { usersList, ownerId, user, actions } = useStore();
     const { go } = useUi();
     const [open, setOpen] = useState(null);
@@ -54,7 +54,7 @@ export function UserList({ extra, onNavigate, autoFocus }) {
                                 {active
                                     ? <span className="h-9 px-3 rounded-xl text-xs font-bold bg-teal-600 text-white flex items-center">Actief</span>
                                     : <Button size="sm" variant="soft" icon="Swap" onClick={() => { actions.switchAccount(u.id); nav('voorraad'); }}>Wissel</Button>}
-                                <IconButton icon="Dashboard" label="Dashboard" onClick={() => nav('meer/dashboard/' + u.id)} />
+                                <IconButton icon="Dashboard" label="Dashboard" onClick={() => nav(dashPath + '/' + u.id)} />
                                 <IconButton icon={isOpen ? 'ChevronUp' : 'Settings'} label="Rechten bewerken" onClick={() => setOpen(isOpen ? null : u.id)} className={cx(isOpen && 'bg-stone-100 dark:bg-stone-800')} />
                             </div>
                             {isOpen && (
@@ -87,7 +87,7 @@ export function UserList({ extra, onNavigate, autoFocus }) {
     );
 }
 
-export function Dashboard() {
+export function Dashboard({ basePath = 'meer/dashboard' }) {
     const { usersList, actions, ownerId } = useStore();
     const { route, go } = useUi();
     const uid = route.extra || '';
@@ -103,7 +103,7 @@ export function Dashboard() {
     }, [uid]);
     return (
         <div className="space-y-4">
-            <Select value={uid} onChange={e => go('meer/dashboard/' + e.target.value)}>
+            <Select value={uid} onChange={e => go(basePath + '/' + e.target.value)}>
                 <option value="">Kies een gebruiker…</option>
                 {usersList.map(u => <option key={u.id} value={u.id}>{u.email || u.displayName || u.id}</option>)}
             </Select>
