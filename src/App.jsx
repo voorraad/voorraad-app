@@ -12,11 +12,22 @@ import Shopping from './pages/Shopping.jsx';
 import Menu from './pages/Menu.jsx';
 import More, { subpageTitle } from './pages/More.jsx';
 import { UserList } from './pages/meer/Admin.jsx';
+import AdminPage from './pages/AdminPage.jsx';
 import { APP_VERSION, TYPES, TYPE_BY_ID } from './lib/constants.js';
 import { cx, itemStatus, todayKey } from './lib/utils.js';
 
+// Opende iemand de app zonder specifieke pagina? Dan sturen we admins naar de beheerpagina.
+const OPENED_WITHOUT_PAGE = !(window.location.hash || '').replace(/^#\/?/, '');
+
 export default function App() {
-    const { authState, user, me, isAdmin, globalSettings } = useStore();
+    const { authState, user, me, isAdmin, globalSettings, toast, setToast } = useStore();
+    const { route, go } = useUi();
+    const redirected = useRef(false);
+    useEffect(() => {
+        if (authState !== 'in' || redirected.current) return;
+        redirected.current = true;
+        if (isAdmin && OPENED_WITHOUT_PAGE) go('admin');
+    }, [authState, isAdmin]);
     useEffect(() => {
         if (me.darkMode === undefined) return;
         document.documentElement.classList.toggle('dark', !!me.darkMode);
@@ -27,6 +38,14 @@ export default function App() {
     if (authState === 'out') return <Login />;
     if (me.disabled && !isAdmin) return <Blocked />;
     if (globalSettings.maintenance && !isAdmin) return <Maintenance />;
+    if (isAdmin && route.page === 'admin') return (
+        <>
+            <AdminPage />
+            <PromptDialog />
+            <ConfirmDialog />
+            <Toast toast={toast} onClose={() => setToast(null)} />
+        </>
+    );
     return <Shell />;
 }
 
@@ -164,6 +183,7 @@ function Shell() {
                 <Sheet open={adminOpen} onClose={() => setAdminOpen(false)} size="lg" title="Admin"
                     subtitle={isOwnAccount ? 'Je bekijkt je eigen voorraad' : `Je bekijkt de voorraad van ${(ownerAcc && ownerAcc.label) || 'een andere gebruiker'}`}>
                     {!isOwnAccount && <Button variant="secondary" icon="Home" block className="mb-3" onClick={() => { actions.switchAccount(user.uid); setAdminOpen(false); }}>Terug naar mijn eigen voorraad</Button>}
+                    <Button variant="soft" icon="Lock" block className="mb-3" onClick={() => { setAdminOpen(false); go('admin'); }}>Naar de volledige beheerpagina</Button>
                     <UserList onNavigate={() => setAdminOpen(false)} />
                 </Sheet>
             )}
@@ -196,7 +216,7 @@ function NavBtn({ n, active }) {
 
 // Inhoud van het hamburgermenu (gsm) en de zijbalk (groot scherm).
 function NavMenu({ activeKey, types, counts, menuTabs, openCount, onSwitch, ownerAcc, isOwn }) {
-    const { user, me, actions } = useStore();
+    const { user, me, actions, isAdmin } = useStore();
     const { setShowNews } = useUi();
     const Item = ({ k, icon, label, right }) => (
         <a href={'#/' + k} className={cx('flex items-center gap-3 h-11 px-3 rounded-xl font-medium transition-colors',
@@ -220,6 +240,7 @@ function NavMenu({ activeKey, types, counts, menuTabs, openCount, onSwitch, owne
                 <Item k="meer/statistieken" icon="Chart" label="Statistieken" />
                 <Item k="meer/delen" icon="Users" label="Delen" />
                 <Item k="meer" icon="Settings" label="Instellingen" />
+                {isAdmin && <Item k="admin" icon="Lock" label="Beheerpagina" />}
                 <button type="button" onClick={() => setShowNews(true)} className="w-full flex items-center gap-3 h-11 px-3 rounded-xl font-medium text-stone-700 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800">
                     <Icon name="Sparkles" size={20} />Wat is er nieuw
                 </button>

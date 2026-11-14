@@ -16,6 +16,7 @@ Web-app om bij te houden wat er in je vriezer, frigo en voorraadkast zit — met
 - Weekmenu werkt met tikken (slepen werkte niet op gsm) en je kan recepten inplannen.
 - Bij toevoegen: nieuwe locatie/lade meteen aanmaken, productnamen worden voorgesteld, en categorie, emoji en eenheid worden overgenomen van eerdere producten met dezelfde naam.
 - Iedereen kan nu wisselen tussen de eigen voorraad en gedeelde voorraden (vroeger enkel admins).
+- **Beheerpagina** (`#/admin`) voor admins: overzicht met cijfers over alle gebruikers, gebruikers en rechten, voorraad van elke gebruiker bekijken of openen, logboek van iedereen en app-instellingen (onderhoud, rondleiding). Admins komen hier automatisch terecht na het openen van de app; gewone gebruikers gaan meteen naar hun voorraad.
 
 **Opgeloste bugs**
 - De knop *Wissel* in gebruikersbeheer liet de app crashen (`user` was niet gedefinieerd).

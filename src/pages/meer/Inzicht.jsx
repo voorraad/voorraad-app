@@ -83,10 +83,11 @@ function Stat({ label, value, sub, tone }) {
     );
 }
 
-export function Logboek() {
-    const { isAdmin, ownerId, user } = useStore();
+export function Logboek({ defaultAll = false }) {
+    const { isAdmin, ownerId, user, usersList } = useStore();
     const [logs, setLogs] = useState(null);
-    const [onlyThis, setOnlyThis] = useState(true);
+    const [onlyThis, setOnlyThis] = useState(!defaultAll);
+    const emailOf = (id) => ((usersList.find(u => u.id === id) || {}).email || '').split('@')[0] || 'andere voorraad';
     useEffect(() => {
         const q = isAdmin
             ? db.collection('logs').orderBy('timestamp', 'desc').limit(150)
@@ -120,7 +121,7 @@ export function Logboek() {
                                         <p className="text-xs text-stone-400 flex-shrink-0 tabular-nums">{formatDateTime(l.timestamp)}</p>
                                     </div>
                                     {l.details && <p className="text-xs text-stone-500 dark:text-stone-400 break-words">{l.details}</p>}
-                                    <p className="text-[11px] text-stone-400 mt-0.5">{l.action} · {l.actorId === (user && user.uid) ? 'jij' : l.actorName}{isAdmin && !onlyThis && l.targetUserId !== ownerId ? ' · andere voorraad' : ''}</p>
+                                    <p className="text-[11px] text-stone-400 mt-0.5">{l.action} · {l.actorId === (user && user.uid) ? 'jij' : l.actorName}{isAdmin && !onlyThis ? ' · voorraad van ' + emailOf(l.targetUserId) : ''}</p>
                                 </div>
                             </div>
                         );
