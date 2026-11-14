@@ -32,26 +32,28 @@ export default function AdminPage() {
 
     return (
         <div className="min-h-dvh">
-            <header className="sticky top-0 z-30 bg-stone-900 text-white print:hidden pt-[env(safe-area-inset-top)]">
-                <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-3">
-                    <span className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center"><Icon name="Lock" size={16} /></span>
-                    <span className="font-extrabold text-lg">Beheer</span>
-                    <span className="hidden sm:inline text-xs text-stone-400">Voorraad v{APP_VERSION}</span>
+            <header className="sticky top-0 z-30 bg-stone-50/85 dark:bg-stone-950/85 backdrop-blur-md border-b border-stone-200/70 dark:border-stone-800 print:hidden pt-[env(safe-area-inset-top)]">
+                <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-2">
+                    <span className="font-extrabold tracking-tight text-lg text-stone-900 dark:text-white flex items-center gap-2">
+                        <img src="./icon_192x192.png" alt="" className="w-7 h-7 rounded-lg" /><span className="hidden sm:inline">Voorraad<span className="text-teal-600">.</span></span>
+                    </span>
+                    <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-200">Beheer</span>
                     <div className="flex-1" />
-                    <Button size="sm" variant="secondary" icon="Box" onClick={() => go('voorraad')}><span className="hidden sm:inline">Naar de app</span><span className="sm:hidden">App</span></Button>
-                    <IconButton icon={me.darkMode ? 'Sun' : 'Moon'} label="Thema wisselen" onClick={actions.toggleDark} className="text-stone-300 hover:bg-stone-800 hover:text-white" />
-                    <IconButton icon="LogOut" label="Uitloggen" onClick={actions.logout} className="text-stone-300 hover:bg-stone-800 hover:text-white" />
+                    <Button size="sm" variant="soft" icon="Box" onClick={() => go('voorraad')}><span className="hidden sm:inline">Naar de app</span><span className="sm:hidden">App</span></Button>
+                    <IconButton icon={me.darkMode ? 'Sun' : 'Moon'} label="Thema wisselen" onClick={actions.toggleDark} />
+                    <IconButton icon="LogOut" label="Uitloggen" onClick={actions.logout} />
                 </div>
                 <nav className="max-w-7xl mx-auto px-2 flex flex-wrap gap-1 pb-2">
                     {TABS.map(t => (
                         <a key={t.id} href={'#/admin/' + t.id}
-                            className={cx('h-9 px-3 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors', tab === t.id ? 'bg-white text-stone-900' : 'text-stone-300 hover:bg-stone-800 hover:text-white')}>
-                            <Icon name={t.icon} size={16} />{t.label}
+                            className={cx('h-10 px-3.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors',
+                                tab === t.id ? 'bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-200' : 'text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800')}>
+                            <Icon name={t.icon} size={18} />{t.label}
                         </a>
                     ))}
                 </nav>
             </header>
-            <main className="max-w-7xl mx-auto px-4 py-5 pb-16">
+            <main className="max-w-7xl mx-auto px-4 pt-4 pb-16">
                 {tab === 'overzicht' && <AdminOverview />}
                 {tab === 'gebruikers' && <UserList dashPath="admin/dashboard" />}
                 {tab === 'dashboard' && <AdminUser />}
@@ -286,7 +288,7 @@ function AdminUser() {
             {/* Profiel van de gebruiker */}
             <Card className="p-4">
                 <div className="flex flex-wrap items-start gap-4">
-                    <span className="w-12 h-12 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-200 flex items-center justify-center text-lg font-bold">{(u.email || u.displayName || '?')[0].toUpperCase()}</span>
+                    <span className="w-12 h-12 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-200 flex items-center justify-center text-lg font-bold">{(u.email || u.displayName || '?')[0].toUpperCase()}</span>
                     <div className="min-w-0 flex-1">
                         <p className="font-bold text-lg truncate">{u.displayName || u.email || 'Gebruiker'}</p>
                         <p className="text-sm text-stone-500 truncate">{u.email}</p>
@@ -317,14 +319,14 @@ function AdminUser() {
                 {USER_TABS.map(t => (
                     <a key={t.id} href={`#/admin/dashboard/${ownerId}/${t.id}`}
                         className={cx('h-9 px-3 rounded-full text-sm font-semibold flex items-center gap-1.5 border transition-colors',
-                            sub === t.id ? 'bg-stone-900 text-white border-stone-900 dark:bg-white dark:text-stone-900' : 'bg-white border-stone-200 text-stone-600 hover:border-stone-300 dark:bg-stone-900 dark:border-stone-800 dark:text-stone-300')}>
+                            sub === t.id ? 'bg-teal-600 text-white border-teal-600' : 'bg-white border-stone-200 text-stone-600 hover:border-stone-300 dark:bg-stone-900 dark:border-stone-800 dark:text-stone-300')}>
                         <Icon name={t.icon} size={15} />{t.label}
                     </a>
                 ))}
             </nav>
 
             {ownerId !== user.uid && (
-                <p className="text-sm text-purple-700 dark:text-purple-300 flex items-center gap-1.5 px-1"><Icon name="Info" size={15} />
+                <p className="text-sm text-amber-700 dark:text-amber-300 flex items-center gap-1.5 px-1"><Icon name="Info" size={15} />
                     Je beheert de gegevens van {u.email || 'deze gebruiker'}. Wat je hier aanpast, wordt in hun account opgeslagen.</p>
             )}
 
