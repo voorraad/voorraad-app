@@ -466,6 +466,12 @@ export function StoreProvider({ children }) {
 
     async function switchAccount(id, silent) {
         if (!user || !id) return;
+        // Al op deze voorraad: niets leegmaken, anders blijft het scherm leeg
+        // (de listeners starten dan niet opnieuw omdat ownerId niet verandert).
+        if (id === ownerId) {
+            if (!silent) notify(id === user.uid ? 'Je bekijkt je eigen voorraad' : 'Je bekijkt deze voorraad al');
+            return;
+        }
         setOwnerId(id);
         setVriezers([]); setLades([]); setAllItems([]); setShopping([]); setRecepten([]);
         await db.collection('users').doc(user.uid).set({ activeBeheerdeUserId: id }, { merge: true }).catch(() => { });
