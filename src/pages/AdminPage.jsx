@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../lib/icons.jsx';
 import { db } from '../lib/firebase.js';
 import { useStore } from '../state/store.jsx';
@@ -6,7 +6,7 @@ import { useUi } from '../state/ui.jsx';
 import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select } from '../components/ui.jsx';
 import Stock from './Stock.jsx';
 import { UserList, UserRights, TourEditor } from './meer/Admin.jsx';
-import { Logboek, Statistieken } from './meer/Inzicht.jsx';
+import { Logboek, Statistieken, logTone } from './meer/Inzicht.jsx';
 import { Locaties, Categorieen, Eenheden } from './meer/Beheer.jsx';
 import Shopping from './Shopping.jsx';
 import { Week, Recipes } from './Menu.jsx';
@@ -192,12 +192,19 @@ function AdminOverview() {
                     <SectionTitle action={<a href="#/admin/logboek" className="text-sm font-semibold text-teal-700 dark:text-teal-300">Alles</a>}>Recente activiteit</SectionTitle>
                     <Card className="divide-y divide-stone-100 dark:divide-stone-800">
                         {logs.length === 0 && <p className="p-4 text-sm text-stone-500">Nog geen activiteit.</p>}
-                        {logs.map(l => (
-                            <div key={l.id} className="px-4 py-2.5">
-                                <div className="flex justify-between gap-2"><p className="font-medium text-sm truncate">{l.item || l.action}</p><p className="text-xs text-stone-400 flex-shrink-0">{formatDateTime(l.timestamp)}</p></div>
-                                <p className="text-xs text-stone-500 truncate">{l.action} door {l.actorName} · {emailOf(l.targetUserId).split('@')[0]}</p>
-                            </div>
-                        ))}
+                        {logs.map(l => {
+                            const [ic, cl] = logTone(l.action);
+                            return (
+                                <div key={l.id} className="flex gap-3 px-4 py-2.5">
+                                    <span className={cx('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5', cl)}><Icon name={ic} size={15} /></span>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex justify-between gap-2"><p className="font-semibold text-sm truncate">{l.item || l.action}</p><p className="text-xs text-stone-400 flex-shrink-0 tabular-nums">{formatDateTime(l.timestamp)}</p></div>
+                                        {l.details && <p className="text-xs text-stone-500 dark:text-stone-400 truncate">{l.details}</p>}
+                                        <p className="text-[11px] text-stone-400 mt-0.5 truncate">{l.action} door {l.actorName} · {emailOf(l.targetUserId).split('@')[0]}</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </Card>
                 </section>
             </div>
@@ -257,6 +264,44 @@ const USER_TABS = [
     { id: 'delen', label: 'Delen & export', icon: 'Share' }
 ];
 
+// Uitklapmenu met de onderdelen per gebruiker
+function TabDropdown({ tabs, value, hrefFor }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+    const cur = tabs.find(t => t.id === value) || tabs[0];
+    useEffect(() => {
+        if (!open) return;
+        const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+        document.addEventListener('mousedown', onDown);
+        document.addEventListener('keydown', onKey);
+        return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+    }, [open]);
+    return (
+        <div ref={ref} className="relative">
+            <button type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(o => !o)}
+                className="h-11 w-full sm:w-auto sm:min-w-[16rem] pl-3 pr-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:border-stone-300 flex items-center gap-2.5 text-left font-semibold">
+                <span className="w-7 h-7 rounded-lg bg-teal-600 text-white flex items-center justify-center flex-shrink-0"><Icon name={cur.icon} size={15} /></span>
+                <span className="flex-1 truncate">{cur.label}</span>
+                <Icon name="ChevronDown" size={18} className={cx('text-stone-400 transition-transform', open && 'rotate-180')} />
+            </button>
+            {open && (
+                <div role="menu" className="absolute z-30 left-0 mt-1.5 w-full sm:w-80 max-h-[70vh] overflow-y-auto p-1.5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xl">
+                    {tabs.map(t => (
+                        <a key={t.id} role="menuitem" href={hrefFor(t.id)} onClick={() => setOpen(false)}
+                            className={cx('flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm font-semibold',
+                                t.id === cur.id ? 'bg-teal-50 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200' : 'text-stone-700 hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-stone-800')}>
+                            <Icon name={t.icon} size={16} className={t.id === cur.id ? '' : 'text-stone-400'} />
+                            <span className="flex-1">{t.label}</span>
+                            {t.id === cur.id && <Icon name="Check" size={16} />}
+                        </a>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function AdminUser() {
     const { usersList, ownerId, user, actions, items, vriezers, lades, shopping, recepten, typeOf, locById, ladeById, loaded } = useStore();
     const { route, go, openForm } = useUi();
@@ -315,15 +360,7 @@ function AdminUser() {
                 </div>
             </Card>
 
-            <nav className="flex flex-wrap gap-1.5">
-                {USER_TABS.map(t => (
-                    <a key={t.id} href={`#/admin/dashboard/${ownerId}/${t.id}`}
-                        className={cx('h-9 px-3 rounded-full text-sm font-semibold flex items-center gap-1.5 border transition-colors',
-                            sub === t.id ? 'bg-teal-600 text-white border-teal-600' : 'bg-white border-stone-200 text-stone-600 hover:border-stone-300 dark:bg-stone-900 dark:border-stone-800 dark:text-stone-300')}>
-                        <Icon name={t.icon} size={15} />{t.label}
-                    </a>
-                ))}
-            </nav>
+            <TabDropdown tabs={USER_TABS} value={sub} hrefFor={(id) => `#/admin/dashboard/${ownerId}/${id}`} />
 
             {ownerId !== user.uid && (
                 <p className="text-sm text-amber-700 dark:text-amber-300 flex items-center gap-1.5 px-1"><Icon name="Info" size={15} />

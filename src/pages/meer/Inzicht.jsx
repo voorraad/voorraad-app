@@ -83,6 +83,12 @@ function Stat({ label, value, sub, tone }) {
     );
 }
 
+// Icoon + kleur per logactie (ook gebruikt op de beheerpagina)
+export const logTone = (a) => a === 'Toevoegen' ? ['Plus', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300']
+    : a === 'Verwijderd' ? ['Trash', 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300']
+        : a === 'Geconsumeerd' ? ['Utensils', 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300']
+            : ['Edit', 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300'];
+
 export function Logboek({ defaultAll = false }) {
     const { isAdmin, ownerId, user, usersList } = useStore();
     const [logs, setLogs] = useState(null);
@@ -96,10 +102,7 @@ export function Logboek({ defaultAll = false }) {
     }, [isAdmin, ownerId]);
     if (!logs) return <div className="h-40 rounded-2xl bg-stone-200/60 dark:bg-stone-800/60 animate-pulse" />;
     const shown = isAdmin && onlyThis ? logs.filter(l => l.targetUserId === ownerId) : logs;
-    const tone = (a) => a === 'Toevoegen' ? ['Plus', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300']
-        : a === 'Verwijderd' ? ['Trash', 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300']
-            : a === 'Geconsumeerd' ? ['Utensils', 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300']
-                : ['Edit', 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300'];
+    const tone = logTone;
     return (
         <div className="space-y-3">
             {isAdmin && (
