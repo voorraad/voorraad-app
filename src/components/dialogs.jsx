@@ -270,12 +270,16 @@ export function NewsSheet() {
 
 // ---------- Rondleiding ----------
 export function Tour() {
-    const { showTour, setShowTour } = useUi();
-    const { globalSettings, actions } = useStore();
-    const steps = globalSettings.tourSteps || [];
+    const { showTour, setShowTour, route, go } = useUi();
+    const { globalSettings, actions, canSee } = useStore();
+    // Stappen over onderdelen die de gebruiker niet mag gebruiken, worden overgeslagen.
+    const steps = (globalSettings.tourSteps || []).filter(s => !s.recht || canSee(s.recht));
     const [i, setI] = useState(0);
     const [touchX, setTouchX] = useState(null);
     useEffect(() => { if (showTour) setI(0); }, [showTour]);
+    // De bijhorende pagina opent achter de stap (niet op de beheerpagina).
+    const cur = steps[Math.min(i, Math.max(0, steps.length - 1))];
+    useEffect(() => { if (showTour && cur && cur.ga && route.page !== 'admin') go(cur.ga); }, [showTour, i]);
     if (!showTour || !steps.length) return null;
     const s = steps[Math.min(i, steps.length - 1)];
     const finish = () => { setShowTour(false); actions.setMine({ hasSeenTutorial: true }); };

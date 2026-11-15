@@ -4,7 +4,9 @@ import { db } from '../../lib/firebase.js';
 import { useStore } from '../../state/store.jsx';
 import { useUi } from '../../state/ui.jsx';
 import { Card, Button, Toggle, Select, Input, Textarea, Field, IconButton, EmptyState, Chip } from '../../components/ui.jsx';
-import { TYPES, TOUR_COLORS, TOUR_TONE, DEFAULT_TOUR_STEPS, RIGHTS, RIGHT_GROUPS, RIGHT_PRESETS } from '../../lib/constants.js';
+import { TYPES, TOUR_COLORS, TOUR_TONE, DEFAULT_TOUR_STEPS, TOUR_VERSION, RIGHTS, RIGHT_GROUPS, RIGHT_PRESETS } from '../../lib/constants.js';
+
+const TOUR_PAGES = [['', 'Geen'], ['voorraad/vriezer', 'Vriezer'], ['voorraad/frig', 'Frigo'], ['voorraad/voorraad', 'Stock'], ['lijst', 'Boodschappen'], ['menu/week', 'Weekmenu'], ['menu/recepten', 'Recepten'], ['meer', 'Instellingen']];
 import { cx, formatDateTime, sortLocaties, byName, emojiFor, formatAantal, smartMatch } from '../../lib/utils.js';
 
 export const TAB_OPTIONS = RIGHTS.map(r => [r.id, r.label]);
@@ -189,9 +191,17 @@ export function TourEditor() {
     const [steps, setSteps] = useState(() => JSON.parse(JSON.stringify(globalSettings.tourSteps || DEFAULT_TOUR_STEPS)));
     const set = (i, patch) => setSteps(s => s.map((x, j) => j === i ? { ...x, ...patch } : x));
     const mv = (i, d) => setSteps(s => { const a = [...s]; const j = i + d; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; return a; });
-    const save = async () => { await actions.setGlobal('tourSteps', { steps }); actions.notify('Rondleiding opgeslagen'); };
+    const save = async (list = steps) => { await actions.setGlobal('tourSteps', { steps: list, versie: TOUR_VERSION }); actions.notify('Rondleiding opgeslagen'); };
+    const outdated = (globalSettings.tourVersie || 0) < TOUR_VERSION && globalSettings.tourSteps !== DEFAULT_TOUR_STEPS;
     return (
         <div className="space-y-3">
+            {outdated && (
+                <Card className="p-4 border-teal-300 bg-teal-50/70 dark:bg-teal-950/30 dark:border-teal-800 flex flex-wrap items-center gap-3">
+                    <Icon name="Sparkles" size={20} className="text-teal-700" />
+                    <p className="flex-1 text-sm"><b>Er is een nieuwe, volledige rondleiding</b> ({DEFAULT_TOUR_STEPS.length} stappen, met scannen, opmaken, kaart, etiketten, foto's, gezinsleden en meldingen). Je huidige rondleiding heeft {steps.length} stappen.</p>
+                    <Button size="sm" icon="Check" onClick={async () => { const d = JSON.parse(JSON.stringify(DEFAULT_TOUR_STEPS)); setSteps(d); await save(d); }}>Nieuwe gebruiken</Button>
+                </Card>
+            )}
             {steps.map((s, i) => (
                 <Card key={i} className="p-4 space-y-3">
                     <div className="flex items-center gap-2">
@@ -206,13 +216,15 @@ export function TourEditor() {
                     <div className="grid grid-cols-2 gap-3">
                         <Field label="Icoon"><Select value={s.icon} onChange={e => set(i, { icon: e.target.value })}>{!ICON_NAMES.includes(s.icon) && <option>{s.icon}</option>}{ICON_NAMES.map(n => <option key={n}>{n}</option>)}</Select></Field>
                         <Field label="Kleur"><Select value={s.colorName} onChange={e => set(i, { colorName: e.target.value })}>{TOUR_COLORS.map(c => <option key={c}>{c}</option>)}</Select></Field>
+                        <Field label="Opent pagina"><Select value={s.ga || ''} onChange={e => set(i, { ga: e.target.value })}>{TOUR_PAGES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></Field>
+                        <Field label="Enkel tonen met recht"><Select value={s.recht || ''} onChange={e => set(i, { recht: e.target.value })}><option value="">Altijd tonen</option>{RIGHTS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}</Select></Field>
                     </div>
                 </Card>
             ))}
             <div className="flex gap-2">
                 <Button variant="secondary" icon="Plus" onClick={() => setSteps(s => [...s, { title: 'Nieuwe stap', content: '', icon: 'Info', colorName: 'blue' }])}>Stap</Button>
                 <Button variant="ghost" onClick={() => setSteps(JSON.parse(JSON.stringify(DEFAULT_TOUR_STEPS)))}>Standaard</Button>
-                <Button className="flex-1" icon="Check" onClick={save}>Opslaan</Button>
+                <Button className="flex-1" icon="Check" onClick={() => save()}>Opslaan</Button>
             </div>
         </div>
     );
