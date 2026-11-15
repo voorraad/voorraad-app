@@ -3,7 +3,9 @@ import Icon from '../lib/icons.jsx';
 import { db } from '../lib/firebase.js';
 import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
-import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select } from '../components/ui.jsx';
+import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select, ColorPicker } from '../components/ui.jsx';
+import { NewUsersBanner, InactiveUsers, inactiveUsers, ActivityChart, WasteRanking, AnnouncementEditor, BackupAll, AdminNote, Cleanup } from './admin/Extra.jsx';
+import { userToneKey, USER_TONE_DOTS, USER_TONE_NAMES } from '../lib/userColors.js';
 import Stock from './Stock.jsx';
 import { UserRights, TourEditor, TAB_OPTIONS } from './meer/Admin.jsx';
 import { Logboek, Statistieken, logTone, userTone } from './meer/Inzicht.jsx';
@@ -20,6 +22,7 @@ const TABS = [
     { id: 'overzicht', label: 'Overzicht', icon: 'Dashboard' },
     { id: 'dashboard', label: 'Per gebruiker', short: 'Gebruiker', icon: 'User' },
     { id: 'verlopen', label: 'Verlopen', icon: 'Alert' },
+    { id: 'inzicht', label: 'Inzicht', icon: 'Chart' },
     { id: 'logboek', label: 'Logboek', icon: 'Log' },
     { id: 'app', label: 'App-instellingen', short: 'Instellingen', icon: 'Settings' }
 ];
@@ -57,6 +60,7 @@ export default function AdminPage() {
                 {tab === 'overzicht' && <AdminOverview />}
                 {tab === 'dashboard' && <AdminUser />}
                 {tab === 'verlopen' && <AllExpired />}
+                {tab === 'inzicht' && <div className="space-y-6"><ActivityChart /><WasteRanking /><InactiveUsers /></div>}
                 {tab === 'logboek' && <Logboek defaultAll />}
                 {tab === 'app' && <AppSettings />}
                 <p className="text-xs text-stone-400 mt-10">Ingelogd als {user.email}</p>
@@ -138,6 +142,7 @@ function AdminOverview() {
 
     return (
         <div className="space-y-6">
+            <NewUsersBanner />
             {globalSettings.maintenance && (
                 <Card className="p-4 flex items-center gap-3 border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800">
                     <Icon name="Wrench" size={20} className="text-amber-600" />
@@ -146,9 +151,10 @@ function AdminOverview() {
                 </Card>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
                 <Kpi label="Gebruikers" value={usersList.length} icon="Users" onClick={() => go('admin/dashboard')} />
                 <Kpi label="Actief (7 dagen)" value={active7} icon="Clock" />
+                <Kpi label="Inactief (30 dagen)" value={inactiveUsers(usersList).length} icon="Clock" tone={inactiveUsers(usersList).length ? 'text-amber-600' : undefined} onClick={() => go('admin/inzicht')} />
                 <Kpi label="Geblokkeerd" value={blocked} icon="Lock" tone={blocked ? 'text-red-600' : undefined} />
                 <Kpi label="Producten (alle)" value={done ? totalItems : '…'} icon="Box" />
                 <Kpi label="Verlopen (alle)" value={done ? totalExpired : '…'} icon="Alert" tone={totalExpired ? 'text-red-600' : undefined} />
@@ -167,23 +173,26 @@ function AdminOverview() {
                     <Card className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="text-left text-xs text-stone-500 border-b border-stone-100 dark:border-stone-800">
-                                <tr><th className="px-4 py-2.5 font-semibold">Gebruiker</th><th className="px-2 py-2.5 font-semibold hidden sm:table-cell">Laatst gezien</th><th className="px-2 py-2.5 font-semibold text-right">Producten</th><th className="px-2 py-2.5 font-semibold text-right">Verlopen</th><th className="px-4 py-2.5" /></tr>
+                                <tr><th className="px-3 sm:px-4 py-2.5 font-semibold">Gebruiker</th><th className="px-2 py-2.5 font-semibold hidden sm:table-cell">Laatst gezien</th><th className="px-2 py-2.5 font-semibold text-right"><span className="sm:hidden">Prod.</span><span className="hidden sm:inline">Producten</span></th><th className="px-2 py-2.5 font-semibold text-right"><span className="sm:hidden">Verl.</span><span className="hidden sm:inline">Verlopen</span></th><th className="px-2 sm:px-4 py-2.5" /></tr>
                             </thead>
                             <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                                 {rows.map(u => {
                                     const s = stats[u.id];
                                     return (
                                         <tr key={u.id} className={cx(u.id === ownerId && 'bg-teal-50/50 dark:bg-teal-950/20')}>
-                                            <td className="px-4 py-2.5">
+                                            <td className="px-3 sm:px-4 py-2.5">
                                                 <span className="flex items-center gap-2 min-w-0">
-                                                    <span className={cx('w-2 h-2 rounded-full flex-shrink-0', u.disabled ? 'bg-red-500' : 'bg-emerald-500')} />
-                                                    <span className="truncate max-w-[9rem] sm:max-w-[16rem] font-medium">{u.email || u.displayName || u.id}</span>
+                                                    <span className={cx('relative w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold', userTone(u.id, usersList).pill)}>
+                                                        {(u.email || u.displayName || '?')[0].toUpperCase()}
+                                                        <span title={u.disabled ? 'Geblokkeerd' : 'Actief'} className={cx('absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-stone-900', u.disabled ? 'bg-red-500' : 'bg-emerald-500')} />
+                                                    </span>
+                                                    <span className="truncate max-w-[6.5rem] sm:max-w-[16rem] font-medium">{u.email || u.displayName || u.id}</span>
                                                 </span>
                                             </td>
                                             <td className="px-2 py-2.5 text-stone-500 whitespace-nowrap hidden sm:table-cell">{u.laatstGezien ? formatDateTime(u.laatstGezien) : 'nooit'}</td>
                                             <td className="px-2 py-2.5 text-right tabular-nums">{s ? (s.error ? '–' : s.items) : '…'}</td>
                                             <td className={cx('px-2 py-2.5 text-right tabular-nums', s && s.expired ? 'text-red-600 font-semibold' : '')}>{s ? (s.error ? '–' : s.expired) : '…'}</td>
-                                            <td className="px-4 py-1.5">
+                                            <td className="px-2 sm:px-4 py-1.5">
                                                 <span className="flex justify-end gap-1">
                                                     <Button size="sm" variant="ghost" icon="Box" aria-label="Bekijk" onClick={() => go('admin/dashboard/' + u.id)}><span className="hidden sm:inline">Bekijk</span></Button>
                                                     <Button size="sm" variant="soft" icon="Swap" aria-label="Open" onClick={() => { actions.switchAccount(u.id); go('voorraad'); }}><span className="hidden sm:inline">Open</span></Button>
@@ -250,9 +259,12 @@ function AppSettings() {
                 </Card>
                 <Button variant="secondary" block className="mt-3" icon="Undo" onClick={async () => { if (await confirm({ title: 'Rondleiding resetten voor iedereen?', message: 'Alle gebruikers zien de rondleiding opnieuw bij de volgende keer openen.', confirmLabel: 'Resetten', danger: true })) actions.resetTourForEveryone(); }}>Rondleiding resetten voor iedereen</Button>
             </section>
-            <section className="xl:col-span-2">
+            <section className="xl:col-span-2 space-y-6">
+                <div className="grid gap-6 lg:grid-cols-2 items-start"><AnnouncementEditor /><BackupAll /></div>
+                <div>
                 <SectionTitle>Stappen van de rondleiding</SectionTitle>
                 <TourEditor />
+                </div>
             </section>
         </div>
     );
@@ -271,6 +283,7 @@ const USER_TABS = [
     { id: 'eenheden', label: 'Eenheden', icon: 'List' },
     { id: 'stats', label: 'Statistieken', icon: 'Chart' },
     { id: 'log', label: 'Logboek', icon: 'Log' },
+    { id: 'opkuisen', label: 'Opkuisen', icon: 'Wrench' },
     { id: 'rechten', label: 'Rechten', icon: 'Lock' },
     { id: 'delen', label: 'Delen & export', icon: 'Share' }
 ];
@@ -343,7 +356,10 @@ function AdminUser() {
             {/* Profiel van de gebruiker */}
             <Card className="p-4">
                 <div className="flex flex-wrap items-start gap-4">
-                    <span className="w-12 h-12 flex-shrink-0 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-200 flex items-center justify-center text-lg font-bold">{(u.email || u.displayName || '?')[0].toUpperCase()}</span>
+                    <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                        <span className={cx('w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold', userTone(u.id, usersList).pill)}>{(u.email || u.displayName || '?')[0].toUpperCase()}</span>
+                        <ColorPicker value={userToneKey(u.id, usersList)} colors={USER_TONE_DOTS} names={USER_TONE_NAMES} label="Kleur van deze gebruiker" onChange={k => actions.setUserField(u.id, { adminKleur: k })} />
+                    </div>
                     <div className="min-w-0 flex-1">
                         <p className="font-bold text-lg truncate">{u.displayName || u.email || 'Gebruiker'}</p>
                         <p className="text-sm text-stone-500 truncate">{u.email}</p>
@@ -368,6 +384,7 @@ function AdminUser() {
                             </button>
                         ))}
                 </div>
+                <AdminNote uid={ownerId} />
             </Card>
 
             <TabDropdown tabs={USER_TABS} value={sub} hrefFor={(id) => `#/admin/dashboard/${ownerId}/${id}`} />
@@ -397,6 +414,7 @@ function AdminUser() {
                     {sub === 'eenheden' && <div className="max-w-3xl"><Eenheden /></div>}
                     {sub === 'stats' && <Statistieken />}
                     {sub === 'log' && <Logboek />}
+                    {sub === 'opkuisen' && <Cleanup />}
                     {sub === 'rechten' && <Card className="px-4 pb-4 max-w-2xl"><UserRights u={u} /></Card>}
                     {sub === 'delen' && <SharesAndExport u={u} />}
                 </div>

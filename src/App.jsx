@@ -13,6 +13,7 @@ import Menu from './pages/Menu.jsx';
 import More, { subpageTitle } from './pages/More.jsx';
 import { UserList } from './pages/meer/Admin.jsx';
 import AdminPage from './pages/AdminPage.jsx';
+import { AnnouncementBanner, useNewUsers } from './pages/admin/Extra.jsx';
 import { APP_VERSION, TYPES, TYPE_BY_ID } from './lib/constants.js';
 import { cx, itemStatus, todayKey } from './lib/utils.js';
 
@@ -52,6 +53,7 @@ function Shell() {
     const { user, me, meLoaded, isAdmin, canSee, shopping, items, typeOf, toast, setToast, accounts, ownerId, isOwnAccount, actions, dataLoaded, globalSettings } = store;
     const ui = useUi();
     const { route, go, openForm, setShowTour, setShowNews } = ui;
+    const [newUsers] = useNewUsers();
     const types = TYPES.filter(t => t.id === 'vriezer' || canSee(t.id));
     const menuTabs = [canSee('weekmenu') && 'week', canSee('recepten') && 'recepten'].filter(Boolean);
     const PAGES = ['voorraad', 'lijst', 'meer', ...(menuTabs.length ? ['menu'] : [])];
@@ -141,9 +143,10 @@ function Shell() {
                     
                     {isAdmin && (
                         <button type="button" onClick={() => setAdminOpen(true)} aria-label="Admin: gebruikers wisselen" title="Admin: gebruikers, rechten en dashboard"
-                            className={cx('h-9 px-2.5 rounded-xl flex items-center gap-1.5 text-sm font-semibold transition-colors',
+                            className={cx('relative h-9 px-2.5 rounded-xl flex items-center gap-1.5 text-sm font-semibold transition-colors',
                                 isOwnAccount ? 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/40 dark:text-purple-200' : 'bg-purple-600 text-white hover:bg-purple-700')}>
                             <Icon name="Users" size={17} /><span className="hidden sm:inline">Admin</span>
+                            {newUsers.length > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-stone-50 dark:ring-stone-950" title="Nieuwe gebruikers">{newUsers.length}</span>}
                         </button>
                     )}
                     {me.showHelpButton && <IconButton icon="Help" label="Rondleiding" onClick={() => setShowTour(true)} className="text-red-500" />}
@@ -151,6 +154,7 @@ function Shell() {
             </header>
 
             <main className={cx('mx-auto px-4 pt-2 lg:pb-12 max-w-7xl', onMenu ? 'pb-12' : 'pb-32')}>
+                <div className="empty:hidden mb-3"><AnnouncementBanner /></div>
                 {page === 'voorraad' && <Stock />}
                 {page === 'lijst' && <Shopping />}
                 {page === 'menu' && <Menu />}
