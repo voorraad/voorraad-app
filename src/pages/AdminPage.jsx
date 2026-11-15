@@ -6,6 +6,7 @@ import { useUi } from '../state/ui.jsx';
 import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select, ColorPicker } from '../components/ui.jsx';
 import { useAllUserData } from './admin/data.js';
 import { UserMessages, useUnreadCount } from '../components/Berichten.jsx';
+import { OnlineNow, HolidayMode, StorageUsage, NewUserDefaults, MonthReport, isOnline } from './admin/More2.jsx';
 import { GlobalSearch, StockValue, useTotalValue, FeatureUsage, BlockedAttempts, BulkRights, Invites, RestoreUser, SharedBarcodes, CopyLocation, LabelPicker } from './admin/More.jsx';
 import { NewUsersBanner, InactiveUsers, inactiveUsers, ActivityChart, WasteRanking, AnnouncementEditor, BackupAll, AdminNote, Cleanup } from './admin/Extra.jsx';
 import { userToneKey, USER_TONE_DOTS, USER_TONE_NAMES } from '../lib/userColors.js';
@@ -63,7 +64,7 @@ export default function AdminPage() {
                 {tab === 'overzicht' && <AdminOverview />}
                 {tab === 'dashboard' && <AdminUser />}
                 {tab === 'verlopen' && <AllExpired />}
-                {tab === 'inzicht' && <div className="space-y-6"><ActivityChart /><WasteRanking /><div className="grid gap-6 lg:grid-cols-2 items-start"><StockValue /><FeatureUsage /></div><div className="grid gap-6 lg:grid-cols-2 items-start"><InactiveUsers /><BlockedAttempts /></div></div>}
+                {tab === 'inzicht' && <div className="space-y-6"><ActivityChart /><WasteRanking /><div className="grid gap-6 lg:grid-cols-2 items-start"><MonthReport /><StorageUsage /></div><div className="grid gap-6 lg:grid-cols-2 items-start"><StockValue /><FeatureUsage /></div><div className="grid gap-6 lg:grid-cols-2 items-start"><InactiveUsers /><BlockedAttempts /></div></div>}
                 {tab === 'logboek' && <Logboek defaultAll />}
                 {tab === 'app' && <AppSettings />}
                 <p className="text-xs text-stone-400 mt-10">Ingelogd als {user.email}</p>
@@ -114,6 +115,7 @@ function AdminOverview() {
     return (
         <div className="space-y-6">
             <NewUsersBanner />
+            <OnlineNow />
             <GlobalSearch />
             {globalSettings.maintenance && (
                 <Card className="p-4 flex items-center gap-3 border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800">
@@ -254,7 +256,7 @@ function AppSettings() {
                     <AnnouncementEditor />
                 </div>
             )}
-            {sub === 'gebruikers' && <div className="grid gap-6 xl:grid-cols-2 items-start"><Invites /><BulkRights /></div>}
+            {sub === 'gebruikers' && <div className="grid gap-6 xl:grid-cols-2 items-start"><div className="space-y-6"><Invites /><NewUserDefaults /></div><BulkRights /></div>}
             {sub === 'gegevens' && <div className="grid gap-6 lg:grid-cols-2 items-start"><div className="space-y-6"><BackupAll /><RestoreUser /></div><SharedBarcodes /></div>}
             {sub === 'rondleiding' && <section><SectionTitle>Stappen van de rondleiding</SectionTitle><TourEditor /></section>}
         </div>
@@ -380,6 +382,7 @@ function AdminUser() {
                         ))}
                 </div>
                 <AdminNote uid={ownerId} />
+                <HolidayMode u={u} />
                 <button type="button" onClick={() => to('berichten')} className="mt-3 w-full h-11 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/50 dark:hover:bg-teal-900/50 text-teal-800 dark:text-teal-200 text-sm font-semibold flex items-center justify-center gap-2">
                     <Icon name="Message" size={17} />Bericht sturen{unread > 0 && <span className="text-xs font-bold bg-amber-500 text-white rounded-full px-2 py-0.5">{unread} ongelezen</span>}
                 </button>

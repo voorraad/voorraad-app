@@ -109,6 +109,7 @@ export function ItemSheet() {
         item.altijdGoed ? ['Houdbaarheid', 'Altijd goed'] : null,
         num(item.minimumVoorraad) > 0 ? ['Minimum', `${formatAantal(item.minimumVoorraad)} ${item.eenheid}`] : null,
         num(item.prijs) > 0 ? ['Waarde', euro(item.prijs)] : null,
+        item.toegevoegdDoor ? ['Toegevoegd door', item.toegevoegdDoor] : null,
         item.geplandeDatum ? ['Op het menu', weekdayLabel(parseDateKey(item.geplandeDatum), { weekday: 'long', day: 'numeric', month: 'long' })] : null
     ].filter(Boolean);
 

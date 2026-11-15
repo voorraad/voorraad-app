@@ -15,6 +15,7 @@ import { UserList } from './pages/meer/Admin.jsx';
 import AdminPage from './pages/AdminPage.jsx';
 import { AnnouncementBanner, useNewUsers } from './pages/admin/Extra.jsx';
 import { MessagePopup } from './components/Berichten.jsx';
+import { MemberButton } from './pages/meer/Gezin.jsx';
 import { ScanSheet, LabelSheet, PhotoViewer } from './components/media.jsx';
 import { APP_VERSION, TYPES, TYPE_BY_ID } from './lib/constants.js';
 import { cx, itemStatus, todayKey } from './lib/utils.js';
@@ -75,6 +76,18 @@ function Shell() {
         if (it) { go('voorraad/' + typeOf(it)); ui.openItem(it.id); }
         else { go('voorraad'); actions.notify('Dit product staat niet (meer) in deze voorraad.', 'error'); }
     }, [route.page, route.sub, dataLoaded]);
+    // Snelkoppeling van het beginscherm: ?actie=scan | nieuw | eerst
+    const actieDone = useRef(false);
+    useEffect(() => {
+        if (actieDone.current || !dataLoaded) return;
+        const q = new URLSearchParams(location.search), a = q.get('actie');
+        if (!a) return;
+        actieDone.current = true;
+        history.replaceState(null, '', location.pathname + location.hash);
+        if (a === 'scan' && canSee('scan')) ui.openScan({});
+        else if (a === 'nieuw' && canSee('toevoegen')) openForm({ type: 'vriezer', nonce: Date.now() });
+        else if (a === 'eerst') go('voorraad/vriezer');
+    }, [dataLoaded]);
     const [switcher, setSwitcher] = useState(false);
     const openCount = shopping.filter(s => !s.checked).length;
 
@@ -91,7 +104,7 @@ function Shell() {
 
     // Browsermelding (max. 1× per dag) wanneer er producten verlopen zijn.
     useEffect(() => {
-        if (!dataLoaded || me.notificationsEnabled === false || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+        if (!dataLoaded || me.notificationsEnabled === false || store.opVakantie || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
         const urgent = items.filter(i => ['expired', 'veryold'].includes(itemStatus(i, typeOf(i)).level));
         const key = 'gemeld_' + todayKey();
         if (!urgent.length || localStorage.getItem(key)) return;
@@ -149,6 +162,7 @@ function Shell() {
                         ))}
                     </nav>}
                     <div className="flex-1" />
+                    <MemberButton />
                     {accounts.length > 1 && <AccountButton acc={ownerAcc} isOwn={isOwnAccount} compact onClick={() => setSwitcher(true)} />}
                     
                     {isAdmin && (

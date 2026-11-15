@@ -10,12 +10,16 @@ import { Locaties, Categorieen, Eenheden } from './meer/Beheer.jsx';
 import { Delen } from './meer/Delen.jsx';
 import { Statistieken, Logboek } from './meer/Inzicht.jsx';
 import { Gebruikers, Dashboard, TourEditor } from './meer/Admin.jsx';
+import { Gezin } from './meer/Gezin.jsx';
+import { Snelkoppelingen } from './meer/Snelkoppelingen.jsx';
 
 const SUBPAGES = {
     locaties: { title: 'Locaties & lades', C: Locaties, right: 'locaties' },
     categorieen: { title: 'Categorieën', C: Categorieen, right: 'categorieen' },
     eenheden: { title: 'Eenheden', C: Eenheden, right: 'categorieen' },
     delen: { title: 'Delen', C: Delen, right: 'delen' },
+    gezin: { title: 'Gezinsleden', C: Gezin },
+    snelkoppelingen: { title: 'Snelkoppelingen', C: Snelkoppelingen },
     statistieken: { title: 'Statistieken', C: Statistieken, right: 'stats' },
     logboek: { title: 'Logboek', C: Logboek, right: 'logboek' },
     gebruikers: { title: 'Gebruikers', C: Gebruikers, admin: true },
@@ -108,11 +112,10 @@ function MoreHome() {
                 </Group>
             )}
 
-            {canSee('delen') && (
-                <Group title="Samen">
-                    <Row icon="Users" title="Delen" subtitle="Nodig iemand uit of maak een bekijk-link" onClick={() => go('meer/delen')} />
-                </Group>
-            )}
+            <Group title="Samen">
+                <Row icon="User" title="Gezinsleden" subtitle={me.gezinsleden && me.gezinsleden.length ? `${me.gezinsleden.length} personen op dit account` : 'Wie gebruikt dit account? Elk met eigen naam'} onClick={() => go('meer/gezin')} />
+                {canSee('delen') && <Row icon="Users" title="Delen" subtitle="Nodig iemand uit of maak een bekijk-link" onClick={() => go('meer/delen')} />}
+            </Group>
 
             {(canSee('stats') || canSee('logboek') || canSee('export')) && (
                 <Group title="Gegevens">
@@ -131,6 +134,7 @@ function MoreHome() {
 
             <Group title="Hulp">
                 {globalSettings.tourSteps && globalSettings.tourSteps.length > 0 && <Row icon="Help" title="Rondleiding bekijken" onClick={() => setShowTour(true)} right={null} />}
+                <Row icon="Zap" title="Snelkoppelingen" subtitle="Scan of toevoegen rechtstreeks vanaf je beginscherm" onClick={() => go('meer/snelkoppelingen')} />
                 <Row icon="Sparkles" title="Wat is er nieuw" subtitle={`Versie ${APP_VERSION}`} onClick={() => setShowNews(true)} right={null} />
             </Group>
 

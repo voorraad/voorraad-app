@@ -96,7 +96,7 @@ function useLogsSince(weeks) {
 }
 
 // Wat betekent een logregel? toegevoegd / opgegeten / weggegooid / anders
-const kindOf = (l) => {
+export const kindOf = (l) => {
     const d = (l.details || '').toLowerCase();
     if (l.action === 'Toevoegen' && !d.includes('ongedaan')) return 'added';
     if (l.action === 'Geconsumeerd' || (l.action === 'Verwijderd' && d.startsWith('opgegeten'))) return 'eaten';

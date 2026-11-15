@@ -9,11 +9,62 @@
   "theme_color": "#0d9488",
   "lang": "nl",
   "icons": [
-    { "src": "icon_192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon_512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    {
+      "src": "icon_192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon_512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
   ],
   "shortcuts": [
-    { "name": "Vriezer", "url": "./#/voorraad/vriezer" },
-    { "name": "Boodschappenlijst", "url": "./#/lijst" }
+    {
+      "name": "Barcode scannen",
+      "short_name": "Scannen",
+      "url": "./?actie=scan",
+      "icons": [
+        {
+          "src": "icon_192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Product toevoegen",
+      "short_name": "Toevoegen",
+      "url": "./?actie=nieuw",
+      "icons": [
+        {
+          "src": "icon_192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Vriezer",
+      "url": "./#/voorraad/vriezer",
+      "icons": [
+        {
+          "src": "icon_192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Boodschappenlijst",
+      "short_name": "Lijst",
+      "url": "./#/lijst",
+      "icons": [
+        {
+          "src": "icon_192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
   ]
 }

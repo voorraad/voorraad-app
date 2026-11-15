@@ -10,7 +10,7 @@ const mapDocs = (snap) => snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
 // Alleen deze velden horen bij een product (voorkomt dat formulier-hulpvelden in Firestore belanden).
 const ITEM_FIELDS = ['naam', 'aantal', 'eenheid', 'vriezerId', 'ladeId', 'ladeNaam', 'categorie', 'minimumVoorraad', 'prijs',
-    'ingevrorenOp', 'houdbaarheidsDatum', 'notitie', 'emoji', 'geplandeDatum', 'tags', 'altijdGoed', 'foto', 'barcode'];
+    'ingevrorenOp', 'houdbaarheidsDatum', 'notitie', 'emoji', 'geplandeDatum', 'tags', 'altijdGoed', 'foto', 'barcode', 'toegevoegdDoor'];
 export const pickItemFields = (o) => Object.fromEntries(ITEM_FIELDS.filter(k => o[k] !== undefined).map(k => [k, o[k]]));
 
 export function StoreProvider({ children }) {
@@ -89,24 +89,73 @@ export function StoreProvider({ children }) {
                     };
                     db.collection('users').doc(u.uid).set(init, { merge: true }).catch(() => { });
                     setMe(init);
-                    // Uitnodiging van een beheerder? Dan de vooraf ingestelde rechten toepassen.
-                    const em = (u.email || '').toLowerCase();
-                    if (em) db.collection('invites').doc(em).get().then(inv => {
-                        if (!inv.exists || inv.data().gebruiktOp) return;
-                        const d = inv.data();
-                        const preset = {};
-                        if (Array.isArray(d.hiddenTabs)) preset.hiddenTabs = d.hiddenTabs;
-                        if (d.adminKleur) preset.adminKleur = d.adminKleur;
-                        if (d.naam && !u.displayName) preset.displayName = d.naam;
-                        db.collection('users').doc(u.uid).set(preset, { merge: true }).catch(() => { });
-                        inv.ref.set({ gebruiktOp: new Date(), uid: u.uid }, { merge: true }).catch(() => { });
-                    }).catch(() => { });
+                    if (!initDone.current) { initDone.current = true; setupNewUser(u); }
                 }
             }, () => setMe(m => m || {}));
             setAuthState('in');
         });
         return () => { unsub(); if (meUnsub.current) meUnsub.current(); };
     }, []);
+
+    // Nieuwe gebruiker: eerst de standaardinstellingen van de beheerder (settings/standaard),
+    // daarna een eventuele persoonlijke uitnodiging (invites/{email}) die voorrang krijgt.
+    const initDone = useRef(false);
+    async function setupNewUser(u) {
+        const ref = db.collection('users').doc(u.uid);
+        try {
+            const st = await db.collection('settings').doc('standaard').get();
+            const d = st.exists ? st.data() : null;
+            if (d && d.actief) {
+                const patch = {};
+                ['customCategories', 'customUnitsVries', 'customUnitsFrig', 'customUnitsVoorraad'].forEach(k => { if (Array.isArray(d[k])) patch[k] = d[k]; });
+                if (Array.isArray(d.hiddenTabs)) patch.hiddenTabs = d.hiddenTabs;
+                if (Object.keys(patch).length) await ref.set(patch, { merge: true });
+                const own = await db.collection('vriezers').where('userId', '==', u.uid).limit(1).get();
+                if (own.empty && Array.isArray(d.locaties)) {
+                    let order = 0;
+                    for (const l of d.locaties) {
+                        const v = await db.collection('vriezers').add({ naam: l.naam, type: l.type || 'vriezer', color: l.color || 'blue', locatieGroep: l.locatieGroep || 'Thuis', order: order++, userId: u.uid });
+                        await Promise.all((l.lades || []).map(n => db.collection('lades').add({ naam: n, vriezerId: v.id, userId: u.uid })));
+                    }
+                }
+            }
+        } catch (e) { console.warn('Standaardinstellingen niet toegepast', e); }
+        const em = (u.email || '').toLowerCase();
+        if (!em) return;
+        try {
+            const inv = await db.collection('invites').doc(em).get();
+            if (!inv.exists || inv.data().gebruiktOp) return;
+            const d = inv.data();
+            const preset = {};
+            if (Array.isArray(d.hiddenTabs)) preset.hiddenTabs = d.hiddenTabs;
+            if (d.adminKleur) preset.adminKleur = d.adminKleur;
+            if (d.naam && !u.displayName) preset.displayName = d.naam;
+            await ref.set(preset, { merge: true });
+            await inv.ref.set({ gebruiktOp: new Date(), uid: u.uid }, { merge: true });
+        } catch (e) { /* geen uitnodiging */ }
+    }
+
+    // Aanwezigheid: zolang de app zichtbaar is, elke minuut "actief" melden (beheerpagina → Nu in de app).
+    useEffect(() => {
+        if (!user) return;
+        const beat = () => {
+            if (document.visibilityState !== 'visible') return;
+            const h = (location.hash || '#/voorraad').replace(/^#\/?/, '').split('/');
+            const waar = h[0] === 'admin' ? 'Beheerpagina' : h[0] === 'lijst' ? 'Boodschappen' : h[0] === 'menu' ? (h[1] === 'recepten' ? 'Recepten' : 'Weekmenu') : h[0] === 'meer' ? 'Instellingen' : ({ frig: 'Frigo', voorraad: 'Stock' }[h[1]] || 'Vriezer');
+            db.collection('users').doc(user.uid).set({ actiefOp: serverTimestamp(), actiefWaar: waar }, { merge: true }).catch(() => { });
+        };
+        beat();
+        const t = setInterval(beat, 60000);
+        const vis = () => document.visibilityState === 'visible' && beat();
+        document.addEventListener('visibilitychange', vis);
+        window.addEventListener('hashchange', beat);
+        return () => { clearInterval(t); document.removeEventListener('visibilitychange', vis); window.removeEventListener('hashchange', beat); };
+    }, [user && user.uid]);
+
+    // Gezinsleden: meerdere personen die hetzelfde account op dit toestel gebruiken.
+    const [gezinslidId, setGezinslidId] = useState(() => { try { return localStorage.getItem('voorraad_gezinslid') || ''; } catch (e) { return ''; } });
+    const gezinsleden = (me && Array.isArray(me.gezinsleden)) ? me.gezinsleden : [];
+    const gezinslid = gezinsleden.find(g => g.id === gezinslidId) || null;
 
     // Deel-uitnodigingen
     useEffect(() => {
@@ -222,7 +271,8 @@ export function StoreProvider({ children }) {
         if (!user) return;
         db.collection('logs').add({
             action, item: itemNaam || '', details: details || '', actorId: user.uid,
-            actorName: user.displayName || user.email || '', targetUserId: ownerId, timestamp: serverTimestamp()
+            actorName: user.displayName || user.email || '', targetUserId: ownerId, timestamp: serverTimestamp(),
+            ...(gezinslid ? { gezinslid: gezinslid.naam, gezinslidKleur: gezinslid.kleur || '' } : {})
         }).catch(e => console.warn('Kon log niet opslaan', e));
     };
     const bumpStats = (kind, count, value) => ownerDoc().set({
@@ -273,6 +323,7 @@ export function StoreProvider({ children }) {
                 emoji: values.emoji || emojiForCategory(values.categorie)
             });
             data.userId = ownerId;
+            if (!editing && gezinslid) data.toegevoegdDoor = gezinslid.naam;
             // Barcode onthouden, zodat het product de volgende keer meteen herkend wordt.
             if (data.barcode && globalSettings.barcodesDelen !== false) db.collection('barcodes').doc(data.barcode).set({ naam: data.naam, categorie: data.categorie || '', eenheid: data.eenheid || '', emoji: data.emoji || '', ...(data.foto && !data.foto.startsWith('data:') ? { foto: data.foto } : {}), door: user.uid, op: new Date() }).catch(() => { });
             if (data.barcode) ownerDoc().set({ barcodes: { [data.barcode]: { naam: data.naam, categorie: data.categorie || '', eenheid: data.eenheid || '', emoji: data.emoji || '', ...(data.foto && !data.foto.startsWith('data:') ? { foto: data.foto } : {}) } } }, { merge: true }).catch(() => { });
@@ -438,6 +489,10 @@ export function StoreProvider({ children }) {
             await runBatched(list.map(i => b => b.update(db.collection('items').doc(i.id), { ladeNaam: naam })));
         },
         // Tellers om te zien welke onderdelen gebruikt worden (beheerpagina → Inzicht)
+        setGezinslid(id) {
+            setGezinslidId(id || '');
+            try { id ? localStorage.setItem('voorraad_gezinslid', id) : localStorage.removeItem('voorraad_gezinslid'); } catch (e) { }
+        },
         track(key) { if (user) db.collection('users').doc(user.uid).set({ gebruik: { [key]: increment(1) } }, { merge: true }).catch(() => { }); },
         // Geblokkeerde of tijdens onderhoud geweigerde poging bijhouden (één keer per sessie)
         logBlocked(reden) {
@@ -580,7 +635,8 @@ export function StoreProvider({ children }) {
     const value = {
         authState, user, me: me || {}, meLoaded: me !== null, isAdmin, ownerId, owner, isOwnAccount, accounts,
         vriezers, lades, allItems, shopping, recepten, incomingShares, outgoingShares, usersList, globalSettings,
-        ...derived, dataLoaded, loaded, hiddenTabs, canSee, stats,
+        ...derived, dataLoaded, loaded, hiddenTabs, canSee, stats, gezinsleden, gezinslid,
+        opVakantie: !!(me && me.vakantieTot && me.vakantieTot >= todayKey()),
         toast, setToast, actions
     };
     return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>;
