@@ -40,6 +40,12 @@ Web-app om bij te houden wat er in je vriezer, frigo en voorraadkast zit — met
 - Tailwind wordt vooraf gecompileerd (geen CDN-script meer).
 - De service worker bewaart alles voor offline gebruik en haalt nieuwe versies meteen op als je online bent.
 
+## Barcode, etiketten en foto's
+
+- **Barcode scannen** (knop naast het zoekveld en in het productformulier): gebruikt de barcode-lezer van de browser als die er is, anders ZXing (van jsDelivr/unpkg, wordt gecachet) en als vangnet een eigen EAN-13/EAN-8-lezer (`src/lib/ean.js`). Productinfo komt van Open Food Facts; zelf ingevulde producten worden onthouden in `users.barcodes`.
+- **Etiketten** (in een product of via selecteren): A4 3 × 8, labelprinter 62 × 29 of 50 × 25 mm, met QR-code naar `#/p/<productId>`. De QR-generator zit in `src/lib/qr.js` (geen externe bibliotheek).
+- **Foto's**: per product (`items.foto`) en per lade (`lades.foto`), verkleind tot een kleine JPEG en in Firestore bewaard.
+
 ## Gegevens blijven compatibel
 
 Het datamodel in Firestore is **ongewijzigd**: dezelfde collecties (`users`, `vriezers`, `lades`, `items`, `shoppingList`, `recepten`, `shares`, `logs`, `settings`, `admins`) en dezelfde velden. Bestaande voorraden, gedeelde accounts, tour-instellingen en back-ups blijven werken. Je hoeft de Firestore-regels niet aan te passen, behalve voor de **bekijk-link** (`?deel=...`): iemand zonder account mag standaard niets lezen. Plak daarvoor de regels uit [`firestore-bekijklink.rules`](firestore-bekijklink.rules) in de Firebase console. De bekijk-link gebruikt een extra collectie `publicShares` (token → eigenaar). Voor de beheerpagina (notities per gebruiker en de mededeling) staan de regels in [`firestore-beheer.rules`](firestore-beheer.rules); nieuwe velden/collecties: `adminNotes/{uid}`, `settings/mededeling`, `users.adminKleur`, `users.adminBekendeGebruikers`.

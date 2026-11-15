@@ -4,6 +4,7 @@ import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
 import { Sheet, Button, Stepper, Badge, IconButton } from './ui.jsx';
 import { TYPE_BY_ID } from '../lib/constants.js';
+import { Thumb } from './media.jsx';
 import {
     cx, num, emojiFor, formatAantal, formatDate, itemStatus, statusText, STATUS_TONE, STATUS_BAR,
     daysSince, formatAge, euro, weekdayLabel, parseDateKey, categoriesFor
@@ -34,7 +35,7 @@ export function ItemRow({ item, type, showWhere, selectable, selected, onToggle,
                     {selected && <Icon name="Check" size={13} strokeWidth={3} />}
                 </span>
             )}
-            <span className="text-2xl w-8 text-center flex-shrink-0 leading-none" aria-hidden="true">{emojiFor(item)}</span>
+            <Thumb item={item} size="w-9 h-9 -ml-0.5" />
             <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 min-w-0">
                     <p className="font-semibold text-[15px] text-stone-900 dark:text-stone-50 truncate">{item.naam}</p>
@@ -68,7 +69,7 @@ export function ItemRow({ item, type, showWhere, selectable, selected, onToggle,
 // Detailweergave + acties van één product.
 export function ItemSheet() {
     const { items, locById, ladeById, typeOf, owner, actions, canSee } = useStore();
-    const { itemId, closeItem, openForm, openRemove, openMove, openPlan } = useUi();
+    const { itemId, closeItem, openForm, openRemove, openMove, openPlan, openLabels, openPhoto } = useUi();
     const item = items.find(i => i.id === itemId);
     const [amount, setAmount] = useState(1);
     const [busy, setBusy] = useState(false);
@@ -106,7 +107,9 @@ export function ItemSheet() {
     return (
         <Sheet open onClose={closeItem} title={null}>
             <div className="flex items-start gap-4">
-                <span className="text-5xl leading-none mt-1" aria-hidden="true">{emojiFor(item)}</span>
+                {item.foto
+                    ? <button type="button" onClick={() => openPhoto({ src: item.foto, title: item.naam })} className="flex-shrink-0" aria-label="Foto groot bekijken"><img src={item.foto} alt="" className="w-20 h-20 rounded-2xl object-cover bg-stone-100" /></button>
+                    : <span className="text-5xl leading-none mt-1" aria-hidden="true">{emojiFor(item)}</span>}
                 <div className="min-w-0 flex-1">
                     <h2 className="text-xl font-bold text-stone-900 dark:text-white leading-tight break-words">{item.naam}</h2>
                     <div className="flex flex-wrap items-center gap-2 mt-1.5">
@@ -137,10 +140,11 @@ export function ItemSheet() {
                 <div className="flex flex-wrap gap-1.5 mt-3">{item.tags.map(t => <Badge key={t} color="indigo">{t}</Badge>)}</div>
             )}
 
-            <div className="grid grid-cols-4 gap-2 mt-5">
+            <div className="grid grid-cols-5 gap-2 mt-5">
                 <ActionTile icon="Edit" label="Bewerk" onClick={() => { closeItem(); openForm({ item }); }} />
                 <ActionTile icon="Copy" label="Kopie" onClick={() => { closeItem(); openForm({ duplicateOf: item }); }} />
                 <ActionTile icon="Move" label="Verplaats" onClick={() => { closeItem(); openMove([item.id]); }} />
+                <ActionTile icon="Printer" label="Etiket" onClick={() => { closeItem(); openLabels([item.id]); }} />
                 {canSee('weekmenu')
                     ? <ActionTile icon="Calendar" label="Plan in" onClick={() => { closeItem(); openPlan({ item }); }} />
                     : <ActionTile icon="Cart" label="Op lijst" onClick={async () => { await actions.addShopping({ naam: item.naam, aantal: 1, eenheid: item.eenheid }); actions.notify('Op je boodschappenlijst gezet'); }} />}
