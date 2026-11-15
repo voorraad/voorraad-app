@@ -119,8 +119,8 @@ function AdminOverview() {
         return m;
     }, [shares, usersList]);
     const memberOf = (uid) => Object.keys(members).filter(o => members[o].some(x => x.id === uid));
-    // Wie enkel meebeheert (zelf geen producten of locaties), staat alleen ingesprongen onder de eigenaar.
-    const onlyMember = (u) => memberOf(u.id).length > 0 && stats[u.id] && !stats[u.id].error && !stats[u.id].items && !stats[u.id].locs;
+    // Wie meebeheert en zelf geen producten heeft (lege locaties tellen niet), staat alleen ingesprongen onder de eigenaar.
+    const onlyMember = (u) => memberOf(u.id).length > 0 && stats[u.id] && !stats[u.id].error && !stats[u.id].items;
     const matches = (u) => smartMatch(u.email || u.displayName || '', q);
     const rows = useMemo(() => usersList.filter(u => !onlyMember(u) && (matches(u) || (members[u.id] || []).some(matches))).sort((a, b) => {
         if (sort === 'producten') return ((stats[b.id] || {}).items || 0) - ((stats[a.id] || {}).items || 0);
@@ -209,7 +209,7 @@ function AdminOverview() {
                                                         <span className={cx('w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold', userTone(m.id, usersList).pill)}>{(m.email || '?')[0].toUpperCase()}</span>
                                                         <span className="min-w-0">
                                                             <span className="block truncate max-w-[5.5rem] sm:max-w-[14rem] text-sm">{m.email || m.displayName}</span>
-                                                            <span className="block text-[11px] text-stone-400">beheert mee</span>
+                                                            <span className="block text-[11px] text-stone-400">beheert mee{stats[m.id] && !stats[m.id].items && stats[m.id].locs ? ' · eigen voorraad leeg' : ''}</span>
                                                         </span>
                                                     </span>
                                                 </td>
