@@ -8,7 +8,7 @@ import { NewUsersBanner, InactiveUsers, inactiveUsers, ActivityChart, WasteRanki
 import { userToneKey, USER_TONE_DOTS, USER_TONE_NAMES } from '../lib/userColors.js';
 import Stock from './Stock.jsx';
 import { UserRights, TourEditor, TAB_OPTIONS } from './meer/Admin.jsx';
-import { Logboek, Statistieken, logTone, userTone } from './meer/Inzicht.jsx';
+import { Logboek, Statistieken, logTone, userTone, LogMeta } from './meer/Inzicht.jsx';
 import { Locaties, Categorieen, Eenheden } from './meer/Beheer.jsx';
 import Shopping from './Shopping.jsx';
 import { Week, Recipes } from './Menu.jsx';
@@ -213,14 +213,14 @@ function AdminOverview() {
                         {logs.length === 0 && <p className="p-4 text-sm text-stone-500">Nog geen activiteit.</p>}
                         {logs.map(l => {
                             const [ic, cl] = logTone(l.action);
-                            const ut = userTone(l.targetUserId, usersList);
+                            const ut = userTone(l.actorId || l.actorName, usersList);
                             return (
                                 <div key={l.id} className={cx('flex gap-3 px-4 py-2.5 border-l-4', ut.bar)}>
                                     <span className={cx('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5', cl)}><Icon name={ic} size={15} /></span>
                                     <div className="min-w-0 flex-1">
                                         <div className="flex justify-between gap-2"><p className="font-semibold text-sm truncate">{l.item || l.action}</p><p className="text-xs text-stone-400 flex-shrink-0 tabular-nums">{formatDateTime(l.timestamp)}</p></div>
                                         {l.details && <p className="text-xs text-stone-500 dark:text-stone-400 truncate">{l.details}</p>}
-                                        <p className="text-[11px] text-stone-400 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1"><span>{l.action} door {l.actorName}</span><span className={cx('px-1.5 py-px rounded font-bold', ut.pill)}>{emailOf(l.targetUserId).split('@')[0]}</span></p>
+                                        <LogMeta l={l} usersList={usersList} />
                                     </div>
                                 </div>
                             );
