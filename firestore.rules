@@ -113,6 +113,13 @@ service cloud.firestore {
       allow delete: if signedIn() && (isAdmin() || resource.data.ownerId == me());
     }
 
+    // ---------- Persoonlijke berichten van een beheerder ----------
+    match /berichten/{id} {
+      allow read: if signedIn() && (isAdmin() || resource.data.userId == me());
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (signedIn() && resource.data.userId == me() && onlyChanged(['gelezenOp']));
+    }
+
     // ---------- Logboek ----------
     match /logs/{id} {
       allow read: if canUse(resource.data.targetUserId);
