@@ -89,6 +89,18 @@ export function StoreProvider({ children }) {
                     };
                     db.collection('users').doc(u.uid).set(init, { merge: true }).catch(() => { });
                     setMe(init);
+                    // Uitnodiging van een beheerder? Dan de vooraf ingestelde rechten toepassen.
+                    const em = (u.email || '').toLowerCase();
+                    if (em) db.collection('invites').doc(em).get().then(inv => {
+                        if (!inv.exists || inv.data().gebruiktOp) return;
+                        const d = inv.data();
+                        const preset = {};
+                        if (Array.isArray(d.hiddenTabs)) preset.hiddenTabs = d.hiddenTabs;
+                        if (d.adminKleur) preset.adminKleur = d.adminKleur;
+                        if (d.naam && !u.displayName) preset.displayName = d.naam;
+                        db.collection('users').doc(u.uid).set(preset, { merge: true }).catch(() => { });
+                        inv.ref.set({ gebruiktOp: new Date(), uid: u.uid }, { merge: true }).catch(() => { });
+                    }).catch(() => { });
                 }
             }, () => setMe(m => m || {}));
             setAuthState('in');
@@ -145,6 +157,7 @@ export function StoreProvider({ children }) {
             s.doc('onboarding').onSnapshot(d => setGlobalSettings(g => ({ ...g, onboardingLoaded: true, onboardingActive: d.exists ? d.data().isActive !== false : true })), () => setGlobalSettings(g => ({ ...g, onboardingLoaded: true }))),
             s.doc('tourSteps').onSnapshot(d => { if (d.exists && Array.isArray(d.data().steps) && d.data().steps.length) setGlobalSettings(g => ({ ...g, tourSteps: d.data().steps })); }, () => { }),
             s.doc('maintenance').onSnapshot(d => setGlobalSettings(g => ({ ...g, maintenance: d.exists && d.data().active === true })), () => { }),
+            s.doc('barcodes').onSnapshot(d => setGlobalSettings(g => ({ ...g, barcodesDelen: !(d.exists && d.data().gedeeld === false) })), () => { }),
             s.doc('mededeling').onSnapshot(d => setGlobalSettings(g => ({ ...g, mededeling: d.exists ? d.data() : null })), () => { })
         ];
         return () => subs.forEach(u => u());
@@ -235,6 +248,7 @@ export function StoreProvider({ children }) {
             });
             data.userId = ownerId;
             // Barcode onthouden, zodat het product de volgende keer meteen herkend wordt.
+            if (data.barcode && globalSettings.barcodesDelen !== false) db.collection('barcodes').doc(data.barcode).set({ naam: data.naam, categorie: data.categorie || '', eenheid: data.eenheid || '', emoji: data.emoji || '', ...(data.foto && !data.foto.startsWith('data:') ? { foto: data.foto } : {}), door: user.uid, op: new Date() }).catch(() => { });
             if (data.barcode) ownerDoc().set({ barcodes: { [data.barcode]: { naam: data.naam, categorie: data.categorie || '', eenheid: data.eenheid || '', emoji: data.emoji || '', ...(data.foto && !data.foto.startsWith('data:') ? { foto: data.foto } : {}) } } }, { merge: true }).catch(() => { });
             const where = `${loc ? loc.naam : (values._locNaam || '?')}${data.ladeNaam ? ' › ' + data.ladeNaam : ''}`;
             if (editing) {
@@ -396,6 +410,15 @@ export function StoreProvider({ children }) {
             await db.collection('lades').doc(lade.id).update({ naam });
             const list = derived.items.filter(i => i.ladeId === lade.id);
             await runBatched(list.map(i => b => b.update(db.collection('items').doc(i.id), { ladeNaam: naam })));
+        },
+        // Tellers om te zien welke onderdelen gebruikt worden (beheerpagina → Inzicht)
+        track(key) { if (user) db.collection('users').doc(user.uid).set({ gebruik: { [key]: increment(1) } }, { merge: true }).catch(() => { }); },
+        // Geblokkeerde of tijdens onderhoud geweigerde poging bijhouden (één keer per sessie)
+        logBlocked(reden) {
+            if (!user) return;
+            const k = 'voorraad_blok_' + reden;
+            try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch (e) { }
+            db.collection('blockedAttempts').add({ uid: user.uid, email: user.email || '', naam: user.displayName || '', reden, op: new Date() }).catch(() => { });
         },
         async setLadeFoto(lade, foto) {
             await db.collection('lades').doc(lade.id).update({ foto: foto || '' });

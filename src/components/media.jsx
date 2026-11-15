@@ -19,7 +19,7 @@ export function PhotoInput({ onPhoto, max = 360, children, className, label = 'F
         e.target.value = '';
         if (!f) return;
         setBusy(true);
-        try { onPhoto(await resizeImage(f, max)); }
+        try { onPhoto(await resizeImage(f, max)); actions.track('fotos'); }
         catch (err) { actions.notify(err.message || 'Kon de foto niet lezen', 'error'); }
         finally { setBusy(false); }
     };
@@ -62,7 +62,7 @@ export function PhotoViewer() {
 // ================= Scanner =================
 export function ScanSheet() {
     const { scan, closeScan, openItem, openForm, openConsume, go } = useUi();
-    const { items, owner, typeOf, actions } = useStore();
+    const { items, owner, typeOf, actions, globalSettings } = useStore();
     const video = useRef(null);
     const [status, setStatus] = useState('start'); // start | loading | ready | error | busy
     const [err, setErr] = useState('');
@@ -84,6 +84,7 @@ export function ScanSheet() {
 
     async function handle(raw) {
         if (navigator.vibrate) navigator.vibrate(60);
+        actions.track('scans');
         // QR van een eigen etiket
         const id = itemIdFromQr(raw);
         if (id) {
@@ -95,11 +96,11 @@ export function ScanSheet() {
         }
         const code = raw.replace(/\s/g, '');
         // Formulier vroeg om een code: gewoon teruggeven
-        if (scan.onCode) { setStatus('busy'); const info = await lookupBarcode(code, owner.barcodes || {}); closeScan(); scan.onCode(code, info); return; }
+        if (scan.onCode) { setStatus('busy'); const info = await lookupBarcode(code, owner.barcodes || {}, globalSettings.barcodesDelen !== false); closeScan(); scan.onCode(code, info); return; }
         const have = items.filter(i => i.barcode === code);
         if (have.length) { setHit({ code, items: have }); return; }
         setStatus('busy');
-        const info = await lookupBarcode(code, owner.barcodes || {});
+        const info = await lookupBarcode(code, owner.barcodes || {}, globalSettings.barcodesDelen !== false);
         closeScan();
         openForm({ type: scan.type, prefill: { ...prefillFrom(code, info), ...(scan.type ? { type: scan.type } : {}) }, nonce: Date.now() });
         if (!info) actions.notify('Onbekend product: vul de naam in. Volgende keer herkent de app het.');
@@ -234,6 +235,7 @@ export function LabelSheet() {
         const w = window.open('', '_blank');
         if (!w) { actions.notify('Sta pop-ups toe om te kunnen afdrukken.', 'error'); return; }
         w.document.open(); w.document.write(html); w.document.close();
+        actions.track('etiketten');
     };
     const preview = list[0];
     return (

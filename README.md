@@ -40,6 +40,11 @@ Web-app om bij te houden wat er in je vriezer, frigo en voorraadkast zit — met
 - Tailwind wordt vooraf gecompileerd (geen CDN-script meer).
 - De service worker bewaart alles voor offline gebruik en haalt nieuwe versies meteen op als je online bent.
 
+## Beheerpagina
+
+Overzicht (zoeken bij alle gebruikers, waarde), Per gebruiker (voorraad, rechten, notitie, etiketten afdrukken, locatie kopiëren/verplaatsen, opkuisen, …), Verlopen, Inzicht (activiteit, verspilling, waarde, gebruik van onderdelen, inactieve gebruikers, geweigerde pogingen), Logboek en Instellingen (algemeen, uitnodigen + rechten in bulk, back-up/terugzetten + gedeelde barcodes, rondleiding).
+Extra collecties: `invites/{email}` (vooraf ingestelde rechten, toegepast bij de eerste login), `blockedAttempts`, `barcodes/{code}` (gedeelde barcodes, uit te zetten via `settings/barcodes.gedeeld`), `adminNotes/{uid}`; tellers in `users.gebruik`.
+
 ## Barcode, etiketten en foto's
 
 - **Barcode scannen** (knop naast het zoekveld en in het productformulier): gebruikt de barcode-lezer van de browser als die er is, anders ZXing (van jsDelivr/unpkg, wordt gecachet) en als vangnet een eigen EAN-13/EAN-8-lezer (`src/lib/ean.js`). Productinfo komt van Open Food Facts; zelf ingevulde producten worden onthouden in `users.barcodes`.
