@@ -120,6 +120,17 @@ service cloud.firestore {
       allow update: if isAdmin() || (signedIn() && resource.data.userId == me() && onlyChanged(['gelezenOp']));
     }
 
+    // ---------- Pushmeldingen (eigen server leest/schrijft met de servicesleutel, buiten deze regels) ----------
+    match /pushAbonnementen/{id} {
+      allow read: if signedIn() && (isAdmin() || resource.data.uid == me());
+      allow create, update: if signedIn() && request.resource.data.uid == me();
+      allow delete: if signedIn() && (isAdmin() || resource.data.uid == me());
+    }
+    match /pushTest/{id} {
+      allow create: if signedIn() && (request.resource.data.uid == me() || isAdmin());
+      allow read, delete: if isAdmin();
+    }
+
     // ---------- Logboek ----------
     match /logs/{id} {
       allow read: if canUse(resource.data.targetUserId);

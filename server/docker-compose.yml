@@ -1,0 +1,21 @@
+services:
+  voorraad:
+    build: .
+    container_name: voorraad-server
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/data          # servicesleutel, VAPID-sleutels en foto's
+    ports:
+      - "8080:8080"           # enkel nodig voor foto's in je eigen netwerk/tunnel
+
+  # Optioneel: maakt de foto-opslag veilig bereikbaar via https zonder poorten open te zetten.
+  # Zet TUNNEL_TOKEN in .env en haal het # weg voor de volgende regels.
+  # tunnel:
+  #   image: cloudflare/cloudflared:latest
+  #   container_name: voorraad-tunnel
+  #   restart: unless-stopped
+  #   command: tunnel --no-autoupdate run
+  #   environment:
+  #     - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+  #   depends_on: [voorraad]

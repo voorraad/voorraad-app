@@ -11,6 +11,7 @@ import { Delen } from './meer/Delen.jsx';
 import { Statistieken, Logboek } from './meer/Inzicht.jsx';
 import { Gebruikers, Dashboard, TourEditor } from './meer/Admin.jsx';
 import { Gezin } from './meer/Gezin.jsx';
+import { PushSettings } from '../components/PushSettings.jsx';
 import { Snelkoppelingen } from './meer/Snelkoppelingen.jsx';
 
 const SUBPAGES = {
@@ -78,7 +79,7 @@ function MoreHome() {
                 {isAdmin && <span className="text-xs font-bold px-2 py-1 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300">Admin</span>}
             </Card>
 
-            <div className="grid gap-5 items-start md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-5 items-start grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
             {accounts.length > 1 && (
                 <Group title="Voorraad">
                     {accounts.map(a => (
@@ -93,14 +94,7 @@ function MoreHome() {
                 <div className="px-4 py-1">
                     <Toggle checked={!!me.darkMode} onChange={() => actions.toggleDark()} label="Donker thema" />
                     {(canSee('balans')) && <Toggle checked={!!me.showBalans} onChange={c => actions.setMine({ showBalans: c })} label="Controle-modus" description="Toont een Controle-knop bij elke lade om snel na te tellen" />}
-                    {notif === 'granted'
-                        ? <Toggle checked={me.notificationsEnabled !== false} onChange={c => actions.setMine({ notificationsEnabled: c })} label="Meldingen" description="Melding als er producten verlopen" />
-                        : notif !== 'unsupported' && (
-                            <div className="flex items-center gap-3 py-2">
-                                <span className="flex-1"><span className="block text-[15px] font-medium">Meldingen</span><span className="block text-xs text-stone-500">{notif === 'denied' ? 'Geblokkeerd in je browserinstellingen' : 'Krijg een seintje als er iets verloopt'}</span></span>
-                                {notif !== 'denied' && <Button size="sm" variant="soft" onClick={askNotif}>Inschakelen</Button>}
-                            </div>
-                        )}
+                    <PushSettings />
                 </div>
             </Group>
 

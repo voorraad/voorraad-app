@@ -233,6 +233,7 @@ export function StoreProvider({ children }) {
             s.doc('tourSteps').onSnapshot(d => { if (d.exists && Array.isArray(d.data().steps) && d.data().steps.length) setGlobalSettings(g => ({ ...g, tourSteps: d.data().steps })); }, () => { }),
             s.doc('maintenance').onSnapshot(d => setGlobalSettings(g => ({ ...g, maintenance: d.exists && d.data().active === true })), () => { }),
             s.doc('barcodes').onSnapshot(d => setGlobalSettings(g => ({ ...g, barcodesDelen: !(d.exists && d.data().gedeeld === false) })), () => { }),
+            s.doc('push').onSnapshot(d => setGlobalSettings(g => ({ ...g, push: d.exists ? d.data() : null })), () => { }),
             s.doc('mededeling').onSnapshot(d => setGlobalSettings(g => ({ ...g, mededeling: d.exists ? d.data() : null })), () => { })
         ];
         return () => subs.forEach(u => u());
