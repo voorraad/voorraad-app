@@ -1,0 +1,18 @@
+[Unit]
+Description=Voorraad.-server (pushmeldingen en foto-opslag)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=voorraad
+WorkingDirectory=/opt/voorraad-server
+Environment=DATA_DIR=/opt/voorraad-server/data
+Environment=TZ=Europe/Brussels
+EnvironmentFile=/opt/voorraad-server/.env
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
