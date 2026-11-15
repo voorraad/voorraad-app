@@ -4,6 +4,7 @@ import { db } from '../lib/firebase.js';
 import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
 import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select, ColorPicker } from '../components/ui.jsx';
+import { NewUsersBanner, InactiveUsers, inactiveUsers, ActivityChart, WasteRanking, AnnouncementEditor, BackupAll, AdminNote, Cleanup } from './admin/Extra.jsx';
 import { userToneKey, USER_TONE_DOTS, USER_TONE_NAMES } from '../lib/userColors.js';
 import Stock from './Stock.jsx';
 import { UserRights, TourEditor, TAB_OPTIONS } from './meer/Admin.jsx';
@@ -21,6 +22,7 @@ const TABS = [
     { id: 'overzicht', label: 'Overzicht', icon: 'Dashboard' },
     { id: 'dashboard', label: 'Per gebruiker', short: 'Gebruiker', icon: 'User' },
     { id: 'verlopen', label: 'Verlopen', icon: 'Alert' },
+    { id: 'inzicht', label: 'Inzicht', icon: 'Chart' },
     { id: 'logboek', label: 'Logboek', icon: 'Log' },
     { id: 'app', label: 'App-instellingen', short: 'Instellingen', icon: 'Settings' }
 ];
@@ -58,6 +60,7 @@ export default function AdminPage() {
                 {tab === 'overzicht' && <AdminOverview />}
                 {tab === 'dashboard' && <AdminUser />}
                 {tab === 'verlopen' && <AllExpired />}
+                {tab === 'inzicht' && <div className="space-y-6"><ActivityChart /><WasteRanking /><InactiveUsers /></div>}
                 {tab === 'logboek' && <Logboek defaultAll />}
                 {tab === 'app' && <AppSettings />}
                 <p className="text-xs text-stone-400 mt-10">Ingelogd als {user.email}</p>
@@ -139,6 +142,7 @@ function AdminOverview() {
 
     return (
         <div className="space-y-6">
+            <NewUsersBanner />
             {globalSettings.maintenance && (
                 <Card className="p-4 flex items-center gap-3 border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800">
                     <Icon name="Wrench" size={20} className="text-amber-600" />
@@ -147,9 +151,10 @@ function AdminOverview() {
                 </Card>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
                 <Kpi label="Gebruikers" value={usersList.length} icon="Users" onClick={() => go('admin/dashboard')} />
                 <Kpi label="Actief (7 dagen)" value={active7} icon="Clock" />
+                <Kpi label="Inactief (30 dagen)" value={inactiveUsers(usersList).length} icon="Clock" tone={inactiveUsers(usersList).length ? 'text-amber-600' : undefined} onClick={() => go('admin/inzicht')} />
                 <Kpi label="Geblokkeerd" value={blocked} icon="Lock" tone={blocked ? 'text-red-600' : undefined} />
                 <Kpi label="Producten (alle)" value={done ? totalItems : '…'} icon="Box" />
                 <Kpi label="Verlopen (alle)" value={done ? totalExpired : '…'} icon="Alert" tone={totalExpired ? 'text-red-600' : undefined} />
@@ -254,9 +259,12 @@ function AppSettings() {
                 </Card>
                 <Button variant="secondary" block className="mt-3" icon="Undo" onClick={async () => { if (await confirm({ title: 'Rondleiding resetten voor iedereen?', message: 'Alle gebruikers zien de rondleiding opnieuw bij de volgende keer openen.', confirmLabel: 'Resetten', danger: true })) actions.resetTourForEveryone(); }}>Rondleiding resetten voor iedereen</Button>
             </section>
-            <section className="xl:col-span-2">
+            <section className="xl:col-span-2 space-y-6">
+                <div className="grid gap-6 lg:grid-cols-2 items-start"><AnnouncementEditor /><BackupAll /></div>
+                <div>
                 <SectionTitle>Stappen van de rondleiding</SectionTitle>
                 <TourEditor />
+                </div>
             </section>
         </div>
     );
@@ -275,6 +283,7 @@ const USER_TABS = [
     { id: 'eenheden', label: 'Eenheden', icon: 'List' },
     { id: 'stats', label: 'Statistieken', icon: 'Chart' },
     { id: 'log', label: 'Logboek', icon: 'Log' },
+    { id: 'opkuisen', label: 'Opkuisen', icon: 'Wrench' },
     { id: 'rechten', label: 'Rechten', icon: 'Lock' },
     { id: 'delen', label: 'Delen & export', icon: 'Share' }
 ];
@@ -375,6 +384,7 @@ function AdminUser() {
                             </button>
                         ))}
                 </div>
+                <AdminNote uid={ownerId} />
             </Card>
 
             <TabDropdown tabs={USER_TABS} value={sub} hrefFor={(id) => `#/admin/dashboard/${ownerId}/${id}`} />
@@ -404,6 +414,7 @@ function AdminUser() {
                     {sub === 'eenheden' && <div className="max-w-3xl"><Eenheden /></div>}
                     {sub === 'stats' && <Statistieken />}
                     {sub === 'log' && <Logboek />}
+                    {sub === 'opkuisen' && <Cleanup />}
                     {sub === 'rechten' && <Card className="px-4 pb-4 max-w-2xl"><UserRights u={u} /></Card>}
                     {sub === 'delen' && <SharesAndExport u={u} />}
                 </div>
