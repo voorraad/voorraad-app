@@ -5,6 +5,7 @@ import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
 import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select, ColorPicker } from '../components/ui.jsx';
 import { useAllUserData } from './admin/data.js';
+import { UserMessages, useUnreadCount } from '../components/Berichten.jsx';
 import { GlobalSearch, StockValue, useTotalValue, FeatureUsage, BlockedAttempts, BulkRights, Invites, RestoreUser, SharedBarcodes, CopyLocation, LabelPicker } from './admin/More.jsx';
 import { NewUsersBanner, InactiveUsers, inactiveUsers, ActivityChart, WasteRanking, AnnouncementEditor, BackupAll, AdminNote, Cleanup } from './admin/Extra.jsx';
 import { userToneKey, USER_TONE_DOTS, USER_TONE_NAMES } from '../lib/userColors.js';
@@ -272,6 +273,7 @@ const USER_TABS = [
     { id: 'categorieen', label: 'Categorieën', icon: 'Tag' },
     { id: 'eenheden', label: 'Eenheden', icon: 'List' },
     { id: 'stats', label: 'Statistieken', icon: 'Chart' },
+    { id: 'berichten', label: 'Berichten', icon: 'Message' },
     { id: 'log', label: 'Logboek', icon: 'Log' },
     { id: 'etiketten', label: 'Etiketten afdrukken', icon: 'Printer' },
     { id: 'kopieer', label: 'Locatie kopiëren', icon: 'Copy' },
@@ -332,6 +334,7 @@ function AdminUser() {
     const urgentCount = items.filter(i => ['expired', 'veryold'].includes(itemStatus(i, typeOf(i)).level)).length;
     const counts = Object.fromEntries(TYPES.map(t => [t.id, items.filter(i => typeOf(i) === t.id).length]));
     const to = (tab) => go(`admin/dashboard/${ownerId}/${tab}`);
+    const unread = useUnreadCount(ownerId);
 
     return (
         <div className="space-y-4">
@@ -377,6 +380,9 @@ function AdminUser() {
                         ))}
                 </div>
                 <AdminNote uid={ownerId} />
+                <button type="button" onClick={() => to('berichten')} className="mt-3 w-full h-11 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/50 dark:hover:bg-teal-900/50 text-teal-800 dark:text-teal-200 text-sm font-semibold flex items-center justify-center gap-2">
+                    <Icon name="Message" size={17} />Bericht sturen{unread > 0 && <span className="text-xs font-bold bg-amber-500 text-white rounded-full px-2 py-0.5">{unread} ongelezen</span>}
+                </button>
             </Card>
 
             <TabDropdown tabs={USER_TABS} value={sub} hrefFor={(id) => `#/admin/dashboard/${ownerId}/${id}`} />
@@ -407,6 +413,7 @@ function AdminUser() {
                     {sub === 'stats' && <Statistieken />}
                     {sub === 'log' && <Logboek />}
                     {sub === 'opkuisen' && <Cleanup />}
+                    {sub === 'berichten' && <UserMessages uid={ownerId} />}
                     {sub === 'etiketten' && <LabelPicker />}
                     {sub === 'kopieer' && <CopyLocation />}
                     {sub === 'rechten' && <Card className="px-4 pb-4 max-w-2xl"><UserRights u={u} /></Card>}

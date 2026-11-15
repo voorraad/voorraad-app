@@ -14,6 +14,7 @@ import More, { subpageTitle } from './pages/More.jsx';
 import { UserList } from './pages/meer/Admin.jsx';
 import AdminPage from './pages/AdminPage.jsx';
 import { AnnouncementBanner, useNewUsers } from './pages/admin/Extra.jsx';
+import { MessagePopup } from './components/Berichten.jsx';
 import { ScanSheet, LabelSheet, PhotoViewer } from './components/media.jsx';
 import { APP_VERSION, TYPES, TYPE_BY_ID } from './lib/constants.js';
 import { cx, itemStatus, todayKey } from './lib/utils.js';
@@ -164,6 +165,7 @@ function Shell() {
 
             <main className={cx('mx-auto px-4 pt-2 lg:pb-12 max-w-7xl', onMenu ? 'pb-12' : 'pb-32')}>
                 <div className="empty:hidden mb-3"><AnnouncementBanner /></div>
+                <MessagePopup />
                 {page === 'voorraad' && <Stock />}
                 {page === 'lijst' && <Shopping />}
                 {page === 'menu' && <Menu />}

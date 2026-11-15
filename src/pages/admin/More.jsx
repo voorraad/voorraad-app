@@ -7,6 +7,7 @@ import { Card, Button, Input, Select, Toggle, SectionTitle, Chip, ColorPicker } 
 import { TAB_OPTIONS } from '../meer/Admin.jsx';
 import { userTone, USER_TONE_DOTS, USER_TONE_NAMES } from '../../lib/userColors.js';
 import { useAllUserData, refreshAllUserData } from './data.js';
+import { MessageComposer } from '../../components/Berichten.jsx';
 import { TYPE_BY_ID } from '../../lib/constants.js';
 import { cx, smartMatch, formatAantal, formatDateTime, euro, plural, itemStatus, statusText, STATUS_TONE, sortLocaties, byName, emojiFor, toDate } from '../../lib/utils.js';
 
@@ -247,6 +248,10 @@ export function BulkRights() {
                             <Button size="sm" variant="soft" disabled={!chosen.length || busy} onClick={() => apply(() => ({ disabled: false }), 'Gedeblokkeerd')}>Deblokkeer</Button>
                         </div>
                     </div>
+                </div>
+                <div>
+                    <p className="text-sm font-semibold mb-2">3. Of stuur hen een persoonlijk bericht</p>
+                    <MessageComposer compact userIds={chosen.map(u => u.id)} />
                 </div>
             </Card>
         </section>
