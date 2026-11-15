@@ -3,7 +3,8 @@ import Icon from '../lib/icons.jsx';
 import { db } from '../lib/firebase.js';
 import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
-import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select } from '../components/ui.jsx';
+import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select, ColorPicker } from '../components/ui.jsx';
+import { userToneKey, USER_TONE_DOTS, USER_TONE_NAMES } from '../lib/userColors.js';
 import Stock from './Stock.jsx';
 import { UserRights, TourEditor, TAB_OPTIONS } from './meer/Admin.jsx';
 import { Logboek, Statistieken, logTone, userTone } from './meer/Inzicht.jsx';
@@ -167,23 +168,26 @@ function AdminOverview() {
                     <Card className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="text-left text-xs text-stone-500 border-b border-stone-100 dark:border-stone-800">
-                                <tr><th className="px-4 py-2.5 font-semibold">Gebruiker</th><th className="px-2 py-2.5 font-semibold hidden sm:table-cell">Laatst gezien</th><th className="px-2 py-2.5 font-semibold text-right">Producten</th><th className="px-2 py-2.5 font-semibold text-right">Verlopen</th><th className="px-4 py-2.5" /></tr>
+                                <tr><th className="px-3 sm:px-4 py-2.5 font-semibold">Gebruiker</th><th className="px-2 py-2.5 font-semibold hidden sm:table-cell">Laatst gezien</th><th className="px-2 py-2.5 font-semibold text-right"><span className="sm:hidden">Prod.</span><span className="hidden sm:inline">Producten</span></th><th className="px-2 py-2.5 font-semibold text-right"><span className="sm:hidden">Verl.</span><span className="hidden sm:inline">Verlopen</span></th><th className="px-2 sm:px-4 py-2.5" /></tr>
                             </thead>
                             <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                                 {rows.map(u => {
                                     const s = stats[u.id];
                                     return (
                                         <tr key={u.id} className={cx(u.id === ownerId && 'bg-teal-50/50 dark:bg-teal-950/20')}>
-                                            <td className="px-4 py-2.5">
+                                            <td className="px-3 sm:px-4 py-2.5">
                                                 <span className="flex items-center gap-2 min-w-0">
-                                                    <span className={cx('w-2 h-2 rounded-full flex-shrink-0', u.disabled ? 'bg-red-500' : 'bg-emerald-500')} />
-                                                    <span className="truncate max-w-[9rem] sm:max-w-[16rem] font-medium">{u.email || u.displayName || u.id}</span>
+                                                    <span className={cx('relative w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold', userTone(u.id, usersList).pill)}>
+                                                        {(u.email || u.displayName || '?')[0].toUpperCase()}
+                                                        <span title={u.disabled ? 'Geblokkeerd' : 'Actief'} className={cx('absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-stone-900', u.disabled ? 'bg-red-500' : 'bg-emerald-500')} />
+                                                    </span>
+                                                    <span className="truncate max-w-[6.5rem] sm:max-w-[16rem] font-medium">{u.email || u.displayName || u.id}</span>
                                                 </span>
                                             </td>
                                             <td className="px-2 py-2.5 text-stone-500 whitespace-nowrap hidden sm:table-cell">{u.laatstGezien ? formatDateTime(u.laatstGezien) : 'nooit'}</td>
                                             <td className="px-2 py-2.5 text-right tabular-nums">{s ? (s.error ? '–' : s.items) : '…'}</td>
                                             <td className={cx('px-2 py-2.5 text-right tabular-nums', s && s.expired ? 'text-red-600 font-semibold' : '')}>{s ? (s.error ? '–' : s.expired) : '…'}</td>
-                                            <td className="px-4 py-1.5">
+                                            <td className="px-2 sm:px-4 py-1.5">
                                                 <span className="flex justify-end gap-1">
                                                     <Button size="sm" variant="ghost" icon="Box" aria-label="Bekijk" onClick={() => go('admin/dashboard/' + u.id)}><span className="hidden sm:inline">Bekijk</span></Button>
                                                     <Button size="sm" variant="soft" icon="Swap" aria-label="Open" onClick={() => { actions.switchAccount(u.id); go('voorraad'); }}><span className="hidden sm:inline">Open</span></Button>
@@ -343,7 +347,10 @@ function AdminUser() {
             {/* Profiel van de gebruiker */}
             <Card className="p-4">
                 <div className="flex flex-wrap items-start gap-4">
-                    <span className="w-12 h-12 flex-shrink-0 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-200 flex items-center justify-center text-lg font-bold">{(u.email || u.displayName || '?')[0].toUpperCase()}</span>
+                    <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                        <span className={cx('w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold', userTone(u.id, usersList).pill)}>{(u.email || u.displayName || '?')[0].toUpperCase()}</span>
+                        <ColorPicker value={userToneKey(u.id, usersList)} colors={USER_TONE_DOTS} names={USER_TONE_NAMES} label="Kleur van deze gebruiker" onChange={k => actions.setUserField(u.id, { adminKleur: k })} />
+                    </div>
                     <div className="min-w-0 flex-1">
                         <p className="font-bold text-lg truncate">{u.displayName || u.email || 'Gebruiker'}</p>
                         <p className="text-sm text-stone-500 truncate">{u.email}</p>
