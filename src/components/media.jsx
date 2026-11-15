@@ -5,6 +5,7 @@ import { useUi } from '../state/ui.jsx';
 import { Sheet, Button, Input, Segmented, Stepper, Toggle } from './ui.jsx';
 import { startScanner, lookupBarcode, itemIdFromQr, itemLink } from '../lib/barcode.js';
 import { resizeImage } from '../lib/photo.js';
+import { uploadPhoto } from '../lib/push.js';
 import { qrSvg } from '../lib/qr.js';
 import { cx, emojiFor, formatAantal, formatDate, dateKey, addDays, num } from '../lib/utils.js';
 
@@ -12,14 +13,24 @@ import { cx, emojiFor, formatAantal, formatDate, dateKey, addDays, num } from '.
 // Knop die een foto laat kiezen of nemen, verkleint en teruggeeft als data-URL.
 export function PhotoInput({ onPhoto, max = 360, children, className, label = 'Foto kiezen' }) {
     const ref = useRef(null);
-    const { actions } = useStore();
+    const { actions, globalSettings } = useStore();
     const [busy, setBusy] = useState(false);
+    const server = globalSettings.push && globalSettings.push.fotoUrl;
     const pick = async (e) => {
         const f = e.target.files && e.target.files[0];
         e.target.value = '';
         if (!f) return;
         setBusy(true);
-        try { onPhoto(await resizeImage(f, max)); actions.track('fotos'); }
+        try {
+            // Met een eigen fotoserver: grotere foto en enkel de link bewaren; anders klein in de database.
+            if (server) {
+                const data = await resizeImage(f, Math.max(max, 1024), 0.8);
+                let url = null;
+                try { url = await uploadPhoto(server, data); } catch (err) { console.warn('Fotoserver niet bereikbaar', err); }
+                onPhoto(url || await resizeImage(f, max));
+            } else onPhoto(await resizeImage(f, max));
+            actions.track('fotos');
+        }
         catch (err) { actions.notify(err.message || 'Kon de foto niet lezen', 'error'); }
         finally { setBusy(false); }
     };

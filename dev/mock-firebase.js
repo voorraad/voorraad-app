@@ -181,7 +181,7 @@
     };
 
     // ---------- Auth ----------
-    const fakeUser = { uid: U, email: 'jaiderjannis@gmail.com', displayName: 'Jaider Jannis', photoURL: null };
+    const fakeUser = { getIdToken: () => Promise.resolve('goed'), uid: U, email: 'jaiderjannis@gmail.com', displayName: 'Jaider Jannis', photoURL: null };
     let current = params.get('loggedout') ? null : fakeUser;
     const authCbs = new Set();
     const authInstance = {

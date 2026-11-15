@@ -6,6 +6,7 @@ import { useUi } from '../state/ui.jsx';
 import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select, ColorPicker } from '../components/ui.jsx';
 import { useAllUserData } from './admin/data.js';
 import { UserMessages, useUnreadCount } from '../components/Berichten.jsx';
+import { ServerPanel } from './admin/Server.jsx';
 import { OnlineNow, HolidayMode, StorageUsage, NewUserDefaults, MonthReport, isOnline } from './admin/More2.jsx';
 import { GlobalSearch, StockValue, useTotalValue, FeatureUsage, BlockedAttempts, BulkRights, Invites, RestoreUser, SharedBarcodes, CopyLocation, LabelPicker } from './admin/More.jsx';
 import { NewUsersBanner, InactiveUsers, inactiveUsers, ActivityChart, WasteRanking, AnnouncementEditor, BackupAll, AdminNote, Cleanup } from './admin/Extra.jsx';
@@ -222,6 +223,7 @@ const APP_SUBS = [
     { id: 'algemeen', label: 'Algemeen', icon: 'Settings' },
     { id: 'gebruikers', label: 'Gebruikers', icon: 'Users' },
     { id: 'gegevens', label: 'Gegevens', icon: 'Download' },
+    { id: 'server', label: 'Server & meldingen', icon: 'Bell' },
     { id: 'rondleiding', label: 'Rondleiding', icon: 'Help' }
 ];
 function AppSettings() {
@@ -258,6 +260,7 @@ function AppSettings() {
             )}
             {sub === 'gebruikers' && <div className="grid gap-6 xl:grid-cols-2 items-start"><div className="space-y-6"><Invites /><NewUserDefaults /></div><BulkRights /></div>}
             {sub === 'gegevens' && <div className="grid gap-6 lg:grid-cols-2 items-start"><div className="space-y-6"><BackupAll /><RestoreUser /></div><SharedBarcodes /></div>}
+            {sub === 'server' && <ServerPanel />}
             {sub === 'rondleiding' && <section><SectionTitle>Stappen van de rondleiding</SectionTitle><TourEditor /></section>}
         </div>
     );

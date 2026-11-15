@@ -3,7 +3,7 @@
 //   Zo krijg je altijd meteen de nieuwste versie, en werkt de app toch offline.
 // - Firebase-scripts en lettertypes van CDN: uit de cache (die veranderen niet per versie).
 // - Firestore/inloggen worden NIET onderschept; Firestore heeft zijn eigen offline-opslag.
-const BUILD = 'mwhjxqsy';
+const BUILD = 'mwhkb29w';
 const CACHE = 'voorraad-' + BUILD;
 const CDN_CACHE = 'voorraad-cdn-v1';
 
@@ -82,4 +82,23 @@ self.addEventListener('notificationclick', (event) => {
         for (const c of list) if ('focus' in c) return c.focus();
         return self.clients.openWindow('./');
     }));
+});
+
+// Pushmelding van de eigen server (zie server/)
+self.addEventListener('push', (event) => {
+    let d = {};
+    try { d = event.data ? event.data.json() : {}; } catch (e) { d = { title: 'Voorraad.', body: event.data ? event.data.text() : '' }; }
+    event.waitUntil(self.registration.showNotification(d.title || 'Voorraad.', {
+        body: d.body || '', icon: './icon_192x192.png', badge: './icon_192x192.png', tag: d.tag || 'voorraad', data: { url: d.url || './' }
+    }));
+});
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const url = new URL((event.notification.data && event.notification.data.url) || './', self.registration.scope).href;
+    event.waitUntil((async () => {
+        const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        const open = all.find(c => c.url.startsWith(self.registration.scope));
+        if (open) { await open.focus(); if ('navigate' in open) return open.navigate(url); return; }
+        return self.clients.openWindow(url);
+    })());
 });
