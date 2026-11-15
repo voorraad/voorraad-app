@@ -230,7 +230,7 @@ export function StoreProvider({ children }) {
         const s = db.collection('settings');
         const subs = [
             s.doc('onboarding').onSnapshot(d => setGlobalSettings(g => ({ ...g, onboardingLoaded: true, onboardingActive: d.exists ? d.data().isActive !== false : true })), () => setGlobalSettings(g => ({ ...g, onboardingLoaded: true }))),
-            s.doc('tourSteps').onSnapshot(d => { if (d.exists && Array.isArray(d.data().steps) && d.data().steps.length) setGlobalSettings(g => ({ ...g, tourSteps: d.data().steps })); }, () => { }),
+            s.doc('tourSteps').onSnapshot(d => { if (d.exists && Array.isArray(d.data().steps) && d.data().steps.length) setGlobalSettings(g => ({ ...g, tourSteps: d.data().steps, tourVersie: d.data().versie || 1 })); }, () => { }),
             s.doc('maintenance').onSnapshot(d => setGlobalSettings(g => ({ ...g, maintenance: d.exists && d.data().active === true })), () => { }),
             s.doc('barcodes').onSnapshot(d => setGlobalSettings(g => ({ ...g, barcodesDelen: !(d.exists && d.data().gedeeld === false) })), () => { }),
             s.doc('push').onSnapshot(d => setGlobalSettings(g => ({ ...g, push: d.exists ? d.data() : null })), () => { }),

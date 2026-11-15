@@ -51,37 +51,41 @@ export const TYPE_BY_ID = Object.fromEntries(TYPES.map(t => [t.id, t]));
 
 export const MENU_LOCATION_ID = 'custom_menu'; // weekmenu-gerechten staan in 'items' met dit vriezerId
 
+// Rondleiding. Optioneel per stap: recht (enkel tonen als de gebruiker dat recht heeft) en ga (pagina die achter de stap opent).
+export const TOUR_VERSION = 2;
 export const DEFAULT_TOUR_STEPS = [
-    {
-        title: 'Welkom bij Voorraad!',
-        content: 'In een paar stappen tonen we hoe je de app gebruikt, zodat je minder weggooit en altijd weet wat je in huis hebt.',
-        icon: 'Box',
-        colorName: 'blue'
-    },
-    {
-        title: 'Eerst opmaken',
-        content: 'Bovenaan je voorraad zie je meteen wat eerst op moet: verlopen of bijna verlopen producten, en wat al lang in de vriezer ligt. Tik erop voor de volledige lijst.',
-        icon: 'Alert',
-        colorName: 'green'
-    },
-    {
-        title: 'Menu',
-        content: 'Via de drie streepjes linksboven vind je je weekmenu, recepten, statistieken en instellingen.',
-        icon: 'Menu',
-        colorName: 'indigo'
-    },
-    {
-        title: 'Toevoegen',
-        content: 'Met de ronde + knop voeg je een product toe aan je vriezer, frigo of stock. Tik op een product voor alle acties.',
-        icon: 'Plus',
-        colorName: 'orange'
-    },
-    {
-        title: 'Slimme boodschappenlijst',
-        content: 'Stel een minimum voorraad in. Zodra een product bijna op is, komt het vanzelf op je boodschappenlijst.',
-        icon: 'ShoppingCart',
-        colorName: 'purple'
-    }
+    { title: 'Welkom bij Voorraad.', icon: 'Sparkles', colorName: 'blue', ga: 'voorraad/vriezer',
+        content: 'Weet altijd wat er in je vriezer, frigo en kast ligt, en gooi minder weg.\n\nIn een paar stappen tonen we alles. Swipe of tik op Volgende.' },
+    { title: 'Vriezer, frigo en stock', icon: 'Snowflake', colorName: 'blue', ga: 'voorraad/vriezer',
+        content: 'Onderaan wissel je tussen je vriezer, frigo en stock (voorraadkast). Elke plek heeft eigen locaties (bv. "Diepvries garage") met lades of planken.' },
+    { title: 'Product toevoegen', icon: 'Plus', colorName: 'green', recht: 'toevoegen', ga: 'voorraad/vriezer',
+        content: 'Tik op de ronde + knop. Typ de naam: de app stelt zelf een emoji, categorie en houdbaarheid voor.\n\nSnel even iets bijzetten? Typ het in het gele vak "Snel toevoegen" en druk op Enter.' },
+    { title: 'Barcode scannen', icon: 'Scan', colorName: 'indigo', recht: 'scan', ga: 'voorraad/voorraad',
+        content: 'Tik op de streepjesknop naast het zoekveld en houd de barcode voor de camera. Bekende producten vullen zichzelf in; wat je zelf invult, onthoudt de app voor de volgende keer.' },
+    { title: 'Opmaken', icon: 'Utensils', colorName: 'orange', recht: 'opmaken', ga: 'voorraad/vriezer',
+        content: 'Iets opgegeten of weggegooid? Tik op de oranje vork-en-mes-knop. Kies hoeveel (ook per ¼, bv. 1,5 zak) en of het opgegeten, weggegooid of een foutje was.\n\nVergist? Tik op "Ongedaan maken" in de melding.' },
+    { title: 'Bewerken en meer', icon: 'Edit', colorName: 'gray', recht: 'bewerken', ga: 'voorraad/vriezer',
+        content: 'Met het potlood pas je een product aan. Tik op het product zelf voor alle acties: kopie, verplaatsen, etiket afdrukken of inplannen in je weekmenu.' },
+    { title: 'Wat moet eerst op?', icon: 'Alert', colorName: 'red', ga: 'voorraad/vriezer',
+        content: 'De rode balk bovenaan toont wat verlopen is of binnenkort vervalt, en wat al lang in de vriezer ligt.\n\nHet lijntje links van elk product zegt het ook: rood = moet op, oranje = binnenkort, groen = in orde.' },
+    { title: 'Lades, datum of kaart', icon: 'Dashboard', colorName: 'blue', ga: 'voorraad/vriezer',
+        content: 'Boven de lijst kies je hoe je kijkt: per lade, gesorteerd op datum, of als kaart van je vriezer met elke lade als vakje. Tik op een vakje om die lade te openen.' },
+    { title: "Foto's", icon: 'Camera', colorName: 'pink', recht: 'fotos', ga: 'voorraad/vriezer',
+        content: "Geef een product een foto (in het formulier) of een hele lade (cameraatje naast de naam van de lade). Zo zie je meteen wat er in dat zakje zit." },
+    { title: 'Etiketten', icon: 'Printer', colorName: 'gray', recht: 'etiketten', ga: 'voorraad/vriezer',
+        content: 'Druk etiketjes af voor je diepvrieszakjes: open een product en kies Etiket, of selecteer er meerdere.\n\nScan de QR-code later met je gsm-camera: het product opent meteen om op te maken.' },
+    { title: 'Boodschappenlijst', icon: 'Cart', colorName: 'purple', recht: 'lijst', ga: 'lijst',
+        content: 'Zet producten op je lijst, per winkel. Vink af in de winkel en zet ze met één tik in je voorraad.\n\nTip: geef een product een minimum voorraad, dan komt het vanzelf op je lijst als het bijna op is.' },
+    { title: 'Weekmenu en recepten', icon: 'Calendar', colorName: 'yellow', recht: 'weekmenu', ga: 'menu/week',
+        content: 'Via de drie streepjes linksboven vind je je weekmenu en recepten. Plan maaltijden in met wat je nog in huis hebt.' },
+    { title: 'Samen beheren', icon: 'Users', colorName: 'indigo', recht: 'delen', ga: 'meer',
+        content: 'Bij Instellingen → Delen nodig je iemand uit om samen dezelfde voorraad te beheren, of maak je een bekijk-link (alleen kijken, zonder account).' },
+    { title: 'Gezinsleden', icon: 'User', colorName: 'green', ga: 'meer',
+        content: 'Gebruiken meerdere mensen hetzelfde account? Voeg ze toe bij Instellingen → Gezinsleden. Op elk toestel kies je wie je bent; in het logboek zie je wie wat deed.' },
+    { title: 'Meldingen', icon: 'Bell', colorName: 'orange', ga: 'meer',
+        content: 'Zet bij Instellingen → "Meldingen op dit toestel" de meldingen aan. Je krijgt dan elke ochtend een seintje als er iets op moet.\n\nOp iPhone: zet de app eerst op je beginscherm (Deel → Zet op beginscherm).' },
+    { title: 'Klaar!', icon: 'Check', colorName: 'green', ga: 'voorraad/vriezer',
+        content: 'Je kan deze rondleiding altijd opnieuw bekijken via Instellingen → Hulp.\n\nVeel plezier, en minder weggooien!' }
 ];
 
 export const TOUR_COLORS = ['blue', 'green', 'orange', 'yellow', 'purple', 'red', 'pink', 'indigo', 'gray'];
