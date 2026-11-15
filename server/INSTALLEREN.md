@@ -7,7 +7,7 @@ Deze kleine server doet twee dingen:
 
 Je hebt **geen Docker** nodig: de server draait als gewone dienst in een Debian-container. (Gebruik je toch Docker? Zie helemaal onderaan.)
 
-Voor de meldingen hoeft je server **niet** van buitenaf bereikbaar te zijn (hij stuurt enkel naar buiten). Voor de foto-opslag wel (stap 7).
+Voor de meldingen hoeft je server **niet** van buitenaf bereikbaar te zijn (hij stuurt enkel naar buiten). Voor de foto-opslag wel: dat regel je met Tailscale Funnel of een Cloudflare Tunnel (stap 7).
 
 Je hebt het gratis Firebase-abonnement (Spark) nodig, niets meer.
 
@@ -86,17 +86,59 @@ Elke gebruiker doet dit zelf, op elk toestel waarop hij meldingen wil. Op de beh
 
 ## 7. (Optioneel) Foto-opslag
 
-De app moet je server via **https** kunnen bereiken. De eenvoudigste veilige manier, zonder poorten open te zetten in je router, is een **Cloudflare Tunnel**. Daarvoor heb je een eigen domeinnaam nodig die bij Cloudflare beheerd wordt (bv. `jouwnaam.be`, een paar euro per jaar).
+De app moet je server via **https** kunnen bereiken, ook voor gezinsleden zonder VPN. Twee manieren, zonder poorten open te zetten in je router:
+
+### A. Met Tailscale Funnel (aanbevolen als je Tailscale al gebruikt)
+
+Je krijgt gratis een adres zoals `https://voorraad.tail1234.ts.net`, zonder eigen domeinnaam.
+
+**Eenmalig: de container toegang geven tot Tailscale.** Open de **Shell van je Proxmox-node** (niet van de container) en voeg twee regels toe aan de instellingen van de container. Vervang `105` door het nummer van je container (staat links in de lijst):
+
+```bash
+cat >> /etc/pve/lxc/105.conf <<'X'
+lxc.cgroup2.devices.allow: c 10:200 rwm
+lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+X
+pct reboot 105
+```
+
+**In de console van de container:**
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+tailscale up
+```
+
+Open de link die verschijnt en log in met je Tailscale-account. Zet daarna Funnel aan:
+
+```bash
+tailscale funnel --bg 8080
+```
+
+De eerste keer toont Tailscale een link om **HTTPS en Funnel** in te schakelen voor je tailnet: open die en bevestig, en voer het commando daarna opnieuw uit. Je krijgt je publieke adres te zien (ook later op te vragen met `tailscale funnel status`).
+
+Pas dan `/opt/voorraad-server/.env` aan (zonder `/` op het einde):
+
+```
+PUBLIC_URL=https://voorraad.tail1234.ts.net
+```
+
+en herstart: `systemctl restart voorraad`.
+
+> Gewoon `tailscale serve` (zonder Funnel) werkt hier **niet**: dan kunnen enkel toestellen die met jouw Tailscale verbonden zijn de foto's zien.
+
+### B. Met een Cloudflare Tunnel
+
+Daarvoor heb je een eigen domeinnaam nodig die bij Cloudflare beheerd wordt (bv. `jouwnaam.be`).
 
 1. Ga in Cloudflare naar **Zero Trust → Networks → Tunnels → Create a tunnel** → kies **Cloudflared**, geef een naam (bv. `voorraad`).
-2. Kies als omgeving **Debian, 64-bit** en voer de commando's die Cloudflare toont uit in de console van je container (ze installeren `cloudflared` en starten de tunnel als dienst).
+2. Kies als omgeving **Debian, 64-bit** en voer de commando's die Cloudflare toont uit in de console van je container.
 3. Bij **Public hostname**: subdomein `fotos`, domein `jouwnaam.be`, service **HTTP** → `localhost:8080`.
-4. Pas `/opt/voorraad-server/.env` aan:
-   ```
-   PUBLIC_URL=https://fotos.jouwnaam.be
-   ```
-5. Herstart: `systemctl restart voorraad`
-6. In de app: **Beheerpagina → Instellingen → Server & meldingen** toont nu je foto-adres. Klik daar op **Foto's verhuizen** om de bestaande foto's naar je server te zetten.
+4. Zet in `/opt/voorraad-server/.env`: `PUBLIC_URL=https://fotos.jouwnaam.be` en herstart: `systemctl restart voorraad`.
+
+### Daarna
+
+In de app: **Beheerpagina → Instellingen → Server & meldingen** toont nu je foto-adres. Klik daar op **Foto's verhuizen** om de bestaande foto's naar je server te zetten. Test eventueel eerst of `PUBLIC_URL/gezond` (bv. `https://voorraad.tail1234.ts.net/gezond`) opent in je browser.
 
 Heb je al een reverse proxy (bv. Nginx Proxy Manager of Traefik) met https? Laat die dan doorsturen naar poort 8080 van deze container (het IP-adres zie je met `hostname -I`) en zet dat adres in `PUBLIC_URL`; de tunnel heb je dan niet nodig.
 
@@ -116,6 +158,7 @@ Je instellingen (`.env`), de sleutels en de foto's blijven staan.
 | Beheerpagina zegt **Server offline** | `systemctl status voorraad` en `journalctl -u voorraad -n 50`. Klopt de datum/tijd (`date`)? |
 | Testmelding komt niet aan op iPhone | App geopend vanaf het beginscherm? Meldingen voor "Voorraad" toegestaan in Instellingen → Meldingen? |
 | Testmelding komt niet aan | Zet meldingen in de app uit en terug aan (dan wordt het toestel opnieuw ingeschreven). |
+| Tailscale: `failed to connect to local tailscaled` of geen `/dev/net/tun` | De twee regels in `/etc/pve/lxc/<nummer>.conf` ontbreken, of de container is niet herstart (stap 7A). |
 | Foto's uploaden lukt niet | Klopt `PUBLIC_URL` (met https, zonder `/` op het einde)? Opent `https://fotos.jouwnaam.be/gezond` in je browser? Staat `https://voorraad.github.io` in `ALLOWED_ORIGINS`? |
 
 De sleutels voor de meldingen (`vapid.json`) en de foto's (`fotos/`) staan in `/opt/voorraad-server/data`. Neem die map mee in je Proxmox-back-up. Verlies je `vapid.json`, dan moet iedereen de meldingen één keer opnieuw aanzetten.
