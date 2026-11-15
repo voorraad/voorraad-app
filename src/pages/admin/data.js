@@ -26,13 +26,27 @@ async function loadAll(usersList, key) {
             entry = {
                 items: items.length, locs: vriezers.length, expired: urgent.filter(x => x.st.level !== 'soon').length, urgent,
                 list: items, locById: locs, vriezers, lades, shopping, recepten, menu: all.filter(isMenuEntry),
-                value: items.reduce((a, i) => a + num(i.prijs), 0), priced: items.filter(i => num(i.prijs) > 0).length
+                value: items.reduce((a, i) => a + num(i.prijs), 0), priced: items.filter(i => num(i.prijs) > 0).length,
+                opslag: storageOf({ vriezers, items: all, lades, shopping, recepten })
             };
         } catch (e) { entry = { error: true }; }
         if (cache.key !== key) return;
         cache.stats = { ...cache.stats, [u.id]: entry };
         listeners.forEach(l => l(cache.stats));
     }
+}
+
+// Geschatte opslag (bytes) per soort gegevens + foto's die rechtstreeks in de documenten zitten
+function storageOf(colls) {
+    const size = (o) => { try { return new Blob([JSON.stringify(o)]).size; } catch (e) { return JSON.stringify(o).length; } };
+    const out = { docs: 0, bytes: 0, fotos: 0, fotoBytes: 0, per: {} };
+    Object.entries(colls).forEach(([k, list]) => {
+        const b = list.reduce((a, d) => a + size(d), 0);
+        out.per[k] = { n: list.length, bytes: b };
+        out.docs += list.length; out.bytes += b;
+        list.forEach(d => { if (typeof d.foto === 'string' && d.foto.startsWith('data:')) { out.fotos++; out.fotoBytes += d.foto.length; } });
+    });
+    return out;
 }
 
 export function useAllUserData(usersList) {

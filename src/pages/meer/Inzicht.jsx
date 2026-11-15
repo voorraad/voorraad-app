@@ -84,7 +84,7 @@ function Stat({ label, value, sub, tone }) {
 }
 
 export { userTone } from '../../lib/userColors.js';
-import { userTone } from '../../lib/userColors.js';
+import { userTone, USER_TONES } from '../../lib/userColors.js';
 
 // Onderste regel van een logregel: wie het deed (gekleurd per persoon) en, als dat iemand
 // anders is, in wiens voorraad (neutraal, met doos-icoon).
@@ -101,6 +101,7 @@ export function LogMeta({ l, usersList, meId, showOwner = true }) {
             <span className={cx('inline-flex items-center gap-1 px-1.5 py-px rounded-full font-bold', t.pill)}>
                 <Icon name="User" size={11} />{l.actorId && l.actorId === meId ? 'jij' : personName(l.actorId, usersList, l.actorName)}
             </span>
+            {l.gezinslid && <span className={cx('inline-flex items-center gap-1 px-1.5 py-px rounded-full font-bold', (USER_TONES[l.gezinslidKleur] || USER_TONES.sky).pill)} title="Gezinslid">{l.gezinslid}</span>}
             {owner && <>
                 <span>in voorraad van</span>
                 <span className="inline-flex items-center gap-1 px-1.5 py-px rounded-md font-semibold bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300">
