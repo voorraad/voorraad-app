@@ -45,8 +45,9 @@ export function PromptDialog() {
 // ---------- Verwijderen met reden + optioneel op lijstje ----------
 export function RemoveDialog() {
     const { removeFor, closeRemove } = useUi();
-    const { actions, shopping } = useStore();
-    const item = removeFor && removeFor.item;
+    const { actions, shopping, canSee } = useStore();
+    const allowed = removeFor && (removeFor.reason === 'consumed' || removeFor.reason === 'wasted' ? canSee('opmaken') : canSee('verwijderen') || canSee('opmaken'));
+    const item = allowed && removeFor.item;
     const [reason, setReason] = useState('consumed');
     const [toList, setToList] = useState(false);
     const [aantal, setAantal] = useState(1);
@@ -111,8 +112,8 @@ export function RemoveDialog() {
 // ---------- Verplaatsen ----------
 export function MoveSheet() {
     const { moveIds, closeMove } = useUi();
-    const { vriezers, lades, items, typeOf, actions } = useStore();
-    const first = moveIds && items.find(i => i.id === moveIds[0]);
+    const { vriezers, lades, items, typeOf, actions, canSee } = useStore();
+    const first = moveIds && canSee('bewerken') && items.find(i => i.id === moveIds[0]);
     const [type, setType] = useState('vriezer');
     const [locId, setLocId] = useState('');
     const [ladeId, setLadeId] = useState('');
@@ -120,7 +121,7 @@ export function MoveSheet() {
         if (!first) return;
         setType(typeOf(first)); setLocId(first.vriezerId); setLadeId(first.ladeId || '');
     }, [moveIds]);
-    if (!moveIds) return null;
+    if (!moveIds || !canSee('bewerken')) return null;
     const locs = sortLocaties(vriezers.filter(v => v.type === type));
     const locLades = lades.filter(l => l.vriezerId === locId).sort(byName);
     const go = async () => { await actions.moveItems(moveIds, locId, ladeId); closeMove(); };

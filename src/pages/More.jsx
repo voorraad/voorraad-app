@@ -12,12 +12,12 @@ import { Statistieken, Logboek } from './meer/Inzicht.jsx';
 import { Gebruikers, Dashboard, TourEditor } from './meer/Admin.jsx';
 
 const SUBPAGES = {
-    locaties: { title: 'Locaties & lades', C: Locaties },
-    categorieen: { title: 'Categorieën', C: Categorieen },
-    eenheden: { title: 'Eenheden', C: Eenheden },
-    delen: { title: 'Delen', C: Delen },
-    statistieken: { title: 'Statistieken', C: Statistieken },
-    logboek: { title: 'Logboek', C: Logboek },
+    locaties: { title: 'Locaties & lades', C: Locaties, right: 'locaties' },
+    categorieen: { title: 'Categorieën', C: Categorieen, right: 'categorieen' },
+    eenheden: { title: 'Eenheden', C: Eenheden, right: 'categorieen' },
+    delen: { title: 'Delen', C: Delen, right: 'delen' },
+    statistieken: { title: 'Statistieken', C: Statistieken, right: 'stats' },
+    logboek: { title: 'Logboek', C: Logboek, right: 'logboek' },
     gebruikers: { title: 'Gebruikers', C: Gebruikers, admin: true },
     dashboard: { title: 'Dashboard', C: Dashboard, admin: true },
     tour: { title: 'Rondleiding aanpassen', C: TourEditor, admin: true }
@@ -27,10 +27,17 @@ export const subpageTitle = (sub) => (SUBPAGES[sub] ? SUBPAGES[sub].title : null
 
 export default function More() {
     const { route } = useUi();
-    const { isAdmin } = useStore();
+    const { isAdmin, canSee } = useStore();
     const sp = SUBPAGES[route.sub];
-    if (sp && (!sp.admin || isAdmin)) return <sp.C />;
+    if (sp && (!sp.admin || isAdmin) && (!sp.right || canSee(sp.right))) return <sp.C />;
+    if (route.sub) return <Redirect to="meer" />;
     return <MoreHome />;
+}
+
+function Redirect({ to }) {
+    const { go } = useUi();
+    React.useEffect(() => { go(to); }, []);
+    return null;
 }
 
 function MoreHome() {
@@ -93,26 +100,34 @@ function MoreHome() {
                 </div>
             </Group>
 
-            <Group title="Beheer">
-                <Row icon="Layers" title="Locaties & lades" subtitle="Vriezers, frigo's, kasten en hun lades" onClick={() => go('meer/locaties')} />
-                <Row icon="Tag" title="Categorieën" onClick={() => go('meer/categorieen')} />
-                <Row icon="List" title="Eenheden" onClick={() => go('meer/eenheden')} />
-            </Group>
+            {(canSee('locaties') || canSee('categorieen')) && (
+                <Group title="Beheer">
+                    {canSee('locaties') && <Row icon="Layers" title="Locaties & lades" subtitle="Vriezers, frigo's, kasten en hun lades" onClick={() => go('meer/locaties')} />}
+                    {canSee('categorieen') && <Row icon="Tag" title="Categorieën" onClick={() => go('meer/categorieen')} />}
+                    {canSee('categorieen') && <Row icon="List" title="Eenheden" onClick={() => go('meer/eenheden')} />}
+                </Group>
+            )}
 
-            <Group title="Samen">
-                <Row icon="Users" title="Delen" subtitle="Nodig iemand uit of maak een bekijk-link" onClick={() => go('meer/delen')} />
-            </Group>
+            {canSee('delen') && (
+                <Group title="Samen">
+                    <Row icon="Users" title="Delen" subtitle="Nodig iemand uit of maak een bekijk-link" onClick={() => go('meer/delen')} />
+                </Group>
+            )}
 
-            <Group title="Gegevens">
-                <Row icon="Chart" title="Statistieken" onClick={() => go('meer/statistieken')} />
-                <Row icon="Log" title="Logboek" onClick={() => go('meer/logboek')} />
-                <Row icon="Download" title="Exporteer naar Excel (CSV)" onClick={() => exportCSV(items, locById, ladeById)} right={null} />
-                <Row icon="Download" title="Exporteer naar PDF" onClick={() => run(() => exportPDF(items, locById, ladeById))} right={null} />
-                <Row icon="Printer" title="Afdrukken" onClick={() => { go('voorraad'); setTimeout(() => window.print(), 400); }} right={null} />
-                <Row icon="Download" title="Back-up maken" subtitle="Alles als bestand, om later terug te zetten" onClick={() => run(() => exportBackup(ownerId))} right={null} />
-                <Row icon="Upload" title="Back-up herstellen" subtitle="Voegt toe, overschrijft niets" onClick={() => fileRef.current && fileRef.current.click()} right={null} />
-                <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={restore} />
-            </Group>
+            {(canSee('stats') || canSee('logboek') || canSee('export')) && (
+                <Group title="Gegevens">
+                    {canSee('stats') && <Row icon="Chart" title="Statistieken" onClick={() => go('meer/statistieken')} />}
+                    {canSee('logboek') && <Row icon="Log" title="Logboek" onClick={() => go('meer/logboek')} />}
+                    {canSee('export') && <>
+                        <Row icon="Download" title="Exporteer naar Excel (CSV)" onClick={() => exportCSV(items, locById, ladeById)} right={null} />
+                        <Row icon="Download" title="Exporteer naar PDF" onClick={() => run(() => exportPDF(items, locById, ladeById))} right={null} />
+                        <Row icon="Printer" title="Afdrukken" onClick={() => { go('voorraad'); setTimeout(() => window.print(), 400); }} right={null} />
+                        <Row icon="Download" title="Back-up maken" subtitle="Alles als bestand, om later terug te zetten" onClick={() => run(() => exportBackup(ownerId))} right={null} />
+                        <Row icon="Upload" title="Back-up herstellen" subtitle="Voegt toe, overschrijft niets" onClick={() => fileRef.current && fileRef.current.click()} right={null} />
+                    </>}
+                    <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={restore} />
+                </Group>
+            )}
 
             <Group title="Hulp">
                 {globalSettings.tourSteps && globalSettings.tourSteps.length > 0 && <Row icon="Help" title="Rondleiding bekijken" onClick={() => setShowTour(true)} right={null} />}

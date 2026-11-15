@@ -62,7 +62,7 @@ export function PhotoViewer() {
 // ================= Scanner =================
 export function ScanSheet() {
     const { scan, closeScan, openItem, openForm, openConsume, go } = useUi();
-    const { items, owner, typeOf, actions, globalSettings } = useStore();
+    const { items, owner, typeOf, actions, globalSettings, canSee } = useStore();
     const video = useRef(null);
     const [status, setStatus] = useState('start'); // start | loading | ready | error | busy
     const [err, setErr] = useState('');
@@ -80,7 +80,7 @@ export function ScanSheet() {
         return () => { alive = false; stop && stop(); };
     }, [scan, hit, round]);
 
-    if (!scan) return null;
+    if (!scan || !canSee('scan')) return null;
 
     async function handle(raw) {
         if (navigator.vibrate) navigator.vibrate(60);
@@ -99,6 +99,7 @@ export function ScanSheet() {
         if (scan.onCode) { setStatus('busy'); const info = await lookupBarcode(code, owner.barcodes || {}, globalSettings.barcodesDelen !== false); closeScan(); scan.onCode(code, info); return; }
         const have = items.filter(i => i.barcode === code);
         if (have.length) { setHit({ code, items: have }); return; }
+        if (!canSee('toevoegen')) { closeScan(); actions.notify('Dit product staat niet in je voorraad.', 'error'); return; }
         setStatus('busy');
         const info = await lookupBarcode(code, owner.barcodes || {}, globalSettings.barcodesDelen !== false);
         closeScan();
@@ -118,13 +119,13 @@ export function ScanSheet() {
                                 <p className="font-semibold truncate">{i.naam}</p>
                                 <p className="text-sm text-stone-500">{formatAantal(i.aantal)} {i.eenheid}{i.ingevrorenOp ? ' · ' + formatDate(i.ingevrorenOp) : ''}</p>
                             </div>
-                            <button type="button" onClick={() => { close(); openConsume(i); }} className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center" aria-label="Opmaken"><Icon name="Utensils" size={18} /></button>
+                            {canSee('opmaken') && <button type="button" onClick={() => { close(); openConsume(i); }} className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center" aria-label="Opmaken"><Icon name="Utensils" size={18} /></button>}
                             <button type="button" onClick={() => { close(); openItem(i.id); }} className="w-10 h-10 rounded-full bg-stone-200 dark:bg-stone-700 flex items-center justify-center" aria-label="Bekijken"><Icon name="Eye" size={18} /></button>
                         </div>
                     ))}
                     <div className="grid grid-cols-2 gap-2 pt-1">
                         <Button variant="secondary" icon="Scan" onClick={() => { setHit(null); setRound(r => r + 1); }}>Opnieuw scannen</Button>
-                        <Button icon="Plus" onClick={() => { const src = hit.items[0]; close(); openForm({ duplicateOf: src }); }}>Nog één toevoegen</Button>
+                        {canSee('toevoegen') && <Button icon="Plus" onClick={() => { const src = hit.items[0]; close(); openForm({ duplicateOf: src }); }}>Nog één toevoegen</Button>}
                     </div>
                 </div>
             ) : (
@@ -217,12 +218,12 @@ export function buildLabelDoc(list, opts) {
 
 export function LabelSheet() {
     const { labelIds, closeLabels } = useUi();
-    const { items, locById, ladeById, typeOf, actions } = useStore();
+    const { items, locById, ladeById, typeOf, actions, canSee } = useStore();
     const [format, setFormat] = useState(() => { try { return localStorage.getItem('voorraad_etiket') || 'a4'; } catch (e) { return 'a4'; } });
     const [copies, setCopies] = useState(1);
     const [qr, setQr] = useState(true);
     const [start, setStart] = useState(1);
-    if (!labelIds) return null;
+    if (!labelIds || !canSee('etiketten')) return null;
     const list = labelIds.map(id => items.find(i => i.id === id)).filter(Boolean).map(item => {
         const loc = locById[item.vriezerId], lade = ladeById[item.ladeId];
         return { item, type: typeOf(item), locNaam: `${loc ? loc.naam : ''}${lade ? ' › ' + lade.naam : ''}` };

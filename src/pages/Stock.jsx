@@ -16,6 +16,7 @@ export default function Stock({ type: typeProp, embedded } = {}) {
     const { vriezers, lades, items, me, owner, typeOf, canSee, actions, dataLoaded } = store;
     const { route, go, openForm, openMove, openAudit, prompt, confirm, openScan, openLabels, openPhoto } = useUi();
     const visibleTypes = TYPES.filter(t => t.id === 'vriezer' || canSee(t.id));
+    const canSelect = ['recepten', 'etiketten', 'bewerken', 'verwijderen'].some(canSee);
     const wanted = typeProp || route.sub;
     const type = visibleTypes.some(t => t.id === wanted) ? wanted : 'vriezer';
 
@@ -136,10 +137,10 @@ export default function Stock({ type: typeProp, embedded } = {}) {
                     <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={`Zoek in ${TYPE_BY_ID[type].label.toLowerCase()}…`}
                         className="w-full h-11 pl-10 pr-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 text-[15px]" />
                 </div>
-                <IconButton icon="Scan" label="Barcode scannen" onClick={() => openScan({ type })} variant="outline" className="rounded-xl w-11 h-11" />
+                {canSee('scan') && <IconButton icon="Scan" label="Barcode scannen" onClick={() => openScan({ type })} variant="outline" className="rounded-xl w-11 h-11" />}
                 <IconButton icon="Filter" label="Sorteren & filteren" onClick={() => setShowFilter(true)} variant="outline" className={cx('rounded-xl w-11 h-11 relative', (catFilter || sortBy !== 'name') && 'border-teal-500 text-teal-700 dark:text-teal-300')} />
                 <IconButton icon={view === 'lades' ? 'Calendar' : 'Layers'} label={view === 'lades' ? 'Toon op datum' : 'Toon per lade'} onClick={() => setView(v => v === 'lades' ? 'datum' : 'lades')} variant="outline" className="rounded-xl w-11 h-11" />
-                <IconButton icon="CheckSquare" label="Selecteren" onClick={() => { setSelecting(s => !s); setSelected(new Set()); }} variant="outline" className={cx('rounded-xl w-11 h-11', selecting && 'bg-teal-600 text-white border-teal-600 hover:bg-teal-700')} />
+                {canSelect && <IconButton icon="CheckSquare" label="Selecteren" onClick={() => { setSelecting(s => !s); setSelected(new Set()); }} variant="outline" className={cx('rounded-xl w-11 h-11', selecting && 'bg-teal-600 text-white border-teal-600 hover:bg-teal-700')} />}
             </div>
 
             {catFilter && (
@@ -149,7 +150,7 @@ export default function Stock({ type: typeProp, embedded } = {}) {
                 </div>
             )}
 
-            {locs.length > 0 && !selecting && (
+            {locs.length > 0 && !selecting && canSee('snel') && canSee('toevoegen') && (
                 <form onSubmit={quickAdd} className="flex items-center gap-2 h-11 pl-3 pr-1.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/50 print:hidden">
                     <Icon name="Zap" size={16} className="text-amber-500 flex-shrink-0" />
                     <input value={quick} onChange={e => setQuick(e.target.value)} placeholder="Snel toevoegen: typ en druk Enter" className="flex-1 min-w-0 bg-transparent outline-none text-[15px] placeholder-amber-700/50 dark:placeholder-amber-300/40" enterKeyHint="done" />
@@ -160,7 +161,7 @@ export default function Stock({ type: typeProp, embedded } = {}) {
             {!dataLoaded ? <LoadingList /> : locs.length === 0 ? (
                 <Card><EmptyState icon={TYPE_BY_ID[type].icon} title={`Nog geen ${TYPE_BY_ID[type].label.toLowerCase()}${group !== 'Thuis' ? ' in ' + group : ''}`}
                     text="Maak eerst een locatie aan, of voeg meteen een product toe."
-                    action={<div className="flex gap-2"><Button variant="secondary" onClick={addLocatie} icon="Plus">Locatie</Button><Button onClick={() => openForm({ type, nonce: Date.now() })} icon="Plus">Product</Button></div>} /></Card>
+                    action={<div className="flex gap-2">{canSee('locaties') && <Button variant="secondary" onClick={addLocatie} icon="Plus">Locatie</Button>}{canSee('toevoegen') && <Button onClick={() => openForm({ type, nonce: Date.now() })} icon="Plus">Product</Button>}</div>} /></Card>
             ) : filtering && shown.length === 0 ? (
                 <Card><EmptyState icon="Search" title={search ? `Geen "${search}" gevonden` : 'Niets in deze categorie'}
                     text={search ? 'Je hebt dit niet (meer) in huis.' : null}
@@ -211,10 +212,10 @@ export default function Stock({ type: typeProp, embedded } = {}) {
                                                                 <img src={lade.foto} alt="" className="w-9 h-9 rounded-lg object-cover" />
                                                             </button>
                                                         )}
-                                                        <PhotoInput max={720} onPhoto={f => actions.setLadeFoto(lade, f)} label={lade.foto ? `Andere foto voor ${lade.naam}` : `Foto toevoegen aan ${lade.naam}`}
+                                                        {canSee('fotos') && <PhotoInput max={720} onPhoto={f => actions.setLadeFoto(lade, f)} label={lade.foto ? `Andere foto voor ${lade.naam}` : `Foto toevoegen aan ${lade.naam}`}
                                                             className="mr-1.5 w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 flex-shrink-0 print:hidden">
                                                             <Icon name="Camera" size={16} />
-                                                        </PhotoInput>
+                                                        </PhotoInput>}
                                                         {me.showBalans && canSee('balans') && (
                                                             <button type="button" onClick={() => openAudit(lade.id)} className="mr-2 h-8 px-2.5 rounded-lg text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 dark:text-teal-300 dark:bg-teal-950/50 flex items-center gap-1 print:hidden"><Icon name="CheckSquare" size={14} />Controle</button>
                                                         )}
@@ -237,7 +238,7 @@ export default function Stock({ type: typeProp, embedded } = {}) {
                             );
                         })}
                     </div>
-                    {!filtering && <button type="button" onClick={addLocatie} className="w-full h-11 rounded-xl border-2 border-dashed border-stone-200 dark:border-stone-800 text-sm font-semibold text-stone-500 hover:text-teal-700 hover:border-teal-300 print:hidden">＋ {TYPE_BY_ID[type].label} toevoegen</button>}
+                    {!filtering && canSee('locaties') && <button type="button" onClick={addLocatie} className="w-full h-11 rounded-xl border-2 border-dashed border-stone-200 dark:border-stone-800 text-sm font-semibold text-stone-500 hover:text-teal-700 hover:border-teal-300 print:hidden">＋ {TYPE_BY_ID[type].label} toevoegen</button>}
                 </>
             )}
 
@@ -245,10 +246,10 @@ export default function Stock({ type: typeProp, embedded } = {}) {
                 <div className="fixed left-0 right-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 z-40 p-3 bg-white/95 dark:bg-stone-900/95 backdrop-blur border-t border-stone-200 dark:border-stone-800 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] print:hidden anim-fade">
                     <div className="max-w-7xl mx-auto px-1 flex items-center gap-2">
                         <span className="text-sm font-semibold flex-1">{selected.size} geselecteerd</span>
-                        <Button size="sm" variant="secondary" icon="Utensils" aria-label="Recept" disabled={!selected.size} onClick={findRecipe}><span className="hidden sm:inline">Recept</span></Button>
-                        <Button size="sm" variant="secondary" icon="Printer" aria-label="Etiketten" disabled={!selected.size} onClick={() => openLabels([...selected])}><span className="hidden sm:inline">Etiketten</span></Button>
-                        <Button size="sm" variant="secondary" icon="Move" aria-label="Verplaats" disabled={!selected.size} onClick={() => { openMove([...selected]); setSelecting(false); setSelected(new Set()); }}><span className="hidden sm:inline">Verplaats</span></Button>
-                        <Button size="sm" variant="danger-soft" icon="Trash" aria-label="Wis" disabled={!selected.size} onClick={bulkDelete}><span className="hidden sm:inline">Wis</span></Button>
+                        {canSee('recepten') && <Button size="sm" variant="secondary" icon="Utensils" aria-label="Recept" disabled={!selected.size} onClick={findRecipe}><span className="hidden sm:inline">Recept</span></Button>}
+                        {canSee('etiketten') && <Button size="sm" variant="secondary" icon="Printer" aria-label="Etiketten" disabled={!selected.size} onClick={() => openLabels([...selected])}><span className="hidden sm:inline">Etiketten</span></Button>}
+                        {canSee('bewerken') && <Button size="sm" variant="secondary" icon="Move" aria-label="Verplaats" disabled={!selected.size} onClick={() => { openMove([...selected]); setSelecting(false); setSelected(new Set()); }}><span className="hidden sm:inline">Verplaats</span></Button>}
+                        {canSee('verwijderen') && <Button size="sm" variant="danger-soft" icon="Trash" aria-label="Wis" disabled={!selected.size} onClick={bulkDelete}><span className="hidden sm:inline">Wis</span></Button>}
                         <IconButton icon="X" label="Stop selecteren" onClick={() => { setSelecting(false); setSelected(new Set()); }} />
                     </div>
                 </div>
