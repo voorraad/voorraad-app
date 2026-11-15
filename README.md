@@ -47,7 +47,7 @@ Extra collecties: `invites/{email}` (vooraf ingestelde rechten, toegepast bij de
 
 ## Eigen server (pushmeldingen en foto's)
 
-In `server/` staat een kleine Node-server (Docker) voor je eigen server, bv. Proxmox: dagelijkse pushmeldingen (Web Push, VAPID) als er iets dringend op moet, meteen een melding bij een persoonlijk bericht, en optioneel foto-opslag (de app bewaart dan enkel de link). Hij leest Firestore met een servicesleutel (gratis Spark-abonnement volstaat). Installatie: zie [`server/INSTALLEREN.md`](server/INSTALLEREN.md). Collecties: `pushAbonnementen`, `pushTest`; status in `settings/push`.
+In `server/` staat een kleine Node-server (gewone dienst via `server/installeer.sh`, of Docker) voor je eigen server, bv. Proxmox: dagelijkse pushmeldingen (Web Push, VAPID) als er iets dringend op moet, meteen een melding bij een persoonlijk bericht, en optioneel foto-opslag (de app bewaart dan enkel de link). Hij leest Firestore met een servicesleutel (gratis Spark-abonnement volstaat). Installatie: zie [`server/INSTALLEREN.md`](server/INSTALLEREN.md). Collecties: `pushAbonnementen`, `pushTest`; status in `settings/push`.
 
 ## Barcode, etiketten en foto's
 
