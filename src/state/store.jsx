@@ -10,7 +10,7 @@ const mapDocs = (snap) => snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
 // Alleen deze velden horen bij een product (voorkomt dat formulier-hulpvelden in Firestore belanden).
 const ITEM_FIELDS = ['naam', 'aantal', 'eenheid', 'vriezerId', 'ladeId', 'ladeNaam', 'categorie', 'minimumVoorraad', 'prijs',
-    'ingevrorenOp', 'houdbaarheidsDatum', 'notitie', 'emoji', 'geplandeDatum', 'tags', 'altijdGoed'];
+    'ingevrorenOp', 'houdbaarheidsDatum', 'notitie', 'emoji', 'geplandeDatum', 'tags', 'altijdGoed', 'foto', 'barcode'];
 export const pickItemFields = (o) => Object.fromEntries(ITEM_FIELDS.filter(k => o[k] !== undefined).map(k => [k, o[k]]));
 
 export function StoreProvider({ children }) {
@@ -234,6 +234,8 @@ export function StoreProvider({ children }) {
                 emoji: values.emoji || emojiForCategory(values.categorie)
             });
             data.userId = ownerId;
+            // Barcode onthouden, zodat het product de volgende keer meteen herkend wordt.
+            if (data.barcode) ownerDoc().set({ barcodes: { [data.barcode]: { naam: data.naam, categorie: data.categorie || '', eenheid: data.eenheid || '', emoji: data.emoji || '', ...(data.foto && !data.foto.startsWith('data:') ? { foto: data.foto } : {}) } } }, { merge: true }).catch(() => { });
             const where = `${loc ? loc.naam : (values._locNaam || '?')}${data.ladeNaam ? ' › ' + data.ladeNaam : ''}`;
             if (editing) {
                 const changes = [];
@@ -243,6 +245,7 @@ export function StoreProvider({ children }) {
                 if (editing.categorie !== data.categorie) changes.push(`Categorie: ${editing.categorie} ➔ ${data.categorie}`);
                 if ((editing.ladeId || '') !== data.ladeId || editing.vriezerId !== data.vriezerId) changes.push(`Plaats ➔ ${where}`);
                 if ((editing.notitie || '') !== data.notitie) changes.push('Notitie aangepast');
+                if ('foto' in data && (editing.foto || '') !== (data.foto || '')) changes.push(data.foto ? 'Foto aangepast' : 'Foto verwijderd');
                 await db.collection('items').doc(editing.id).update(data);
                 touchLade(data.ladeId);
                 if (editing.ladeId && editing.ladeId !== data.ladeId) touchLade(editing.ladeId);
@@ -393,6 +396,10 @@ export function StoreProvider({ children }) {
             await db.collection('lades').doc(lade.id).update({ naam });
             const list = derived.items.filter(i => i.ladeId === lade.id);
             await runBatched(list.map(i => b => b.update(db.collection('items').doc(i.id), { ladeNaam: naam })));
+        },
+        async setLadeFoto(lade, foto) {
+            await db.collection('lades').doc(lade.id).update({ foto: foto || '' });
+            notify(foto ? 'Foto van de lade bewaard' : 'Foto verwijderd');
         },
         async deleteLade(lade) {
             if (derived.items.some(i => i.ladeId === lade.id)) { notify('Maak deze lade eerst leeg.', 'error'); return false; }

@@ -14,6 +14,7 @@ import More, { subpageTitle } from './pages/More.jsx';
 import { UserList } from './pages/meer/Admin.jsx';
 import AdminPage from './pages/AdminPage.jsx';
 import { AnnouncementBanner, useNewUsers } from './pages/admin/Extra.jsx';
+import { ScanSheet, LabelSheet, PhotoViewer } from './components/media.jsx';
 import { APP_VERSION, TYPES, TYPE_BY_ID } from './lib/constants.js';
 import { cx, itemStatus, todayKey } from './lib/utils.js';
 
@@ -65,6 +66,13 @@ function Shell() {
     const [adminOpen, setAdminOpen] = useState(false);
     const onMenu = page === 'menu'; // weekmenu en recepten: zonder voorraad-knoppen
     useEffect(() => { setDrawer(false); }, [route.page, route.sub]);
+    // Link van een etiket (#/p/<productId>): product openen zodra de voorraad geladen is.
+    useEffect(() => {
+        if (route.page !== 'p' || !route.sub || !dataLoaded) return;
+        const it = items.find(i => i.id === route.sub);
+        if (it) { go('voorraad/' + typeOf(it)); ui.openItem(it.id); }
+        else { go('voorraad'); actions.notify('Dit product staat niet (meer) in deze voorraad.', 'error'); }
+    }, [route.page, route.sub, dataLoaded]);
     const [switcher, setSwitcher] = useState(false);
     const openCount = shopping.filter(s => !s.checked).length;
 
@@ -210,6 +218,9 @@ function GlobalSheets() {
             <NewsSheet />
             <Tour />
             <PromptDialog />
+            <ScanSheet />
+            <LabelSheet />
+            <PhotoViewer />
             <ConfirmDialog />
             <Toast toast={toast} onClose={() => setToast(null)} />
         </>

@@ -3,6 +3,7 @@ import Icon from '../lib/icons.jsx';
 import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
 import { Sheet, Button, Field, Input, Select, Stepper, Segmented, Chip, Toggle, Textarea } from './ui.jsx';
+import { PhotoInput, prefillFrom } from './media.jsx';
 import { TYPES, AVAILABLE_TAGS, EMOJI_CATEGORIES, UNIT_FIELD } from '../lib/constants.js';
 import {
     cx, num, dateKey, todayKey, addDays, categoriesFor, unitsFor, guessProduct, normalize, emojiForCategory,
@@ -22,6 +23,7 @@ export default function ItemForm() {
 
 function ItemFormInner({ form, close }) {
     const { vriezers, lades, items, shopping, owner, typeOf, canSee, actions } = useStore();
+    const { openScan, openPhoto } = useUi();
     const editing = form.item || null;
     const source = editing || form.duplicateOf || null;
 
@@ -42,17 +44,18 @@ function ItemFormInner({ form, close }) {
             vriezerId: source.vriezerId, ladeId: source.ladeId || '', categorie: source.categorie || 'Ander',
             ingevrorenOp: dateKey(source.ingevrorenOp || new Date()), houdbaarheidsDatum: source.houdbaarheidsDatum ? dateKey(source.houdbaarheidsDatum) : '',
             minimumVoorraad: source.minimumVoorraad ?? '', prijs: source.prijs ?? '', notitie: source.notitie || '', tags: source.tags || [],
-            altijdGoed: !!source.altijdGoed, geplandeDatum: editing ? (source.geplandeDatum || '') : ''
+            altijdGoed: !!source.altijdGoed, geplandeDatum: editing ? (source.geplandeDatum || '') : '',
+            foto: source.foto || '', barcode: source.barcode || ''
         } : {
-            naam: p.naam || '', emoji: '', aantal: p.aantal || 1, eenheid: p.eenheid || 'stuks',
+            naam: p.naam || '', emoji: p.emoji || '', aantal: p.aantal || 1, eenheid: p.eenheid || 'stuks', foto: p.foto || '', barcode: p.barcode || '',
             vriezerId: p.vriezerId || firstLocOf(initialType), ladeId: p.ladeId ?? (last && last.type === initialType && !p.vriezerId ? (last.ladeId || '') : ''),
             categorie: p.categorie || (initialType === 'voorraad' ? 'Pasta' : 'Vlees'),
-            ingevrorenOp: todayKey(), houdbaarheidsDatum: '', minimumVoorraad: '', prijs: '', notitie: '', tags: [], altijdGoed: false, geplandeDatum: ''
+            ingevrorenOp: todayKey(), houdbaarheidsDatum: initialType !== 'vriezer' && p.houdbaarheidsDatum ? p.houdbaarheidsDatum : '', minimumVoorraad: '', prijs: '', notitie: '', tags: [], altijdGoed: false, geplandeDatum: ''
         };
         if (form.duplicateOf) base.ingevrorenOp = todayKey();
         return { type: initialType, times: 1, newLoc: '', newLade: '', ...base };
     });
-    const [touched, setTouched] = useState(source ? { categorie: true, emoji: true, tht: true, eenheid: true } : {});
+    const [touched, setTouched] = useState(source ? { categorie: true, emoji: true, tht: true, eenheid: true } : { ...(form.prefill && form.prefill.emoji ? { emoji: true } : {}), ...(form.prefill && form.prefill.categorie ? { categorie: true } : {}) });
     const [showMore, setShowMore] = useState(!!editing && !!(editing.minimumVoorraad || editing.prijs || editing.notitie || (editing.tags || []).length || editing.altijdGoed || editing.geplandeDatum));
     const [showEmoji, setShowEmoji] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -97,6 +100,22 @@ function ItemFormInner({ form, close }) {
             emoji: touched.emoji ? s.emoji : g.emoji,
             houdbaarheidsDatum: !touched.tht && s.type !== 'vriezer' && g.days ? dateKey(addDays(new Date(), g.days)) : s.houdbaarheidsDatum
         }));
+    }
+
+    // Resultaat van de scanner in het formulier overnemen
+    function onScanned(code, info) {
+        const p = prefillFrom(code, info);
+        setV(s => ({
+            ...s, barcode: code,
+            naam: p.naam || s.naam,
+            emoji: p.emoji && !touched.emoji ? p.emoji : s.emoji,
+            categorie: p.categorie && !touched.categorie ? p.categorie : s.categorie,
+            eenheid: p.eenheid && !touched.eenheid ? p.eenheid : s.eenheid,
+            foto: s.foto || p.foto || '',
+            houdbaarheidsDatum: p.houdbaarheidsDatum && !touched.tht && s.type !== 'vriezer' ? p.houdbaarheidsDatum : s.houdbaarheidsDatum
+        }));
+        if (!info) actions.notify('Onbekende barcode: vul de naam zelf in. Volgende keer herkent de app hem.');
+        else if (!p.naam) applyNameHints(p.naam);
     }
 
     const changeType = (t) => {
@@ -168,6 +187,22 @@ function ItemFormInner({ form, close }) {
                         onChange={e => set({ naam: e.target.value })} onBlur={e => !editing && applyNameHints(e.target.value)}
                         className="font-semibold" />
                     <datalist id="known-names">{nameList.map(n => <option key={n} value={n} />)}</datalist>
+                    <button type="button" onClick={() => openScan({ onCode: onScanned })} aria-label="Barcode scannen" title="Barcode scannen"
+                        className="w-11 h-11 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 flex items-center justify-center flex-shrink-0 text-stone-600 dark:text-stone-300 hover:border-teal-500">
+                        <Icon name="Scan" size={20} />
+                    </button>
+                </div>
+                <div className="flex items-center gap-3">
+                    {v.foto
+                        ? <button type="button" onClick={() => openPhoto({ src: v.foto, title: v.naam })} className="flex-shrink-0" aria-label="Foto groot bekijken"><img src={v.foto} alt="" className="w-14 h-14 rounded-xl object-cover bg-stone-100" /></button>
+                        : <span className="w-14 h-14 rounded-xl border-2 border-dashed border-stone-200 dark:border-stone-700 flex items-center justify-center text-stone-300 flex-shrink-0"><Icon name="Image" size={22} /></span>}
+                    <div className="flex flex-wrap gap-2 flex-1">
+                        <PhotoInput onPhoto={foto => set({ foto })} label="Foto nemen of kiezen" className="h-9 px-3 rounded-xl text-sm font-semibold bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 flex items-center gap-1.5">
+                            <Icon name="Camera" size={16} />{v.foto ? 'Andere foto' : 'Foto'}
+                        </PhotoInput>
+                        {v.foto && <button type="button" onClick={() => set({ foto: '' })} className="h-9 px-3 rounded-xl text-sm font-semibold text-stone-500 hover:text-red-600">Verwijder</button>}
+                    </div>
+                    {v.barcode && <span className="text-[11px] text-stone-400 font-mono flex items-center gap-1" title="Barcode"><Icon name="Scan" size={13} />{v.barcode}</span>}
                 </div>
                 {showEmoji && (
                     <div className="rounded-2xl border border-stone-200 dark:border-stone-700 p-2 max-h-56 overflow-y-auto">

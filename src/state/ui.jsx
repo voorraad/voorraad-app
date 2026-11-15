@@ -33,6 +33,9 @@ export function UiProvider({ children }) {
     const [promptState, setPromptState] = useState(null);
     const [showTour, setShowTour] = useState(false);
     const [showNews, setShowNews] = useState(false);
+    const [scan, setScan] = useState(null);         // { onCode? } – barcode-scanner
+    const [labelIds, setLabelIds] = useState(null); // etiketten afdrukken
+    const [photo, setPhoto] = useState(null);       // foto groot bekijken
 
     const confirm = useCallback((opts) => new Promise(resolve => setConfirmState({ ...opts, resolve })), []);
     const prompt = useCallback((opts) => new Promise(resolve => setPromptState({ ...opts, resolve })), []);
@@ -48,7 +51,10 @@ export function UiProvider({ children }) {
         auditLadeId, openAudit: setAuditLadeId, closeAudit: () => setAuditLadeId(null),
         confirmState, setConfirmState, confirm,
         promptState, setPromptState, prompt,
-        showTour, setShowTour, showNews, setShowNews
+        showTour, setShowTour, showNews, setShowNews,
+        scan, openScan: (o) => setScan(o || {}), closeScan: () => setScan(null),
+        labelIds, openLabels: setLabelIds, closeLabels: () => setLabelIds(null),
+        photo, openPhoto: setPhoto, closePhoto: () => setPhoto(null)
     };
     return <UiCtx.Provider value={value}>{children}</UiCtx.Provider>;
 }
