@@ -1,0 +1,149 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Hulpfuncties ----------
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    // Geblokkeerde gebruikers (users.disabled) krijgen geen toegang tot voorraadgegevens.
+    function notBlocked() {
+      let p = /databases/$(database)/documents/users/$(request.auth.uid);
+      return !exists(p) || get(p).data.get('disabled', false) != true;
+    }
+    // Gedeelde voorraad: toegang/{eigenaar}_{gebruiker} wijst naar een aanvaard deel-verzoek.
+    function sharedWithMe(owner) {
+      let t = /databases/$(database)/documents/toegang/$(owner + '_' + request.auth.uid);
+      return exists(t) && sharedOk(get(t).data.shareId);
+    }
+    function sharedOk(shareId) {
+      let s = /databases/$(database)/documents/shares/$(shareId);
+      return exists(s) && get(s).data.status == 'accepted';
+    }
+    // Mag deze gebruiker de voorraad van "owner" gebruiken? (eigen, gedeeld met mij, of beheerder)
+    function canUse(owner) {
+      return signedIn() && (isAdmin() || ((owner == request.auth.uid || sharedWithMe(owner)) && notBlocked()));
+    }
+    // Bekijk-link staat aan bij deze eigenaar
+    function publicOn(owner) {
+      return get(/databases/$(database)/documents/users/$(owner)).data.get('publicShareEnabled', false) == true;
+    }
+    function changed(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny(keys);
+    }
+    function onlyChanged(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    // ---------- Voorraad ----------
+    match /vriezers/{id} {
+      allow read: if canUse(resource.data.userId) || publicOn(resource.data.userId);
+      allow create: if canUse(request.resource.data.userId);
+      allow update: if canUse(resource.data.userId) && canUse(request.resource.data.userId);
+      allow delete: if canUse(resource.data.userId);
+    }
+    match /items/{id} {
+      allow read: if canUse(resource.data.userId) || publicOn(resource.data.userId);
+      allow create: if canUse(request.resource.data.userId);
+      allow update: if canUse(resource.data.userId) && canUse(request.resource.data.userId);
+      allow delete: if canUse(resource.data.userId);
+    }
+    match /lades/{id} {
+      allow read, delete: if canUse(resource.data.userId);
+      allow create: if canUse(request.resource.data.userId);
+      allow update: if canUse(resource.data.userId) && canUse(request.resource.data.userId);
+    }
+    match /shoppingList/{id} {
+      allow read, delete: if canUse(resource.data.userId);
+      allow create: if canUse(request.resource.data.userId);
+      allow update: if canUse(resource.data.userId) && canUse(request.resource.data.userId);
+    }
+    match /recepten/{id} {
+      allow read, delete: if canUse(resource.data.userId);
+      allow create: if canUse(request.resource.data.userId);
+      allow update: if canUse(resource.data.userId) && canUse(request.resource.data.userId);
+    }
+
+    // ---------- Gebruikers ----------
+    match /users/{userId} {
+      // Eigen profiel altijd (ook geblokkeerd, voor het blokkeerscherm); profiel van een gedeelde voorraad; admins alles.
+      allow get: if signedIn() && (userId == me() || canUse(userId));
+      allow list: if isAdmin();
+      allow create: if isAdmin() || (signedIn() && userId == me() && request.resource.data.get('disabled', false) != true);
+      allow update: if isAdmin()
+        || (signedIn() && userId == me() && !changed(['disabled']))
+        || (canUse(userId) && !changed(['disabled', 'hiddenTabs', 'publicShareEnabled', 'publicShareToken', 'email', 'activeBeheerdeUserId', 'adminKleur']));
+      allow delete: if isAdmin();
+    }
+    match /admins/{uid} {
+      allow get: if signedIn() && (uid == me() || isAdmin());
+      allow list, write: if false;   // admins beheer je in de Firebase console
+    }
+
+    // ---------- Delen ----------
+    match /shares/{id} {
+      allow read: if signedIn() && (isAdmin() || resource.data.ownerId == me() || resource.data.sharedWithEmail == myEmail());
+      allow create: if signedIn() && request.resource.data.ownerId == me();
+      allow update: if isAdmin()
+        || (signedIn() && resource.data.sharedWithEmail == myEmail()
+            && onlyChanged(['status', 'acceptedAt', 'acceptedUid'])
+            && request.resource.data.get('acceptedUid', me()) == me())
+        || (signedIn() && resource.data.ownerId == me() && !changed(['ownerId']));
+      allow delete: if signedIn() && (isAdmin() || resource.data.ownerId == me() || resource.data.sharedWithEmail == myEmail());
+    }
+    match /toegang/{id} {
+      allow get: if signedIn() && (isAdmin() || id.matches('.+_' + request.auth.uid) || resource.data.ownerId == me());
+      allow list: if isAdmin();
+      allow create, update: if signedIn()
+        && id == request.resource.data.ownerId + '_' + request.auth.uid
+        && request.resource.data.uid == me()
+        && get(/databases/$(database)/documents/shares/$(request.resource.data.shareId)).data.ownerId == request.resource.data.ownerId
+        && get(/databases/$(database)/documents/shares/$(request.resource.data.shareId)).data.sharedWithEmail == myEmail()
+        && get(/databases/$(database)/documents/shares/$(request.resource.data.shareId)).data.status == 'accepted';
+      allow delete: if signedIn() && (isAdmin() || resource.data.ownerId == me() || resource.data.uid == me());
+    }
+    // Bekijk-link: wie de link heeft, mag enkel dat ene document lezen.
+    match /publicShares/{token} {
+      allow get: if true;
+      allow create: if signedIn() && request.resource.data.ownerId == me();
+      allow update: if signedIn() && resource.data.ownerId == me() && request.resource.data.ownerId == me();
+      allow delete: if signedIn() && (isAdmin() || resource.data.ownerId == me());
+    }
+
+    // ---------- Logboek ----------
+    match /logs/{id} {
+      allow read: if canUse(resource.data.targetUserId);
+      allow create: if signedIn() && request.resource.data.actorId == me() && canUse(request.resource.data.targetUserId);
+      allow update, delete: if isAdmin();
+    }
+
+    // ---------- Algemeen ----------
+    match /settings/{doc} {
+      allow read: if true;            // onderhoud, rondleiding, mededeling: niets geheims
+      allow write: if isAdmin();
+    }
+    match /barcodes/{code} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() || (signedIn() && request.resource.data.door == me());
+      allow delete: if isAdmin();
+    }
+
+    // ---------- Enkel voor beheerders ----------
+    match /adminNotes/{uid} {
+      allow read, write: if isAdmin();
+    }
+    match /invites/{email} {
+      allow get: if signedIn() && (isAdmin() || email == myEmail());
+      allow list, create, delete: if isAdmin();
+      allow update: if isAdmin() || (signedIn() && email == myEmail() && onlyChanged(['gebruiktOp', 'uid']));
+    }
+    match /blockedAttempts/{id} {
+      allow create: if signedIn() && request.resource.data.uid == me();
+      allow read, delete: if isAdmin();
+      allow update: if false;
+    }
+  }
+}

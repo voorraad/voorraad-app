@@ -127,11 +127,37 @@ export function StoreProvider({ children }) {
         if (!ok) switchAccount(user.uid, true);
     }, [user, ownerId, adminChecked, sharesLoaded, isAdmin, incomingShares]);
 
+    // Toegangsbewijs voor gedeelde voorraden: toegang/{eigenaar}_{gebruiker} wijst naar het aanvaarde deel-verzoek.
+    // De Firestore-regels kunnen niet zoeken, wel een document met een vaste naam opvragen.
+    const [accessTick, setAccessTick] = useState(0);
+    const accessDone = useRef(new Set());
+    useEffect(() => {
+        if (!user) return;
+        const todo = incomingShares.filter(s => s.status === 'accepted' && s.ownerId && !accessDone.current.has(s.id));
+        if (!todo.length) return;
+        (async () => {
+            let made = false;
+            for (const s of todo) {
+                accessDone.current.add(s.id);
+                try {
+                    const ref = db.collection('toegang').doc(`${s.ownerId}_${user.uid}`);
+                    const cur = await ref.get().catch(() => null);
+                    if (!cur || !cur.exists || cur.data().shareId !== s.id) {
+                        await ref.set({ ownerId: s.ownerId, uid: user.uid, shareId: s.id, email: (user.email || '').toLowerCase() });
+                        made = true;
+                    }
+                    if (s.acceptedUid !== user.uid) await db.collection('shares').doc(s.id).update({ acceptedUid: user.uid }).catch(() => { });
+                } catch (e) { console.warn('Toegang bijwerken mislukt', e); }
+            }
+            if (made) setAccessTick(t => t + 1);
+        })();
+    }, [user, incomingShares]);
+
     // Users-document van de beheerde voorraad
     useEffect(() => {
         if (!ownerId) return;
         return db.collection('users').doc(ownerId).onSnapshot(doc => setOwner(doc.exists ? doc.data() : {}), () => setOwner({}));
-    }, [ownerId]);
+    }, [ownerId, accessTick]);
 
     // Voorraaddata
     useEffect(() => {
@@ -148,7 +174,7 @@ export function StoreProvider({ children }) {
             q('recepten').onSnapshot(s => { setRecepten(mapDocs(s)); done('recepten'); }, err('recepten'))
         ];
         return () => subs.forEach(u => u());
-    }, [ownerId]);
+    }, [ownerId, accessTick]);
 
     // Globale instellingen (tour, onderhoud)
     useEffect(() => {
@@ -486,12 +512,18 @@ export function StoreProvider({ children }) {
             return true;
         },
         async acceptInvite(s) {
-            await db.collection('shares').doc(s.id).update({ status: 'accepted', acceptedAt: new Date().toISOString() });
+            await db.collection('shares').doc(s.id).update({ status: 'accepted', acceptedAt: new Date().toISOString(), acceptedUid: user.uid });
+            await db.collection('toegang').doc(`${s.ownerId}_${user.uid}`).set({ ownerId: s.ownerId, uid: user.uid, shareId: s.id, email: (user.email || '').toLowerCase() }).catch(e => console.warn(e));
+            accessDone.current.add(s.id);
             await switchAccount(s.ownerId, true);
             notify(`Je beheert nu ook de voorraad van ${s.ownerEmail}`);
         },
         declineInvite: (s) => db.collection('shares').doc(s.id).update({ status: 'declined' }),
-        async revokeShare(s) { await db.collection('shares').doc(s.id).delete(); notify('Toegang ingetrokken'); },
+        async revokeShare(s) {
+            await db.collection('shares').doc(s.id).delete();
+            if (s.acceptedUid) db.collection('toegang').doc(`${s.ownerId}_${s.acceptedUid}`).delete().catch(() => { });
+            notify('Toegang ingetrokken');
+        },
         async togglePublicLink() {
             const token = (me && me.publicShareToken) || randomToken();
             const enabled = !(me && me.publicShareEnabled);
