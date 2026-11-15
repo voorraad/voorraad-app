@@ -198,7 +198,7 @@ export function TourEditor() {
             {outdated && (
                 <Card className="p-4 border-teal-300 bg-teal-50/70 dark:bg-teal-950/30 dark:border-teal-800 flex flex-wrap items-center gap-3">
                     <Icon name="Sparkles" size={20} className="text-teal-700" />
-                    <p className="flex-1 text-sm"><b>Er is een nieuwe, volledige rondleiding</b> ({DEFAULT_TOUR_STEPS.length} stappen, met scannen, opmaken, kaart, etiketten, foto's, gezinsleden en meldingen). Je huidige rondleiding heeft {steps.length} stappen.</p>
+                    <p className="flex-1 text-sm"><b>Er is een nieuwe versie van de rondleiding</b> ({DEFAULT_TOUR_STEPS.length} stappen, met scannen, opmaken, kaart, etiketten, foto's, gezinsleden en meldingen). Je huidige rondleiding heeft {steps.length} stappen.</p>
                     <Button size="sm" icon="Check" onClick={async () => { const d = JSON.parse(JSON.stringify(DEFAULT_TOUR_STEPS)); setSteps(d); await save(d); }}>Nieuwe gebruiken</Button>
                 </Card>
             )}

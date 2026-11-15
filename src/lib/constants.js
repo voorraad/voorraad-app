@@ -52,7 +52,7 @@ export const TYPE_BY_ID = Object.fromEntries(TYPES.map(t => [t.id, t]));
 export const MENU_LOCATION_ID = 'custom_menu'; // weekmenu-gerechten staan in 'items' met dit vriezerId
 
 // Rondleiding. Optioneel per stap: recht (enkel tonen als de gebruiker dat recht heeft) en ga (pagina die achter de stap opent).
-export const TOUR_VERSION = 2;
+export const TOUR_VERSION = 3;
 export const DEFAULT_TOUR_STEPS = [
     { title: 'Welkom bij Voorraad.', icon: 'Sparkles', colorName: 'blue', ga: 'voorraad/vriezer',
         content: 'Weet altijd wat er in je vriezer, frigo en kast ligt, en gooi minder weg.\n\nIn een paar stappen tonen we alles. Swipe of tik op Volgende.' },
@@ -83,7 +83,7 @@ export const DEFAULT_TOUR_STEPS = [
     { title: 'Gezinsleden', icon: 'User', colorName: 'green', ga: 'meer',
         content: 'Gebruiken meerdere mensen hetzelfde account? Voeg ze toe bij Instellingen → Gezinsleden. Op elk toestel kies je wie je bent; in het logboek zie je wie wat deed.' },
     { title: 'Meldingen', icon: 'Bell', colorName: 'orange', ga: 'meer',
-        content: 'Zet bij Instellingen → "Meldingen op dit toestel" de meldingen aan. Je krijgt dan elke ochtend een seintje als er iets op moet.\n\nOp iPhone: zet de app eerst op je beginscherm (Deel → Zet op beginscherm).' },
+        content: 'Zet bij Instellingen → "Meldingen op dit toestel" de meldingen aan. Je krijgt dan elke ochtend een seintje als er iets op moet.\n\niOS (iPhone/iPad): zet de app eerst op je beginscherm via Safari → Deel → Zet op beginscherm, en open ze van daaruit.\n\nAndroid: tik op Toestaan als Chrome om toestemming vraagt. Tip: installeer de app via ⋮ → App installeren.' },
     { title: 'Klaar!', icon: 'Check', colorName: 'green', ga: 'voorraad/vriezer',
         content: 'Je kan deze rondleiding altijd opnieuw bekijken via Instellingen → Hulp.\n\nVeel plezier, en minder weggooien!' }
 ];
