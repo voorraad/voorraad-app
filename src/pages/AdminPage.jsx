@@ -107,11 +107,27 @@ function AdminOverview() {
     const done = Object.keys(stats).length >= usersList.length;
     const emailOf = (id) => ((usersList.find(u => u.id === id) || {}).email || '?');
 
-    const rows = useMemo(() => usersList.filter(u => smartMatch(u.email || u.displayName || '', q)).sort((a, b) => {
+    // Gedeelde voorraden: wie beheert mee bij wie (aanvaarde deel-verzoeken)
+    const [shares, setShares] = useState([]);
+    useEffect(() => db.collection('shares').where('status', '==', 'accepted').onSnapshot(s => setShares(s.docs.map(d => d.data())), () => { }), []);
+    const members = useMemo(() => {
+        const m = {};
+        shares.forEach(sh => {
+            const u = usersList.find(x => x.id === sh.acceptedUid || (x.email || '').toLowerCase() === (sh.sharedWithEmail || '').toLowerCase());
+            if (u && u.id !== sh.ownerId) (m[sh.ownerId] = m[sh.ownerId] || []).some(x => x.id === u.id) || m[sh.ownerId].push(u);
+        });
+        return m;
+    }, [shares, usersList]);
+    const memberOf = (uid) => Object.keys(members).filter(o => members[o].some(x => x.id === uid));
+    // Wie enkel meebeheert (zelf geen producten of locaties), staat alleen ingesprongen onder de eigenaar.
+    const onlyMember = (u) => memberOf(u.id).length > 0 && stats[u.id] && !stats[u.id].error && !stats[u.id].items && !stats[u.id].locs;
+    const matches = (u) => smartMatch(u.email || u.displayName || '', q);
+    const rows = useMemo(() => usersList.filter(u => !onlyMember(u) && (matches(u) || (members[u.id] || []).some(matches))).sort((a, b) => {
         if (sort === 'producten') return ((stats[b.id] || {}).items || 0) - ((stats[a.id] || {}).items || 0);
         if (sort === 'verlopen') return ((stats[b.id] || {}).expired || 0) - ((stats[a.id] || {}).expired || 0);
         return (toDate(b.laatstGezien) || 0) - (toDate(a.laatstGezien) || 0);
-    }), [usersList, stats, q, sort]);
+    }), [usersList, stats, q, sort, members]);
+    const nm = (id) => { const u = usersList.find(x => x.id === id); return u ? (u.email || u.displayName || '').split('@')[0] : '?'; };
 
     return (
         <div className="space-y-6">
@@ -154,15 +170,22 @@ function AdminOverview() {
                             <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
                                 {rows.map(u => {
                                     const s = stats[u.id];
+                                    const mem = members[u.id] || [];
+                                    const also = memberOf(u.id);
                                     return (
-                                        <tr key={u.id} className={cx(u.id === ownerId && 'bg-teal-50/50 dark:bg-teal-950/20')}>
+                                        <React.Fragment key={u.id}>
+                                        <tr className={cx(u.id === ownerId && 'bg-teal-50/50 dark:bg-teal-950/20')}>
                                             <td className="px-3 sm:px-4 py-2.5">
                                                 <span className="flex items-center gap-2 min-w-0">
                                                     <span className={cx('relative w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold', userTone(u.id, usersList).pill)}>
                                                         {(u.email || u.displayName || '?')[0].toUpperCase()}
                                                         <span title={u.disabled ? 'Geblokkeerd' : 'Actief'} className={cx('absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-stone-900', u.disabled ? 'bg-red-500' : 'bg-emerald-500')} />
                                                     </span>
-                                                    <span className="truncate max-w-[6.5rem] sm:max-w-[16rem] font-medium">{u.email || u.displayName || u.id}</span>
+                                                    <span className="min-w-0">
+                                                        <span className="block truncate max-w-[6.5rem] sm:max-w-[16rem] font-medium">{u.email || u.displayName || u.id}</span>
+                                                        {mem.length > 0 && <span className="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-300"><Icon name="Users" size={11} />gedeeld met {mem.length}</span>}
+                                                        {also.length > 0 && <span className="block truncate max-w-[6.5rem] sm:max-w-[16rem] text-[11px] text-stone-400">ook bij {also.map(nm).join(', ')}</span>}
+                                                    </span>
                                                 </span>
                                             </td>
                                             <td className="px-2 py-2.5 text-stone-500 whitespace-nowrap hidden sm:table-cell">{u.laatstGezien ? formatDateTime(u.laatstGezien) : 'nooit'}</td>
@@ -175,6 +198,29 @@ function AdminOverview() {
                                                 </span>
                                             </td>
                                         </tr>
+                                        {mem.map((m, mi) => (
+                                            <tr key={u.id + m.id} className="bg-stone-50/60 dark:bg-stone-900/40 !border-t-0">
+                                                <td className="pl-5 sm:pl-6 pr-3 py-1.5" colSpan={1}>
+                                                    <span className="flex items-center gap-2 min-w-0">
+                                                        <span className="relative w-5 h-8 flex-shrink-0" aria-hidden="true">
+                                                            <span className={cx('absolute left-1/2 top-0 w-px bg-stone-300 dark:bg-stone-600', mi === mem.length - 1 ? 'h-1/2' : 'h-full')} />
+                                                            <span className="absolute left-1/2 top-1/2 h-px w-2.5 bg-stone-300 dark:bg-stone-600" />
+                                                        </span>
+                                                        <span className={cx('w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold', userTone(m.id, usersList).pill)}>{(m.email || '?')[0].toUpperCase()}</span>
+                                                        <span className="min-w-0">
+                                                            <span className="block truncate max-w-[5.5rem] sm:max-w-[14rem] text-sm">{m.email || m.displayName}</span>
+                                                            <span className="block text-[11px] text-stone-400">beheert mee</span>
+                                                        </span>
+                                                    </span>
+                                                </td>
+                                                <td className="hidden sm:table-cell" />
+                                                <td className="px-2 text-right text-xs text-stone-400" colSpan={2}>{stats[m.id] && stats[m.id].items ? `eigen: ${stats[m.id].items}` : ''}</td>
+                                                <td className="px-2 sm:px-4 py-1">
+                                                    <span className="flex justify-end"><Button size="sm" variant="ghost" icon="Box" aria-label={`Bekijk ${m.email}`} onClick={() => go('admin/dashboard/' + m.id)}><span className="hidden sm:inline">Bekijk</span></Button></span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        </React.Fragment>
                                     );
                                 })}
                             </tbody>
