@@ -86,6 +86,31 @@ function Stat({ label, value, sub, tone }) {
 export { userTone } from '../../lib/userColors.js';
 import { userTone } from '../../lib/userColors.js';
 
+// Onderste regel van een logregel: wie het deed (gekleurd per persoon) en, als dat iemand
+// anders is, in wiens voorraad (neutraal, met doos-icoon).
+const personName = (id, usersList, fallback) => {
+    const u = usersList.find(x => x.id === id);
+    return (u && (u.displayName || (u.email || '').split('@')[0])) || fallback || '?';
+};
+export function LogMeta({ l, usersList, meId, showOwner = true }) {
+    const t = userTone(l.actorId || l.actorName, usersList);
+    const owner = showOwner && l.targetUserId && l.targetUserId !== l.actorId;
+    return (
+        <p className="text-[11px] text-stone-400 mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span>{l.action} door</span>
+            <span className={cx('inline-flex items-center gap-1 px-1.5 py-px rounded-full font-bold', t.pill)}>
+                <Icon name="User" size={11} />{l.actorId && l.actorId === meId ? 'jij' : personName(l.actorId, usersList, l.actorName)}
+            </span>
+            {owner && <>
+                <span>in voorraad van</span>
+                <span className="inline-flex items-center gap-1 px-1.5 py-px rounded-md font-semibold bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+                    <Icon name="Box" size={11} />{personName(l.targetUserId, usersList, 'andere voorraad')}
+                </span>
+            </>}
+        </p>
+    );
+}
+
 // Icoon + kleur per logactie (ook gebruikt op de beheerpagina)
 export const logTone = (a) => a === 'Toevoegen' ? ['Plus', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300']
     : a === 'Verwijderd' ? ['Trash', 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300']
@@ -97,7 +122,7 @@ export function Logboek({ defaultAll = false }) {
     const [logs, setLogs] = useState(null);
     const [onlyThis, setOnlyThis] = useState(!defaultAll);
     const [who, setWho] = useState(null); // filter op één gebruiker bij 'Alle gebruikers'
-    const emailOf = (id) => ((usersList.find(u => u.id === id) || {}).email || '').split('@')[0] || 'andere voorraad';
+    const emailOf = (id) => personName(id, usersList, ((logs || []).find(l => l.actorId === id) || {}).actorName || 'andere voorraad');
     useEffect(() => {
         const q = isAdmin
             ? db.collection('logs').orderBy('timestamp', 'desc').limit(150)
@@ -106,8 +131,8 @@ export function Logboek({ defaultAll = false }) {
     }, [isAdmin, ownerId]);
     if (!logs) return <div className="h-40 rounded-2xl bg-stone-200/60 dark:bg-stone-800/60 animate-pulse" />;
     const all = isAdmin && !onlyThis;
-    const shown = isAdmin && onlyThis ? logs.filter(l => l.targetUserId === ownerId) : who ? logs.filter(l => l.targetUserId === who) : logs;
-    const inLogs = [...new Set(logs.map(l => l.targetUserId))];
+    const shown = isAdmin && onlyThis ? logs.filter(l => l.targetUserId === ownerId) : who ? logs.filter(l => l.targetUserId === who || l.actorId === who) : logs;
+    const inLogs = [...new Set(logs.flatMap(l => [l.actorId, l.targetUserId]).filter(Boolean))];
     const tone = logTone;
     return (
         <div className="space-y-3">
@@ -135,9 +160,9 @@ export function Logboek({ defaultAll = false }) {
                 <Card className="overflow-hidden divide-y divide-stone-100 dark:divide-stone-800">
                     {shown.map(l => {
                         const [ic, cl] = tone(l.action);
-                        const ut = all ? userTone(l.targetUserId, usersList) : null;
+                        const ut = userTone(l.actorId || l.actorName, usersList);
                         return (
-                            <div key={l.id} className={cx('flex gap-3 px-4 py-2.5', ut && 'border-l-4', ut && ut.bar)}>
+                            <div key={l.id} className={cx('flex gap-3 px-4 py-2.5 border-l-4', ut.bar)}>
                                 <span className={cx('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5', cl)}><Icon name={ic} size={15} /></span>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex justify-between gap-2">
@@ -145,10 +170,7 @@ export function Logboek({ defaultAll = false }) {
                                         <p className="text-xs text-stone-400 flex-shrink-0 tabular-nums">{formatDateTime(l.timestamp)}</p>
                                     </div>
                                     {l.details && <p className="text-xs text-stone-500 dark:text-stone-400 break-words">{l.details}</p>}
-                                    <p className="text-[11px] text-stone-400 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                                        <span>{l.action} · {l.actorId === (user && user.uid) ? 'jij' : l.actorName}</span>
-                                        {ut && <span className={cx('px-1.5 py-px rounded font-bold', ut.pill)}>{emailOf(l.targetUserId)}</span>}
-                                    </p>
+                                    <LogMeta l={l} usersList={usersList} meId={user && user.uid} showOwner={all} />
                                 </div>
                             </div>
                         );
