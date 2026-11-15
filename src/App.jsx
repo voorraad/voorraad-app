@@ -356,6 +356,7 @@ function Login() {
 
 function Maintenance() {
     const { actions } = useStore();
+    useEffect(() => { actions.logBlocked('onderhoud'); }, []);
     return (
         <CenterCard>
             <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mb-4"><Icon name="Wrench" size={30} /></div>
@@ -368,6 +369,7 @@ function Maintenance() {
 
 function Blocked() {
     const { actions } = useStore();
+    useEffect(() => { actions.logBlocked('geblokkeerd'); }, []);
     return (
         <CenterCard>
             <div className="w-16 h-16 mx-auto rounded-2xl bg-red-100 text-red-700 flex items-center justify-center mb-4"><Icon name="Lock" size={30} /></div>

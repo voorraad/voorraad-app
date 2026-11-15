@@ -4,6 +4,8 @@ import { db } from '../lib/firebase.js';
 import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
 import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select, ColorPicker } from '../components/ui.jsx';
+import { useAllUserData } from './admin/data.js';
+import { GlobalSearch, StockValue, useTotalValue, FeatureUsage, BlockedAttempts, BulkRights, Invites, RestoreUser, SharedBarcodes, CopyLocation, LabelPicker } from './admin/More.jsx';
 import { NewUsersBanner, InactiveUsers, inactiveUsers, ActivityChart, WasteRanking, AnnouncementEditor, BackupAll, AdminNote, Cleanup } from './admin/Extra.jsx';
 import { userToneKey, USER_TONE_DOTS, USER_TONE_NAMES } from '../lib/userColors.js';
 import Stock from './Stock.jsx';
@@ -15,7 +17,7 @@ import { Week, Recipes } from './Menu.jsx';
 import { UrgentList } from '../components/Urgent.jsx';
 import { exportCSV, exportPDF, exportBackup } from '../lib/exporters.js';
 import { APP_VERSION, TYPES } from '../lib/constants.js';
-import { cx, formatDateTime, toDate, itemStatus, isMenuEntry, smartMatch, statusText, STATUS_TONE, emojiFor, formatAantal, URGENCY } from '../lib/utils.js';
+import { cx, formatDateTime, toDate, itemStatus, isMenuEntry, smartMatch, statusText, STATUS_TONE, emojiFor, formatAantal, URGENCY, euro } from '../lib/utils.js';
 
 // Aparte beheerpagina voor admins (#/admin). Admins komen hier na het inloggen terecht.
 const TABS = [
@@ -60,7 +62,7 @@ export default function AdminPage() {
                 {tab === 'overzicht' && <AdminOverview />}
                 {tab === 'dashboard' && <AdminUser />}
                 {tab === 'verlopen' && <AllExpired />}
-                {tab === 'inzicht' && <div className="space-y-6"><ActivityChart /><WasteRanking /><InactiveUsers /></div>}
+                {tab === 'inzicht' && <div className="space-y-6"><ActivityChart /><WasteRanking /><div className="grid gap-6 lg:grid-cols-2 items-start"><StockValue /><FeatureUsage /></div><div className="grid gap-6 lg:grid-cols-2 items-start"><InactiveUsers /><BlockedAttempts /></div></div>}
                 {tab === 'logboek' && <Logboek defaultAll />}
                 {tab === 'app' && <AppSettings />}
                 <p className="text-xs text-stone-400 mt-10">Ingelogd als {user.email}</p>
@@ -80,45 +82,13 @@ export default function AdminPage() {
     );
 }
 
-// Cijfers per gebruiker worden opgehaald met dezelfde queries als het dashboard (per gebruiker),
-// zodat de bestaande Firestore-regels volstaan.
-function useUserStats(usersList) {
-    const [stats, setStats] = useState({});
-    const ids = usersList.map(u => u.id).join(',');
-    useEffect(() => {
-        let live = true;
-        (async () => {
-            for (const u of usersList) {
-                try {
-                    const [v, i] = await Promise.all([
-                        db.collection('vriezers').where('userId', '==', u.id).get(),
-                        db.collection('items').where('userId', '==', u.id).get()
-                    ]);
-                    const locs = Object.fromEntries(v.docs.map(d => [d.id, d.data()]));
-                    const items = i.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => !isMenuEntry(x));
-                    const urgent = [];
-                    items.forEach(x => {
-                        const t = (locs[x.vriezerId] || {}).type || 'vriezer';
-                        const st = itemStatus(x, t);
-                        if (['expired', 'veryold', 'soon'].includes(st.level)) urgent.push({ item: x, st, loc: (locs[x.vriezerId] || {}).naam || '?' });
-                    });
-                    urgent.sort((a, b) => URGENCY[a.st.level] - URGENCY[b.st.level]);
-                    const expired = urgent.filter(x => x.st.level !== 'soon').length;
-                    if (live) setStats(s => ({ ...s, [u.id]: { items: items.length, locs: v.size, expired, urgent } }));
-                } catch (e) {
-                    if (live) setStats(s => ({ ...s, [u.id]: { error: true } }));
-                }
-            }
-        })();
-        return () => { live = false; };
-    }, [ids]);
-    return stats;
-}
+const useUserStats = useAllUserData;
 
 function AdminOverview() {
     const { usersList, globalSettings, ownerId, actions } = useStore();
     const { go } = useUi();
     const stats = useUserStats(usersList);
+    const totalValue = useTotalValue();
     const [logs, setLogs] = useState([]);
     const [q, setQ] = useState('');
     const [sort, setSort] = useState('gezien');
@@ -143,6 +113,7 @@ function AdminOverview() {
     return (
         <div className="space-y-6">
             <NewUsersBanner />
+            <GlobalSearch />
             {globalSettings.maintenance && (
                 <Card className="p-4 flex items-center gap-3 border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800">
                     <Icon name="Wrench" size={20} className="text-amber-600" />
@@ -151,13 +122,14 @@ function AdminOverview() {
                 </Card>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
                 <Kpi label="Gebruikers" value={usersList.length} icon="Users" onClick={() => go('admin/dashboard')} />
                 <Kpi label="Actief (7 dagen)" value={active7} icon="Clock" />
                 <Kpi label="Inactief (30 dagen)" value={inactiveUsers(usersList).length} icon="Clock" tone={inactiveUsers(usersList).length ? 'text-amber-600' : undefined} onClick={() => go('admin/inzicht')} />
                 <Kpi label="Geblokkeerd" value={blocked} icon="Lock" tone={blocked ? 'text-red-600' : undefined} />
                 <Kpi label="Producten (alle)" value={done ? totalItems : '…'} icon="Box" />
                 <Kpi label="Verlopen (alle)" value={done ? totalExpired : '…'} icon="Alert" tone={totalExpired ? 'text-red-600' : undefined} />
+                <Kpi label="Waarde (alle)" value={totalValue == null ? '…' : euro(totalValue)} icon="Tag" onClick={() => go('admin/inzicht')} />
             </div>
 
             <div className="grid gap-6 xl:grid-cols-3 items-start grid-cols-1">
@@ -243,29 +215,47 @@ function Kpi({ label, value, icon, tone, onClick }) {
     );
 }
 
+const APP_SUBS = [
+    { id: 'algemeen', label: 'Algemeen', icon: 'Settings' },
+    { id: 'gebruikers', label: 'Gebruikers', icon: 'Users' },
+    { id: 'gegevens', label: 'Gegevens', icon: 'Download' },
+    { id: 'rondleiding', label: 'Rondleiding', icon: 'Help' }
+];
 function AppSettings() {
     const { globalSettings, actions } = useStore();
-    const { confirm } = useUi();
+    const { confirm, route, go } = useUi();
+    const sub = APP_SUBS.some(t => t.id === route.extra) ? route.extra : 'algemeen';
     return (
-        <div className="grid gap-6 xl:grid-cols-3 items-start">
-            <section>
-                <SectionTitle>Toegang</SectionTitle>
-                <Card className="px-4 py-2">
-                    <Toggle checked={globalSettings.maintenance} onChange={c => actions.setGlobal('maintenance', { active: c })} label="Onderhoudsmodus" description="Gewone gebruikers zien een onderhoudsscherm. Admins kunnen de app blijven gebruiken." />
-                </Card>
-                <SectionTitle className="mt-6">Rondleiding</SectionTitle>
-                <Card className="px-4 py-2">
-                    <Toggle checked={globalSettings.onboardingActive} onChange={c => actions.setGlobal('onboarding', { isActive: c })} label="Tonen aan nieuwe gebruikers" />
-                </Card>
-                <Button variant="secondary" block className="mt-3" icon="Undo" onClick={async () => { if (await confirm({ title: 'Rondleiding resetten voor iedereen?', message: 'Alle gebruikers zien de rondleiding opnieuw bij de volgende keer openen.', confirmLabel: 'Resetten', danger: true })) actions.resetTourForEveryone(); }}>Rondleiding resetten voor iedereen</Button>
-            </section>
-            <section className="xl:col-span-2 space-y-6">
-                <div className="grid gap-6 lg:grid-cols-2 items-start"><AnnouncementEditor /><BackupAll /></div>
-                <div>
-                <SectionTitle>Stappen van de rondleiding</SectionTitle>
-                <TourEditor />
+        <div className="space-y-6">
+            <div className="overflow-x-auto no-scrollbar -mx-1 px-1">
+                <div className="flex gap-1.5 w-max">
+                    {APP_SUBS.map(t => (
+                        <button key={t.id} type="button" onClick={() => go('admin/app/' + t.id)}
+                            className={cx('h-9 px-3 rounded-full text-sm font-semibold flex items-center gap-1.5 border', sub === t.id ? 'bg-teal-600 text-white border-teal-600' : 'bg-white border-stone-200 text-stone-600 dark:bg-stone-900 dark:border-stone-800 dark:text-stone-300')}>
+                            <Icon name={t.icon} size={15} />{t.label}
+                        </button>
+                    ))}
                 </div>
-            </section>
+            </div>
+            {sub === 'algemeen' && (
+                <div className="grid gap-6 lg:grid-cols-2 items-start">
+                    <section>
+                        <SectionTitle>Toegang</SectionTitle>
+                        <Card className="px-4 py-2">
+                            <Toggle checked={globalSettings.maintenance} onChange={c => actions.setGlobal('maintenance', { active: c })} label="Onderhoudsmodus" description="Gewone gebruikers zien een onderhoudsscherm. Admins kunnen de app blijven gebruiken." />
+                        </Card>
+                        <SectionTitle className="mt-6">Rondleiding</SectionTitle>
+                        <Card className="px-4 py-2">
+                            <Toggle checked={globalSettings.onboardingActive} onChange={c => actions.setGlobal('onboarding', { isActive: c })} label="Tonen aan nieuwe gebruikers" />
+                        </Card>
+                        <Button variant="secondary" block className="mt-3" icon="Undo" onClick={async () => { if (await confirm({ title: 'Rondleiding resetten voor iedereen?', message: 'Alle gebruikers zien de rondleiding opnieuw bij de volgende keer openen.', confirmLabel: 'Resetten', danger: true })) actions.resetTourForEveryone(); }}>Rondleiding resetten voor iedereen</Button>
+                    </section>
+                    <AnnouncementEditor />
+                </div>
+            )}
+            {sub === 'gebruikers' && <div className="grid gap-6 xl:grid-cols-2 items-start"><Invites /><BulkRights /></div>}
+            {sub === 'gegevens' && <div className="grid gap-6 lg:grid-cols-2 items-start"><div className="space-y-6"><BackupAll /><RestoreUser /></div><SharedBarcodes /></div>}
+            {sub === 'rondleiding' && <section><SectionTitle>Stappen van de rondleiding</SectionTitle><TourEditor /></section>}
         </div>
     );
 }
@@ -283,6 +273,8 @@ const USER_TABS = [
     { id: 'eenheden', label: 'Eenheden', icon: 'List' },
     { id: 'stats', label: 'Statistieken', icon: 'Chart' },
     { id: 'log', label: 'Logboek', icon: 'Log' },
+    { id: 'etiketten', label: 'Etiketten afdrukken', icon: 'Printer' },
+    { id: 'kopieer', label: 'Locatie kopiëren', icon: 'Copy' },
     { id: 'opkuisen', label: 'Opkuisen', icon: 'Wrench' },
     { id: 'rechten', label: 'Rechten', icon: 'Lock' },
     { id: 'delen', label: 'Delen & export', icon: 'Share' }
@@ -415,6 +407,8 @@ function AdminUser() {
                     {sub === 'stats' && <Statistieken />}
                     {sub === 'log' && <Logboek />}
                     {sub === 'opkuisen' && <Cleanup />}
+                    {sub === 'etiketten' && <LabelPicker />}
+                    {sub === 'kopieer' && <CopyLocation />}
                     {sub === 'rechten' && <Card className="px-4 pb-4 max-w-2xl"><UserRights u={u} /></Card>}
                     {sub === 'delen' && <SharesAndExport u={u} />}
                 </div>

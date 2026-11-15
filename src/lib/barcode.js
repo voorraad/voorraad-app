@@ -1,5 +1,6 @@
 import { decodeEan } from './ean.js';
 import { loadScript, guessProduct } from './utils.js';
+import { db } from './firebase.js';
 
 // ---------- Camera-scanner ----------
 // 1) BarcodeDetector van de browser (Chrome/Android), 2) ZXing via CDN (o.a. iPhone),
@@ -97,8 +98,14 @@ export async function startScanner(video, onCode, onStatus = () => { }) {
 
 // ---------- Product opzoeken ----------
 // Eerst wat de gebruiker zelf al eens bewaarde (owner.barcodes), dan Open Food Facts.
-export async function lookupBarcode(code, known = {}) {
+export async function lookupBarcode(code, known = {}, shared = true) {
     if (known[code]) return { ...known[code], bron: 'eigen' };
+    if (shared) {
+        try {
+            const d = await db.collection('barcodes').doc(code).get();
+            if (d.exists && d.data().naam) return { ...d.data(), bron: 'gedeeld' };
+        } catch (e) { /* geen toegang of offline */ }
+    }
     try {
         const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 7000);
         const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=product_name,product_name_nl,product_name_fr,brands,quantity,image_front_small_url,image_front_thumb_url&lc=nl`, { signal: ctrl.signal });
