@@ -57,7 +57,8 @@ function Shell() {
     const [newUsers] = useNewUsers();
     const types = TYPES.filter(t => t.id === 'vriezer' || canSee(t.id));
     const menuTabs = [canSee('weekmenu') && 'week', canSee('recepten') && 'recepten'].filter(Boolean);
-    const PAGES = ['voorraad', 'lijst', 'meer', ...(menuTabs.length ? ['menu'] : [])];
+    const PAGES = ['voorraad', ...(canSee('lijst') ? ['lijst'] : []), 'meer', ...(menuTabs.length ? ['menu'] : [])];
+    const canAdd = canSee('toevoegen');
     const page = PAGES.includes(route.page) ? route.page : 'voorraad';
     const stockType = types.some(t => t.id === route.sub) ? route.sub : 'vriezer';
     const menuTab = menuTabs.includes(route.sub) ? route.sub : menuTabs[0];
@@ -109,7 +110,7 @@ function Shell() {
     const counts = Object.fromEntries(types.map(t => [t.id, items.filter(i => typeOf(i) === t.id).length]));
 
     // Onderste balk: de voorraadtypes + boodschappen, met de + in het midden.
-    const bottom = [...types.map(t => ({ key: 'voorraad/' + t.id, label: t.label, icon: t.icon })), { key: 'lijst', label: 'Lijst', icon: 'Cart', badge: openCount }];
+    const bottom = [...types.map(t => ({ key: 'voorraad/' + t.id, label: t.label, icon: t.icon })), ...(canSee('lijst') ? [{ key: 'lijst', label: 'Lijst', icon: 'Cart', badge: openCount }] : [])];
     const mid = Math.ceil(bottom.length / 2);
 
     const menuList = (
@@ -170,20 +171,20 @@ function Shell() {
             </main>
 
             {/* Zwevende + (computer) */}
-            {!onMenu && <button type="button" onClick={openAdd} aria-label="Product toevoegen" title="Product toevoegen"
+            {!onMenu && canAdd && <button type="button" onClick={openAdd} aria-label="Product toevoegen" title="Product toevoegen"
                 className="hidden lg:flex fixed bottom-8 right-8 z-40 w-16 h-16 rounded-full bg-teal-600 hover:bg-teal-700 active:scale-95 text-white shadow-xl shadow-teal-600/30 items-center justify-center transition print:hidden">
                 <Icon name="Plus" size={30} strokeWidth={2.5} />
             </button>}
 
             {/* Onderste navigatie (gsm) */}
             {!onMenu && <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200 dark:border-stone-800 pb-[env(safe-area-inset-bottom)] print:hidden">
-                <div className="max-w-md mx-auto grid h-16 items-center" style={{ gridTemplateColumns: `repeat(${bottom.length + 1}, minmax(0, 1fr))` }}>
+                <div className="max-w-md mx-auto grid h-16 items-center" style={{ gridTemplateColumns: `repeat(${bottom.length + (canAdd ? 1 : 0)}, minmax(0, 1fr))` }}>
                     {bottom.slice(0, mid).map(n => <NavBtn key={n.key} n={n} active={activeKey === n.key} />)}
-                    <div className="flex justify-center">
+                    {canAdd && <div className="flex justify-center">
                         <button type="button" onClick={openAdd} aria-label="Product toevoegen" className="w-14 h-14 -mt-7 rounded-full bg-teal-600 hover:bg-teal-700 active:scale-95 text-white shadow-lg shadow-teal-600/30 flex items-center justify-center ring-4 ring-stone-50 dark:ring-stone-950 transition">
                             <Icon name="Plus" size={28} strokeWidth={2.5} />
                         </button>
-                    </div>
+                    </div>}
                     {bottom.slice(mid).map(n => <NavBtn key={n.key} n={n} active={activeKey === n.key} />)}
                 </div>
             </nav>}
@@ -239,7 +240,7 @@ function NavBtn({ n, active }) {
 
 // Inhoud van het hamburgermenu (gsm) en de zijbalk (groot scherm).
 function NavMenu({ activeKey, types, counts, menuTabs, openCount, onSwitch, ownerAcc, isOwn }) {
-    const { user, me, actions, isAdmin } = useStore();
+    const { user, me, actions, isAdmin, canSee } = useStore();
     const { setShowNews } = useUi();
     const Item = ({ k, icon, label, right }) => (
         <a href={'#/' + k} className={cx('flex items-center gap-3 h-11 px-3 rounded-xl font-medium transition-colors',
@@ -255,13 +256,13 @@ function NavMenu({ activeKey, types, counts, menuTabs, openCount, onSwitch, owne
                 {onSwitch && <div className="pb-2"><AccountButton acc={ownerAcc} isOwn={isOwn} onClick={onSwitch} /></div>}
                 <Head>Voorraad</Head>
                 {types.map(t => <Item key={t.id} k={'voorraad/' + t.id} icon={t.icon} label={t.label} right={count(counts[t.id])} />)}
-                <Item k="lijst" icon="Cart" label="Boodschappen" right={openCount > 0 ? <span className="text-xs font-bold bg-teal-600 text-white rounded-full px-2 py-0.5">{openCount}</span> : null} />
+                {canSee('lijst') && <Item k="lijst" icon="Cart" label="Boodschappen" right={openCount > 0 ? <span className="text-xs font-bold bg-teal-600 text-white rounded-full px-2 py-0.5">{openCount}</span> : null} />}
                 {menuTabs.length > 0 && <Head>Koken</Head>}
                 {menuTabs.includes('week') && <Item k="menu/week" icon="Calendar" label="Weekmenu" />}
                 {menuTabs.includes('recepten') && <Item k="menu/recepten" icon="Book" label="Recepten" />}
                 <Head>Meer</Head>
-                <Item k="meer/statistieken" icon="Chart" label="Statistieken" />
-                <Item k="meer/delen" icon="Users" label="Delen" />
+                {canSee('stats') && <Item k="meer/statistieken" icon="Chart" label="Statistieken" />}
+                {canSee('delen') && <Item k="meer/delen" icon="Users" label="Delen" />}
                 <Item k="meer" icon="Settings" label="Instellingen" />
                 {isAdmin && <Item k="admin" icon="Lock" label="Beheerpagina" />}
                 <button type="button" onClick={() => setShowNews(true)} className="w-full flex items-center gap-3 h-11 px-3 rounded-xl font-medium text-stone-700 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800">

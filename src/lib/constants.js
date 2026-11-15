@@ -200,3 +200,34 @@ export const SEARCH_SYNONYMS = {
     diepvries: ['vriezer', 'diepvriezer'], vriezer: ['diepvries'],
     kip: ['kippenfilet', 'kipfilet'], kippenfilet: ['kip'], hesp: ['ham'], ham: ['hesp']
 };
+
+// Rechten die een beheerder per gebruiker aan/uit kan zetten (opgeslagen als users.hiddenTabs = lijst van uitgezette rechten).
+export const RIGHTS = [
+    { id: 'frig', label: 'Frigo', group: 'Onderdelen', icon: 'Fridge' },
+    { id: 'voorraad', label: 'Stock', group: 'Onderdelen', icon: 'Box' },
+    { id: 'lijst', label: 'Boodschappenlijst', group: 'Onderdelen', icon: 'Cart' },
+    { id: 'weekmenu', label: 'Weekmenu', group: 'Onderdelen', icon: 'Calendar' },
+    { id: 'recepten', label: 'Recepten', group: 'Onderdelen', icon: 'Book' },
+    { id: 'stats', label: 'Statistieken', group: 'Onderdelen', icon: 'Chart' },
+    { id: 'logboek', label: 'Logboek', group: 'Onderdelen', icon: 'Log' },
+    { id: 'delen', label: 'Delen & bekijk-link', group: 'Onderdelen', icon: 'Users' },
+    { id: 'toevoegen', label: 'Producten toevoegen', desc: 'Plus-knop, kopie, toevoegen vanuit het lijstje', group: 'Producten', icon: 'Plus' },
+    { id: 'snel', label: 'Snel toevoegen', desc: 'Typen en Enter boven de lijst', group: 'Producten', icon: 'Zap' },
+    { id: 'bewerken', label: 'Bewerken & verplaatsen', group: 'Producten', icon: 'Edit' },
+    { id: 'opmaken', label: 'Opmaken / gebruiken', desc: 'Oranje vork-en-mes-knop', group: 'Producten', icon: 'Utensils' },
+    { id: 'verwijderen', label: 'Verwijderen', group: 'Producten', icon: 'Trash' },
+    { id: 'scan', label: 'Barcode scannen', group: 'Extra functies', icon: 'Scan' },
+    { id: 'fotos', label: "Foto's toevoegen", group: 'Extra functies', icon: 'Camera' },
+    { id: 'etiketten', label: 'Etiketten afdrukken', group: 'Extra functies', icon: 'Printer' },
+    { id: 'balans', label: 'Controle-knop', group: 'Extra functies', icon: 'CheckSquare' },
+    { id: 'locaties', label: 'Locaties & lades beheren', group: 'Instellingen', icon: 'Layers' },
+    { id: 'categorieen', label: 'Categorieën & eenheden', group: 'Instellingen', icon: 'Tag' },
+    { id: 'export', label: 'Exporteren, afdrukken & back-up', group: 'Instellingen', icon: 'Download' }
+];
+export const RIGHT_GROUPS = ['Onderdelen', 'Producten', 'Extra functies', 'Instellingen'];
+// Snelle sjablonen in de rechten-instellingen
+export const RIGHT_PRESETS = [
+    { id: 'alles', label: 'Alles mag', icon: 'Check', hidden: [] },
+    { id: 'eenvoudig', label: 'Eenvoudig', icon: 'Sparkles', hidden: ['weekmenu', 'recepten', 'stats', 'logboek', 'delen', 'balans', 'locaties', 'categorieen', 'export', 'etiketten'] },
+    { id: 'bekijken', label: 'Enkel bekijken', icon: 'Eye', hidden: ['toevoegen', 'snel', 'bewerken', 'opmaken', 'verwijderen', 'fotos', 'scan', 'locaties', 'categorieen', 'balans'] }
+];

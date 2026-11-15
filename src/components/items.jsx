@@ -12,7 +12,7 @@ import {
 
 // Eén product in een lijst.
 export function ItemRow({ item, type, showWhere, selectable, selected, onToggle, compact }) {
-    const { locById, ladeById, owner, actions } = useStore();
+    const { locById, ladeById, owner, actions, canSee } = useStore();
     const { openItem, openConsume, openForm } = useUi();
     const st = itemStatus(item, type);
     const cat = categoriesFor(owner.customCategories, type).find(c => c.name === item.categorie);
@@ -50,13 +50,13 @@ export function ItemRow({ item, type, showWhere, selectable, selected, onToggle,
                 </div>
                 {!compact && item.notitie && <p className="text-xs text-stone-400 dark:text-stone-500 truncate italic mt-0.5">{item.notitie}</p>}
             </div>
-            {!selectable && (
+            {!selectable && canSee('bewerken') && (
                 <button type="button" onClick={(e) => { e.stopPropagation(); openForm({ item }); }} aria-label={`${item.naam} bewerken`} title="Bewerken"
                     className="w-10 h-10 rounded-full flex items-center justify-center text-stone-500 bg-stone-100 hover:bg-stone-200 hover:text-stone-800 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700 active:scale-90 transition flex-shrink-0 print:hidden">
                     <Icon name="Edit" size={17} />
                 </button>
             )}
-            {!selectable && (
+            {!selectable && canSee('opmaken') && (
                 <button type="button" onClick={quickUse} aria-label={`${item.naam} opeten of gebruiken`} title="Opeten / gebruiken"
                     className="w-10 h-10 rounded-full flex items-center justify-center bg-orange-500 text-white shadow-sm shadow-orange-500/30 hover:bg-orange-600 active:scale-90 transition flex-shrink-0 print:hidden">
                     <Icon name="Utensils" size={18} strokeWidth={2.2} />
@@ -93,6 +93,14 @@ export function ItemSheet() {
         } finally { setBusy(false); }
     };
 
+    const tiles = [
+        canSee('bewerken') && { icon: 'Edit', label: 'Bewerk', onClick: () => { closeItem(); openForm({ item }); } },
+        canSee('toevoegen') && { icon: 'Copy', label: 'Kopie', onClick: () => { closeItem(); openForm({ duplicateOf: item }); } },
+        canSee('bewerken') && { icon: 'Move', label: 'Verplaats', onClick: () => { closeItem(); openMove([item.id]); } },
+        canSee('etiketten') && { icon: 'Printer', label: 'Etiket', onClick: () => { closeItem(); openLabels([item.id]); } },
+        canSee('weekmenu') ? { icon: 'Calendar', label: 'Plan in', onClick: () => { closeItem(); openPlan({ item }); } }
+            : canSee('lijst') && { icon: 'Cart', label: 'Op lijst', onClick: async () => { await actions.addShopping({ naam: item.naam, aantal: 1, eenheid: item.eenheid }); actions.notify('Op je boodschappenlijst gezet'); } }
+    ].filter(Boolean);
     const facts = [
         ['Plaats', `${loc ? loc.naam : 'Onbekend'}${lade ? ' › ' + lade.naam : ''}`],
         type === 'vriezer' && item.ingevrorenOp ? ['Ingevroren', `${formatDate(item.ingevrorenOp)} · ${formatAge(daysSince(item.ingevrorenOp))}`] : null,
@@ -121,11 +129,11 @@ export function ItemSheet() {
                 </div>
             </div>
 
-            <div className="mt-5 p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/60 flex items-center gap-2">
+            {canSee('opmaken') && <div className="mt-5 p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/60 flex items-center gap-2">
                 <Stepper value={amount} onChange={setAmount} min={0.25} max={num(item.aantal, 1)} step={0.25} className="w-36 flex-shrink-0" />
                 <span className="text-sm text-stone-500 truncate flex-1">{item.eenheid}</span>
                 <Button onClick={use} disabled={busy} icon={all ? 'Check' : 'Minus'}>{all ? 'Alles op' : 'Gebruik'}</Button>
-            </div>
+            </div>}
 
             <dl className="mt-4 divide-y divide-stone-100 dark:divide-stone-800">
                 {facts.map(([k, v]) => (
@@ -140,16 +148,10 @@ export function ItemSheet() {
                 <div className="flex flex-wrap gap-1.5 mt-3">{item.tags.map(t => <Badge key={t} color="indigo">{t}</Badge>)}</div>
             )}
 
-            <div className="grid grid-cols-5 gap-2 mt-5">
-                <ActionTile icon="Edit" label="Bewerk" onClick={() => { closeItem(); openForm({ item }); }} />
-                <ActionTile icon="Copy" label="Kopie" onClick={() => { closeItem(); openForm({ duplicateOf: item }); }} />
-                <ActionTile icon="Move" label="Verplaats" onClick={() => { closeItem(); openMove([item.id]); }} />
-                <ActionTile icon="Printer" label="Etiket" onClick={() => { closeItem(); openLabels([item.id]); }} />
-                {canSee('weekmenu')
-                    ? <ActionTile icon="Calendar" label="Plan in" onClick={() => { closeItem(); openPlan({ item }); }} />
-                    : <ActionTile icon="Cart" label="Op lijst" onClick={async () => { await actions.addShopping({ naam: item.naam, aantal: 1, eenheid: item.eenheid }); actions.notify('Op je boodschappenlijst gezet'); }} />}
-            </div>
-            <Button variant="danger-soft" block icon="Trash" className="mt-3" onClick={() => { closeItem(); openRemove({ item }); }}>Verwijderen</Button>
+            {tiles.length > 0 && <div className="grid gap-2 mt-5" style={{ gridTemplateColumns: `repeat(${Math.min(5, tiles.length)}, minmax(0, 1fr))` }}>
+                {tiles.map(t => <ActionTile key={t.label} {...t} />)}
+            </div>}
+            {canSee('verwijderen') && <Button variant="danger-soft" block icon="Trash" className="mt-3" onClick={() => { closeItem(); openRemove({ item }); }}>Verwijderen</Button>}
         </Sheet>
     );
 }
@@ -171,8 +173,8 @@ const REASONS = [
 // Kies zelf hoeveel je opeet/gebruikt (per ¼). Ongedaan maken blijft mogelijk via de melding.
 export function ConsumeSheet() {
     const { consumeFor, closeConsume, openRemove } = useUi();
-    const { items, actions } = useStore();
-    const item = consumeFor && (items.find(i => i.id === consumeFor.id) || consumeFor);
+    const { items, actions, canSee } = useStore();
+    const item = consumeFor && canSee('opmaken') && (items.find(i => i.id === consumeFor.id) || consumeFor);
     const [amount, setAmount] = useState(1);
     const [reason, setReason] = useState('consumed');
     const [busy, setBusy] = useState(false);

@@ -4,10 +4,10 @@ import { db } from '../../lib/firebase.js';
 import { useStore } from '../../state/store.jsx';
 import { useUi } from '../../state/ui.jsx';
 import { Card, Button, Toggle, Select, Input, Textarea, Field, IconButton, EmptyState, Chip } from '../../components/ui.jsx';
-import { TYPES, TOUR_COLORS, TOUR_TONE, DEFAULT_TOUR_STEPS } from '../../lib/constants.js';
+import { TYPES, TOUR_COLORS, TOUR_TONE, DEFAULT_TOUR_STEPS, RIGHTS, RIGHT_GROUPS, RIGHT_PRESETS } from '../../lib/constants.js';
 import { cx, formatDateTime, sortLocaties, byName, emojiFor, formatAantal, smartMatch } from '../../lib/utils.js';
 
-export const TAB_OPTIONS = [['frig', 'Frigo'], ['voorraad', 'Stock'], ['weekmenu', 'Weekmenu'], ['recepten', 'Recepten'], ['balans', 'Controle-knop']];
+export const TAB_OPTIONS = RIGHTS.map(r => [r.id, r.label]);
 
 export function Gebruikers() {
     const { actions } = useStore();
@@ -74,19 +74,38 @@ export function UserList({ extra, onNavigate, autoFocus, dashPath = 'meer/dashbo
 // Alle rechten/instellingen van één gebruiker.
 export function UserRights({ u }) {
     const { user, actions } = useStore();
-    const toggleTab = (tab) => {
-        const hidden = u.hiddenTabs || [];
-        actions.setUserField(u.id, { hiddenTabs: hidden.includes(tab) ? hidden.filter(t => t !== tab) : [...hidden, tab] });
-    };
+    const hidden = u.hiddenTabs || [];
+    const setHidden = (list) => actions.setUserField(u.id, { hiddenTabs: list });
+    const toggle = (id, allowed) => setHidden(allowed ? hidden.filter(t => t !== id) : [...new Set([...hidden, id])]);
+    const preset = RIGHT_PRESETS.find(p => p.hidden.length === hidden.length && p.hidden.every(h => hidden.includes(h)));
     return (
-        <div className="space-y-3">
+        <div className="space-y-4">
             <div className="pt-3">
-                <p className="text-xs font-semibold text-stone-500 mb-1.5">Verborgen onderdelen</p>
-                <div className="flex flex-wrap gap-1.5">
-                    {TAB_OPTIONS.map(([id, lbl]) => <Chip key={id} active={(u.hiddenTabs || []).includes(id)} onClick={() => toggleTab(id)}>{(u.hiddenTabs || []).includes(id) && <Icon name="Lock" size={12} />}{lbl}</Chip>)}
+                <p className="text-xs font-semibold text-stone-500 mb-1.5">Snel instellen</p>
+                <div className="grid grid-cols-3 gap-2">
+                    {RIGHT_PRESETS.map(p => (
+                        <button key={p.id} type="button" onClick={() => setHidden(p.hidden)}
+                            className={cx('h-14 rounded-2xl border-2 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold', preset && preset.id === p.id ? 'border-teal-600 bg-teal-50 text-teal-800 dark:bg-teal-950/40 dark:text-teal-200' : 'border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300')}>
+                            <Icon name={p.icon} size={17} />{p.label}
+                        </button>
+                    ))}
                 </div>
             </div>
+            {RIGHT_GROUPS.map(g => (
+                <div key={g}>
+                    <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">{g}</p>
+                    <div className="divide-y divide-stone-100 dark:divide-stone-800">
+                        {RIGHTS.filter(r => r.group === g).map(r => (
+                            <div key={r.id} className="flex items-center gap-3">
+                                <Icon name={r.icon} size={17} className={hidden.includes(r.id) ? 'text-stone-300' : 'text-teal-600'} />
+                                <div className="flex-1 min-w-0"><Toggle checked={!hidden.includes(r.id)} onChange={c => toggle(r.id, c)} label={r.label} description={r.desc} /></div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
             <div>
+                <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Weergave & account</p>
                 <Toggle checked={!!u.showBalans} onChange={c => actions.setUserField(u.id, { showBalans: c })} label="Controle-modus aan" />
                 <Toggle checked={!!u.showHelpButton} onChange={c => actions.setUserField(u.id, { showHelpButton: c })} label="Hulpknop tonen" description="Toont een ?-knop bovenaan om de rondleiding te openen" />
                 <Toggle checked={!!u.tourDisabled} onChange={c => actions.setUserField(u.id, { tourDisabled: c })} label="Rondleiding uitschakelen" />

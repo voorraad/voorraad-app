@@ -17,7 +17,15 @@ const THT_SHORTCUTS = [['+3 d', 3], ['+1 w', 7], ['+1 m', 30], ['+3 m', 91], ['+
 
 export default function ItemForm() {
     const { form, closeForm } = useUi();
+    const { canSee } = useStore();
     if (!form) return null;
+    const right = form.item ? 'bewerken' : 'toevoegen';
+    if (!canSee(right)) return (
+        <Sheet open onClose={closeForm} size="sm" title={form.item ? 'Bewerken niet toegestaan' : 'Toevoegen niet toegestaan'}>
+            <p className="text-stone-600 dark:text-stone-300">De beheerder heeft {form.item ? 'het bewerken van producten' : 'het toevoegen van producten'} voor jou uitgeschakeld.</p>
+            <Button block className="mt-4" onClick={closeForm}>Oké</Button>
+        </Sheet>
+    );
     return <ItemFormInner key={(form.item && form.item.id) || 'new' + (form.nonce || '')} form={form} close={closeForm} />;
 }
 
@@ -187,23 +195,23 @@ function ItemFormInner({ form, close }) {
                         onChange={e => set({ naam: e.target.value })} onBlur={e => !editing && applyNameHints(e.target.value)}
                         className="font-semibold" />
                     <datalist id="known-names">{nameList.map(n => <option key={n} value={n} />)}</datalist>
-                    <button type="button" onClick={() => openScan({ onCode: onScanned })} aria-label="Barcode scannen" title="Barcode scannen"
+                    {canSee('scan') && <button type="button" onClick={() => openScan({ onCode: onScanned })} aria-label="Barcode scannen" title="Barcode scannen"
                         className="w-11 h-11 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 flex items-center justify-center flex-shrink-0 text-stone-600 dark:text-stone-300 hover:border-teal-500">
                         <Icon name="Scan" size={20} />
-                    </button>
+                    </button>}
                 </div>
-                <div className="flex items-center gap-3">
+                {(canSee('fotos') || v.foto || v.barcode) && <div className="flex items-center gap-3">
                     {v.foto
                         ? <button type="button" onClick={() => openPhoto({ src: v.foto, title: v.naam })} className="flex-shrink-0" aria-label="Foto groot bekijken"><img src={v.foto} alt="" className="w-14 h-14 rounded-xl object-cover bg-stone-100" /></button>
                         : <span className="w-14 h-14 rounded-xl border-2 border-dashed border-stone-200 dark:border-stone-700 flex items-center justify-center text-stone-300 flex-shrink-0"><Icon name="Image" size={22} /></span>}
                     <div className="flex flex-wrap gap-2 flex-1">
-                        <PhotoInput onPhoto={foto => set({ foto })} label="Foto nemen of kiezen" className="h-9 px-3 rounded-xl text-sm font-semibold bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 flex items-center gap-1.5">
+                        {canSee('fotos') && <><PhotoInput onPhoto={foto => set({ foto })} label="Foto nemen of kiezen" className="h-9 px-3 rounded-xl text-sm font-semibold bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 flex items-center gap-1.5">
                             <Icon name="Camera" size={16} />{v.foto ? 'Andere foto' : 'Foto'}
                         </PhotoInput>
-                        {v.foto && <button type="button" onClick={() => set({ foto: '' })} className="h-9 px-3 rounded-xl text-sm font-semibold text-stone-500 hover:text-red-600">Verwijder</button>}
+                        {v.foto && <button type="button" onClick={() => set({ foto: '' })} className="h-9 px-3 rounded-xl text-sm font-semibold text-stone-500 hover:text-red-600">Verwijder</button>}</>}
                     </div>
                     {v.barcode && <span className="text-[11px] text-stone-400 font-mono flex items-center gap-1" title="Barcode"><Icon name="Scan" size={13} />{v.barcode}</span>}
-                </div>
+                </div>}
                 {showEmoji && (
                     <div className="rounded-2xl border border-stone-200 dark:border-stone-700 p-2 max-h-56 overflow-y-auto">
                         {Object.entries(EMOJI_CATEGORIES).map(([group, list]) => (
@@ -230,14 +238,14 @@ function ItemFormInner({ form, close }) {
                     <Field label="Locatie">
                         <Select value={v.vriezerId} onChange={e => set({ vriezerId: e.target.value, ladeId: '' })}>
                             {locs.map(l => <option key={l.id} value={l.id}>{groups.size > 1 ? `${l.locatieGroep || 'Thuis'} · ` : ''}{l.naam}</option>)}
-                            <option value="__new">＋ Nieuwe locatie…</option>
+                            {canSee('locaties') && <option value="__new">＋ Nieuwe locatie…</option>}
                         </Select>
                     </Field>
                     <Field label="Lade / plank">
                         <Select value={v.ladeId} onChange={e => set({ ladeId: e.target.value })} disabled={v.vriezerId === '__new' && false}>
                             <option value="">Geen lade</option>
                             {v.vriezerId !== '__new' && locLades.map(l => <option key={l.id} value={l.id}>{l.naam}</option>)}
-                            <option value="__new">＋ Nieuwe lade…</option>
+                            {canSee('locaties') && <option value="__new">＋ Nieuwe lade…</option>}
                         </Select>
                     </Field>
                 </div>
