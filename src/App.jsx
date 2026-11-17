@@ -328,7 +328,7 @@ function AccountSwitcher({ onClose }) {
 export function Logo({ small }) {
     return (
         <span className={cx('font-extrabold tracking-tight text-stone-900 dark:text-white flex items-center gap-2', small ? 'text-lg' : 'text-xl')}>
-            <img src="./icon_192x192.png" alt="" className={cx('rounded-lg', small ? 'w-7 h-7' : 'w-8 h-8')} />
+            <img src="./icon_logo_96.png" alt="" className={cx('rounded-lg', small ? 'w-7 h-7' : 'w-8 h-8')} />
             Voorraad<span className="text-teal-600 -ml-2">.</span>
         </span>
     );
