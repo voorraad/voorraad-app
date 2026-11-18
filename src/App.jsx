@@ -110,7 +110,7 @@ function Shell() {
         if (!urgent.length || localStorage.getItem(key)) return;
         const title = urgent.length === 1 ? '1 product moet dringend op' : `${urgent.length} producten moeten dringend op`;
         const body = urgent.slice(0, 5).map(i => i.naam).join(', ') + (urgent.length > 5 ? '…' : '');
-        const opts = { body, icon: './icon_192x192.png?v=9', badge: './icon_192x192.png?v=9', tag: 'voorraad-alerts' };
+        const opts = { body, icon: './icon_192x192.png?v=12', badge: './icon_192x192.png?v=12', tag: 'voorraad-alerts' };
         (navigator.serviceWorker ? navigator.serviceWorker.ready.then(r => r.showNotification(title, opts)) : Promise.reject())
             .catch(() => { try { new Notification(title, opts); } catch (e) { } });
         localStorage.setItem(key, '1');
@@ -328,7 +328,7 @@ function AccountSwitcher({ onClose }) {
 export function Logo({ small }) {
     return (
         <span className={cx('font-extrabold tracking-tight text-stone-900 dark:text-white flex items-center gap-2', small ? 'text-lg' : 'text-xl')}>
-            <img src="./icon_logo_96.png?v=9" alt="" className={cx('rounded-lg', small ? 'w-7 h-7' : 'w-8 h-8')} />
+            <img src="./icon_logo_96.png?v=12" alt="" className={cx('rounded-lg', small ? 'w-7 h-7' : 'w-8 h-8')} />
             Voorraad<span className="text-teal-600 -ml-2">.</span>
         </span>
     );
@@ -351,7 +351,7 @@ function CenterCard({ children }) {
 function Splash() {
     return (
         <div className="min-h-dvh flex items-center justify-center bg-stone-50 dark:bg-stone-950">
-            <img src="./icon_192x192.png?v=9" alt="Voorraad wordt geladen" className="w-16 h-16 rounded-2xl animate-pulse" />
+            <img src="./icon_192x192.png?v=12" alt="Voorraad wordt geladen" className="w-16 h-16 rounded-2xl animate-pulse" />
         </div>
     );
 }
