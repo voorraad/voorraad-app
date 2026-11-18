@@ -3,6 +3,7 @@ import Icon from './lib/icons.jsx';
 import { db } from './lib/firebase.js';
 import { TYPES } from './lib/constants.js';
 import { sortLocaties, byName, emojiFor, formatAantal, isMenuEntry, itemStatus, statusText, STATUS_TONE, cx } from './lib/utils.js';
+import { metPunt } from './components/ui.jsx';
 
 // Alleen-lezen weergave via ?deel=TOKEN (geen account nodig).
 // Vereist een Firestore-regel die lezen toelaat wanneer publicShareEnabled == true.
@@ -39,14 +40,14 @@ export default function PublicView({ token }) {
     if (state.status === 'off') return (
         <div className="min-h-dvh flex flex-col items-center justify-center gap-3 p-6 text-center">
             <Icon name="Lock" size={36} className="text-stone-300" />
-            <h1 className="text-lg font-bold">Deze voorraad wordt niet (meer) gedeeld</h1>
+            <h1 className="text-lg font-bold">{metPunt('Deze voorraad wordt niet (meer) gedeeld')}</h1>
             <p className="text-sm text-stone-500">De eigenaar heeft de bekijk-link uitgezet. Vraag om een nieuwe link.</p>
         </div>
     );
     if (state.status === 'notfound') return (
         <div className="min-h-dvh flex flex-col items-center justify-center gap-3 p-6 text-center">
             <Icon name="Lock" size={36} className="text-stone-300" />
-            <h1 className="text-lg font-bold">Deze link werkt niet (meer)</h1>
+            <h1 className="text-lg font-bold">{metPunt('Deze link werkt niet (meer)')}</h1>
             <p className="text-sm text-stone-500">Vraag de eigenaar om een nieuwe link.</p>
         </div>
     );
