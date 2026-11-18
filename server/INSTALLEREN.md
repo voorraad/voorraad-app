@@ -156,7 +156,7 @@ Je instellingen (`.env`), de sleutels en de foto's blijven staan.
 |---|---|
 | `Servicesleutel niet gevonden` in de logs | `/opt/voorraad-server/data/service-account.json` ontbreekt (stap 3). |
 | Beheerpagina zegt **Server offline** | `systemctl status voorraad` en `journalctl -u voorraad -n 50`. Klopt de datum/tijd (`date`)? |
-| Testmelding komt niet aan op iPhone | App geopend vanaf het beginscherm? Meldingen voor "Voorraad" toegestaan in Instellingen → Meldingen? |
+| Testmelding komt niet aan op iPhone | App geopend vanaf het beginscherm? Meldingen voor "Voorraad." toegestaan in Instellingen → Meldingen? |
 | Testmelding komt niet aan | Zet meldingen in de app uit en terug aan (dan wordt het toestel opnieuw ingeschreven). |
 | Tailscale: `failed to connect to local tailscaled` of geen `/dev/net/tun` | De twee regels in `/etc/pve/lxc/<nummer>.conf` ontbreken, of de container is niet herstart (stap 7A). |
 | Foto's uploaden lukt niet | Klopt `PUBLIC_URL` (met https, zonder `/` op het einde)? Opent `https://fotos.jouwnaam.be/gezond` in je browser? Staat `https://voorraad.github.io` in `ALLOWED_ORIGINS`? |

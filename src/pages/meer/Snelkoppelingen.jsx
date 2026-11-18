@@ -1,7 +1,7 @@
 import React from 'react';
 import Icon from '../../lib/icons.jsx';
 import { useStore } from '../../state/store.jsx';
-import { Card, SectionTitle } from '../../components/ui.jsx';
+import { Card, SectionTitle, Merk } from '../../components/ui.jsx';
 
 const LINKS = [
     { id: 'scan', label: 'Barcode scannen', icon: 'Scan', right: 'scan', q: '?actie=scan' },
@@ -23,7 +23,7 @@ export function Snelkoppelingen() {
                     <p>Tik op <b>Open</b> bij een snelkoppeling hieronder. Die opent in Safari: tik daar op <b>Deel</b> → <b>Zet op beginscherm</b>. Je krijgt dan een extra icoon dat meteen bv. de scanner opent.</p>
                 </> : <>
                     <p className="font-semibold text-stone-800 dark:text-stone-100">Op Android</p>
-                    <p>Houd het app-icoon van Voorraad. op je beginscherm ingedrukt: de snelkoppelingen verschijnen. Sleep er een naar je beginscherm om er een eigen icoon van te maken.</p>
+                    <p>Houd het app-icoon van <Merk /> op je beginscherm ingedrukt: de snelkoppelingen verschijnen. Sleep er een naar je beginscherm om er een eigen icoon van te maken.</p>
                     <p>Of open een link hieronder in Chrome en kies <b>⋮ → Toevoegen aan startscherm</b>.</p>
                 </>}
                 <p className="text-xs text-stone-500">Echte widgets met je voorraad op het beginscherm kunnen web-apps (nog) niet maken; deze snelkoppelingen zijn het dichtst daarbij.</p>

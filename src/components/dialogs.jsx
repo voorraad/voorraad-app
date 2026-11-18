@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Icon from '../lib/icons.jsx';
 import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
-import { Sheet, Button, Field, Input, Select, Stepper, Segmented, StorePicker } from './ui.jsx';
+import { Sheet, Merk, metMerk, Button, Field, Input, Select, Stepper, Segmented, StorePicker } from './ui.jsx';
 import { WINKELS, TYPES, TYPE_BY_ID, APP_VERSION, VERSION_HISTORY, TOUR_TONE } from '../lib/constants.js';
 import { cx, num, emojiFor, formatAantal, sortLocaties, byName, mondayOf, addDays, dateKey, weekdayLabel, smartMatch, isMenuEntry, todayKey } from '../lib/utils.js';
 
@@ -293,8 +293,8 @@ export function Tour() {
                 <div className={cx('w-20 h-20 mx-auto rounded-3xl flex items-center justify-center mb-5', TOUR_TONE[s.colorName] || TOUR_TONE.blue)}>
                     <Icon name={s.icon} size={38} />
                 </div>
-                <h2 className="text-xl font-bold text-stone-900 dark:text-white">{s.title}</h2>
-                <p className="text-stone-600 dark:text-stone-300 mt-2 leading-relaxed whitespace-pre-line">{s.content}</p>
+                <h2 className="text-xl font-bold text-stone-900 dark:text-white">{metMerk(s.title)}</h2>
+                <p className="text-stone-600 dark:text-stone-300 mt-2 leading-relaxed whitespace-pre-line">{metMerk(s.content)}</p>
                 <div className="flex justify-center gap-1.5 my-6">
                     {steps.map((_, j) => <span key={j} className={cx('h-1.5 rounded-full transition-all', j === i ? 'w-6 bg-teal-600' : 'w-1.5 bg-stone-300 dark:bg-stone-600')} />)}
                 </div>

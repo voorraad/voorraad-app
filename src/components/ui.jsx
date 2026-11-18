@@ -3,6 +3,17 @@ import Icon from '../lib/icons.jsx';
 import { cx, num, round2, formatAantal } from '../lib/utils.js';
 import { BADGE, DOT, WINKELS } from '../lib/constants.js';
 
+// ---------- Merknaam: "Voorraad." met de punt in teal ----------
+export function Merk({ className }) {
+    return <span className={className}>Voorraad<span className="text-teal-600">.</span></span>;
+}
+// Zet in gewone tekst elke "Voorraad." om naar de merknaam met gekleurde punt.
+export function metMerk(text) {
+    if (typeof text !== 'string' || !text.includes('Voorraad.')) return text;
+    const parts = text.split('Voorraad.');
+    return parts.flatMap((p, i) => i === 0 ? [p] : [<Merk key={i} />, p]);
+}
+
 // ---------- Sheet: onderaan op gsm, gecentreerd op groot scherm ----------
 let openSheets = 0;
 const sheetStack = []; // alleen de bovenste sheet reageert op Escape

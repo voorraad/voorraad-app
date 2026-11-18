@@ -4,7 +4,7 @@ const firebase = window.firebase;
 if (!firebase) {
     // CDN-scripts konden niet laden (meestal: geen internet bij de allereerste keer openen).
     const el = document.getElementById('root');
-    if (el) el.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font-family:system-ui,sans-serif;color:#57534e"><div><p style="font-size:20px;font-weight:700;color:#1c1917">Geen verbinding</p><p>Voorraad kon niet laden. Controleer je internet en probeer opnieuw.</p><button onclick="location.reload()" style="margin-top:12px;padding:10px 18px;border-radius:12px;border:0;background:#0d9488;color:#fff;font-weight:600">Opnieuw proberen</button></div></div>';
+    if (el) el.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font-family:system-ui,sans-serif;color:#57534e"><div><p style="font-size:20px;font-weight:700;color:#1c1917">Geen verbinding</p><p>Voorraad<span style="color:#0d9488">.</span> kon niet laden. Controleer je internet en probeer opnieuw.</p><button onclick="location.reload()" style="margin-top:12px;padding:10px 18px;border-radius:12px;border:0;background:#0d9488;color:#fff;font-weight:600">Opnieuw proberen</button></div></div>';
     throw new Error('Firebase niet geladen');
 }
 
