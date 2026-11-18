@@ -43,7 +43,7 @@ export default function AdminPage() {
             <header className="sticky top-0 z-30 bg-stone-50/85 dark:bg-stone-950/85 backdrop-blur-md border-b border-stone-200/70 dark:border-stone-800 print:hidden pt-[env(safe-area-inset-top)]">
                 <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-2">
                     <span className="font-extrabold tracking-tight text-lg text-stone-900 dark:text-white flex items-center gap-2">
-                        <img src="./icon_logo_96.png?v=12" alt="" className="w-7 h-7 rounded-lg" /><span className="hidden sm:inline">Voorraad<span className="text-teal-600">.</span></span>
+                        <img src="./icon_logo_96.png?v=13" alt="" className="w-7 h-7 rounded-lg ring-1 ring-stone-200" /><span className="hidden sm:inline">Voorraad<span className="text-teal-600">.</span></span>
                     </span>
                     <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-200">Beheer</span>
                     <div className="flex-1" />
@@ -120,7 +120,8 @@ function AdminOverview() {
     }, [shares, usersList]);
     const memberOf = (uid) => Object.keys(members).filter(o => members[o].some(x => x.id === uid));
     // Wie meebeheert en zelf geen producten heeft (lege locaties tellen niet), staat alleen ingesprongen onder de eigenaar.
-    const onlyMember = (u) => memberOf(u.id).length > 0 && stats[u.id] && !stats[u.id].error && !stats[u.id].items;
+    // Zolang de cijfers laden, staan meebeheerders al ingesprongen (zo staat niemand even dubbel).
+    const onlyMember = (u) => memberOf(u.id).length > 0 && (!stats[u.id] || stats[u.id].error || !stats[u.id].items);
     const matches = (u) => smartMatch(u.email || u.displayName || '', q);
     const rows = useMemo(() => usersList.filter(u => !onlyMember(u) && (matches(u) || (members[u.id] || []).some(matches))).sort((a, b) => {
         if (sort === 'producten') return ((stats[b.id] || {}).items || 0) - ((stats[a.id] || {}).items || 0);
@@ -209,7 +210,7 @@ function AdminOverview() {
                                                         <span className={cx('w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold', userTone(m.id, usersList).pill)}>{(m.email || '?')[0].toUpperCase()}</span>
                                                         <span className="min-w-0">
                                                             <span className="block truncate max-w-[5.5rem] sm:max-w-[14rem] text-sm">{m.email || m.displayName}</span>
-                                                            <span className="block text-[11px] text-stone-400">beheert mee{stats[m.id] && !stats[m.id].items && stats[m.id].locs ? ' · eigen voorraad leeg' : ''}</span>
+                                                            <span className="block text-[11px] text-stone-400">beheert mee</span>
                                                         </span>
                                                     </span>
                                                 </td>

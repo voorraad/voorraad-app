@@ -9,7 +9,11 @@ const listeners = new Set();
 let running = null;
 
 async function loadAll(usersList, key) {
-    for (const u of usersList) {
+    // Alle gebruikers tegelijk ophalen (veel sneller dan één voor één, zeker op gsm).
+    await Promise.all(usersList.map(u => loadOne(u, key)));
+}
+async function loadOne(u, key) {
+    {
         let entry;
         try {
             const q = (c) => db.collection(c).where('userId', '==', u.id).get().then(s => s.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => []);
