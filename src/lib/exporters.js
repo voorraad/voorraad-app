@@ -27,7 +27,8 @@ export async function exportPDF(items, locById, ladeById) {
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape' });
-    doc.setFontSize(16); doc.text('Voorraad', 14, 15);
+    doc.setFontSize(16); doc.setFont(undefined, 'bold'); doc.text('Voorraad', 14, 15);
+    doc.setTextColor(13, 148, 136); doc.text('.', 14 + doc.getTextWidth('Voorraad'), 15); doc.setTextColor(0); doc.setFont(undefined, 'normal');
     doc.setFontSize(9); doc.setTextColor(120); doc.text(`Geëxporteerd op ${formatDate(new Date())}`, 14, 21);
     const sorted = [...items].sort((a, b) => {
         const la = locById[a.vriezerId], lb = locById[b.vriezerId];

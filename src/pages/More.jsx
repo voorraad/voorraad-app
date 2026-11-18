@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import Icon from '../lib/icons.jsx';
 import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
-import { Card, Toggle, Row, Button } from '../components/ui.jsx';
+import { Card, Toggle, Row, Button, Merk } from '../components/ui.jsx';
 import { APP_VERSION } from '../lib/constants.js';
 import { cx } from '../lib/utils.js';
 import { exportCSV, exportPDF, exportBackup, importBackup } from '../lib/exporters.js';
@@ -149,7 +149,7 @@ function MoreHome() {
             <Card className="overflow-hidden md:max-w-sm">
                 <Row icon="LogOut" title="Uitloggen" danger onClick={actions.logout} right={null} />
             </Card>
-            <p className="text-center text-xs text-stone-400 pb-4">Voorraad · versie {APP_VERSION}</p>
+            <p className="text-center text-xs text-stone-400 pb-4"><Merk className="font-semibold" /> · versie {APP_VERSION}</p>
         </div>
     );
 }

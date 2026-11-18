@@ -3,6 +3,24 @@ import Icon from '../lib/icons.jsx';
 import { cx, num, round2, formatAantal } from '../lib/utils.js';
 import { BADGE, DOT, WINKELS } from '../lib/constants.js';
 
+// ---------- Merknaam: "Voorraad." met de punt in teal ----------
+export function Merk({ className }) {
+    return <span className={className}>Voorraad<span className="text-teal-600">.</span></span>;
+}
+// Zet in gewone tekst elke "Voorraad." om naar de merknaam met gekleurde punt.
+export function metMerk(text) {
+    if (typeof text !== 'string' || !text.includes('Voorraad.')) return text;
+    const parts = text.split('Voorraad.');
+    return parts.flatMap((p, i) => i === 0 ? [p] : [<Merk key={i} />, p]);
+}
+// Titels krijgen dezelfde teal punt als de merknaam (behalve als ze al op . ? ! of : eindigen).
+export function metPunt(text) {
+    if (typeof text !== 'string') return text;
+    const t = text.trimEnd();
+    if (!t || /[.?!:…]$/.test(t)) return metMerk(t);
+    return <>{metMerk(t)}<span className="text-teal-600">.</span></>;
+}
+
 // ---------- Sheet: onderaan op gsm, gecentreerd op groot scherm ----------
 let openSheets = 0;
 const sheetStack = []; // alleen de bovenste sheet reageert op Escape
@@ -44,7 +62,7 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, size =
                 {(title || dismissable) && (
                     <div className="flex items-start gap-3 px-5 pt-3 sm:pt-5 pb-3 flex-shrink-0">
                         <div className="min-w-0 flex-1">
-                            {title && <h2 className="text-lg font-bold text-stone-900 dark:text-stone-50 leading-tight">{title}</h2>}
+                            {title && <h2 className="text-lg font-bold text-stone-900 dark:text-stone-50 leading-tight">{metPunt(title)}</h2>}
                             {subtitle && <p className="text-sm text-stone-500 dark:text-stone-400 mt-0.5">{subtitle}</p>}
                         </div>
                         {dismissable && (
@@ -198,7 +216,7 @@ export function EmptyState({ icon = 'Box', title, text, action }) {
             <div className="mx-auto w-14 h-14 rounded-2xl bg-stone-100 dark:bg-stone-800 text-stone-400 flex items-center justify-center mb-3">
                 <Icon name={icon} size={26} />
             </div>
-            <p className="font-semibold text-stone-800 dark:text-stone-100">{title}</p>
+            <p className="font-semibold text-stone-800 dark:text-stone-100">{metPunt(title)}</p>
             {text && <p className="text-sm text-stone-500 dark:text-stone-400 mt-1 max-w-xs mx-auto">{text}</p>}
             {action && <div className="mt-4 flex justify-center">{action}</div>}
         </div>
