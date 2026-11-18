@@ -43,7 +43,7 @@ export default function AdminPage() {
             <header className="sticky top-0 z-30 bg-stone-50/85 dark:bg-stone-950/85 backdrop-blur-md border-b border-stone-200/70 dark:border-stone-800 print:hidden pt-[env(safe-area-inset-top)]">
                 <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-2">
                     <span className="font-extrabold tracking-tight text-lg text-stone-900 dark:text-white flex items-center gap-2">
-                        <img src="./icon_logo_96.png?v=9" alt="" className="w-7 h-7 rounded-lg" /><span className="hidden sm:inline">Voorraad<span className="text-teal-600">.</span></span>
+                        <img src="./icon_logo_96.png?v=12" alt="" className="w-7 h-7 rounded-lg" /><span className="hidden sm:inline">Voorraad<span className="text-teal-600">.</span></span>
                     </span>
                     <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 dark:bg-teal-950/60 dark:text-teal-200">Beheer</span>
                     <div className="flex-1" />
