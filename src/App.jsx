@@ -351,7 +351,7 @@ function CenterCard({ children }) {
 function Splash() {
     return (
         <div className="min-h-dvh flex items-center justify-center bg-stone-50 dark:bg-stone-950">
-            <img src="./icon_192x192.png?v=13" alt="Voorraad wordt geladen" className="w-16 h-16 rounded-2xl animate-pulse" />
+            <img src="./icon_192x192.png?v=13" alt="Voorraad. wordt geladen" className="w-16 h-16 rounded-2xl animate-pulse" />
         </div>
     );
 }

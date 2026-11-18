@@ -203,7 +203,7 @@ export function MonthReport() {
                 .kpis { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 10px; } .kpis div { background: #f5f5f4; border-radius: 8px; padding: 6px 8px; font-size: 11px; color: #57534e; } .kpis b { display: block; font-size: 17px; color: #1c1917; } .kpis b.r { color: #dc2626; }
                 .cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; } ol { margin: 0; padding-left: 18px; font-size: 13px; } .tot { display: flex; gap: 18px; margin-bottom: 14px; font-size: 14px; }
                 @media print { body { padding: 0; } .noprint { display: none; } }
-            </style></head><body><h1>${esc(title)}</h1><p class="sub">Voorraad. · ${users.length === 1 ? esc(nameOf(users[0])) : users.length + ' gebruikers'} · gemaakt op ${esc(formatDateTime(new Date()))}</p>
+            </style></head><body><h1>${esc(title)}</h1><p class="sub"><b style="color:#1c1917">Voorraad<span style="color:#0d9488">.</span></b> · ${users.length === 1 ? esc(nameOf(users[0])) : users.length + ' gebruikers'} · gemaakt op ${esc(formatDateTime(new Date()))}</p>
             ${users.length > 1 ? `<div class="tot"><span><b>${tot.added}</b> toegevoegd</span><span><b>${tot.eaten}</b> opgegeten</span><span><b style="color:#dc2626">${tot.wasted}</b> weggegooid</span></div>` : ''}
             ${blocks}<p class="noprint m">Bewaar als PDF via Afdrukken → "Opslaan als PDF".</p><script>setTimeout(function(){window.print()},500)<\/script></body></html>`);
             w.document.close();

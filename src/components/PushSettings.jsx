@@ -29,7 +29,7 @@ export function PushSettings() {
                     <span className="block text-xs text-stone-500">
                         {st === 'ios-home' ? 'iOS: zet de app eerst op je beginscherm (Safari → Deel → Zet op beginscherm) en open ze van daaruit.'
                             : st === 'unsupported' ? 'Deze browser ondersteunt geen pushmeldingen.'
-                                : st === 'denied' ? 'Geblokkeerd. iOS: Instellingen → Meldingen → Voorraad. Android: houd het app-icoon ingedrukt → App-info → Meldingen.'
+                                : st === 'denied' ? 'Geblokkeerd. iOS: Instellingen → Meldingen → Voorraad. · Android: houd het app-icoon ingedrukt → App-info → Meldingen.'
                                     : sub ? `Elke dag om ${push.meldingUur || '08:00'} als er iets dringend op moet, en bij berichten.`
                                         : 'Krijg een melding als er iets vervalt, ook als de app dicht is.'}
                         {!serverOk && <span className="block text-amber-600">De meldingsserver lijkt even offline.</span>}
