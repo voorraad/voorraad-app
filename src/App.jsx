@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Icon from './lib/icons.jsx';
 import { useStore } from './state/store.jsx';
 import { useUi } from './state/ui.jsx';
-import { Toast, Button, IconButton, Sheet } from './components/ui.jsx';
+import { Toast, Button, IconButton, Sheet, metPunt } from './components/ui.jsx';
 import { ItemSheet, ConsumeSheet } from './components/items.jsx';
 import ItemForm from './components/ItemForm.jsx';
 import AuditSheet from './components/AuditSheet.jsx';
@@ -150,7 +150,7 @@ function Shell() {
                 <div className={cx('mx-auto px-4 h-14 flex items-center gap-2', 'max-w-7xl')}>
                     {sub ? <IconButton icon="ChevronLeft" label="Terug" onClick={() => go('meer')} className="-ml-2" />
                         : <IconButton icon="Menu" label="Menu openen" onClick={() => setDrawer(true)} className="-ml-2" />}
-                    <h1 className={cx('text-xl font-bold text-stone-900 dark:text-white truncate', (page === 'voorraad' || page === 'lijst') && !sub && 'lg:hidden')}>{title}</h1>
+                    <h1 className={cx('text-xl font-bold text-stone-900 dark:text-white truncate', (page === 'voorraad' || page === 'lijst') && !sub && 'lg:hidden')}>{metPunt(title)}</h1>
                     {(page === 'voorraad' || page === 'lijst') && !sub && <span className="hidden lg:block"><Logo small /></span>}
                     {!onMenu && <nav className="hidden lg:flex items-center gap-1 ml-6">
                         {bottom.map(n => (
@@ -377,7 +377,7 @@ function Maintenance() {
     return (
         <CenterCard>
             <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mb-4"><Icon name="Wrench" size={30} /></div>
-            <h1 className="text-xl font-bold">Even onderhoud</h1>
+            <h1 className="text-xl font-bold">{metPunt('Even onderhoud')}</h1>
             <p className="text-stone-500 mt-2 mb-6">We werken aan een update. Probeer het straks opnieuw.</p>
             <Button variant="ghost" icon="LogOut" onClick={actions.logout}>Uitloggen</Button>
         </CenterCard>
@@ -390,7 +390,7 @@ function Blocked() {
     return (
         <CenterCard>
             <div className="w-16 h-16 mx-auto rounded-2xl bg-red-100 text-red-700 flex items-center justify-center mb-4"><Icon name="Lock" size={30} /></div>
-            <h1 className="text-xl font-bold">Account geblokkeerd</h1>
+            <h1 className="text-xl font-bold">{metPunt('Account geblokkeerd')}</h1>
             <p className="text-stone-500 mt-2 mb-6">Je account is uitgeschakeld door de beheerder.</p>
             <Button variant="ghost" icon="LogOut" onClick={actions.logout}>Uitloggen</Button>
         </CenterCard>
