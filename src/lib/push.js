@@ -6,8 +6,8 @@ const b64ToBytes = (s) => {
     const raw = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/'));
     return Uint8Array.from(raw, c => c.charCodeAt(0));
 };
-const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const standalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+export const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+export const standalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 async function docIdFor(endpoint) {
     const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(endpoint));
     return [...new Uint8Array(h)].slice(0, 16).map(b => b.toString(16).padStart(2, '0')).join('');

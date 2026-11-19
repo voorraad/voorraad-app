@@ -215,7 +215,7 @@ export default function Stock({ type: typeProp, embedded } = {}) {
                                                             {(lastCheck || lastMod) && <span className={cx('hidden text-xs text-stone-400 ml-auto truncate', locs.length === 1 ? 'sm:inline' : locs.length === 2 ? 'lg:inline' : '2xl:inline')}>{lastCheck && (!lastMod || lastCheck >= lastMod) ? 'gecontroleerd ' + formatDate(lastCheck) : 'gewijzigd ' + formatDate(lastMod)}</span>}
                                                         </button>
                                                         {lade.foto && (
-                                                            <button type="button" onClick={() => openPhoto({ src: lade.foto, title: lade.naam })} className="mr-1.5 flex-shrink-0" aria-label={`Foto van ${lade.naam}`}>
+                                                            <button type="button" onClick={() => openPhoto({ src: lade.foto, title: lade.naam, onDelete: canSee('fotos') ? () => actions.setLadeFoto(lade, '') : null })} className="mr-1.5 flex-shrink-0" aria-label={`Foto van ${lade.naam}`}>
                                                                 <img src={lade.foto} alt="" className="w-9 h-9 rounded-lg object-cover" />
                                                             </button>
                                                         )}

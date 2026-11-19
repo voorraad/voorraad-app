@@ -202,13 +202,13 @@ function ItemFormInner({ form, close }) {
                 </div>
                 {(canSee('fotos') || v.foto || v.barcode) && <div className="flex items-center gap-3">
                     {v.foto
-                        ? <button type="button" onClick={() => openPhoto({ src: v.foto, title: v.naam })} className="flex-shrink-0" aria-label="Foto groot bekijken"><img src={v.foto} alt="" className="w-14 h-14 rounded-xl object-cover bg-stone-100" /></button>
+                        ? <button type="button" onClick={() => openPhoto({ src: v.foto, title: v.naam, onDelete: canSee('fotos') ? () => set({ foto: '' }) : null })} className="flex-shrink-0" aria-label="Foto groot bekijken"><img src={v.foto} alt="" className="w-14 h-14 rounded-xl object-cover bg-stone-100" /></button>
                         : <span className="w-14 h-14 rounded-xl border-2 border-dashed border-stone-200 dark:border-stone-700 flex items-center justify-center text-stone-300 flex-shrink-0"><Icon name="Image" size={22} /></span>}
                     <div className="flex flex-wrap gap-2 flex-1">
                         {canSee('fotos') && <><PhotoInput onPhoto={foto => set({ foto })} label="Foto nemen of kiezen" className="h-9 px-3 rounded-xl text-sm font-semibold bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 flex items-center gap-1.5">
                             <Icon name="Camera" size={16} />{v.foto ? 'Andere foto' : 'Foto'}
                         </PhotoInput>
-                        {v.foto && <button type="button" onClick={() => set({ foto: '' })} className="h-9 px-3 rounded-xl text-sm font-semibold text-stone-500 hover:text-red-600">Verwijder</button>}</>}
+                        {v.foto && <button type="button" onClick={() => set({ foto: '' })} className="h-9 px-3 rounded-xl text-sm font-semibold text-stone-500 hover:text-red-600 flex items-center gap-1.5"><Icon name="Trash" size={15} />Verwijder foto</button>}</>}
                     </div>
                     {v.barcode && <span className="text-[11px] text-stone-400 font-mono flex items-center gap-1" title="Barcode"><Icon name="Scan" size={13} />{v.barcode}</span>}
                 </div>}

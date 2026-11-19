@@ -55,6 +55,8 @@ export function Thumb({ item, size = 'w-8 h-8', emojiSize = 'text-2xl', onClick 
 
 export function PhotoViewer() {
     const { photo, closePhoto } = useUi();
+    const [sure, setSure] = useState(false);
+    useEffect(() => { setSure(false); }, [photo]);
     useEffect(() => {
         if (!photo) return;
         const k = (e) => e.key === 'Escape' && closePhoto();
@@ -65,6 +67,12 @@ export function PhotoViewer() {
         <div className="fixed inset-0 z-[90] bg-black/85 flex flex-col items-center justify-center p-4 anim-fade" onClick={closePhoto} role="dialog" aria-label="Foto">
             <img src={photo.src} alt={photo.title || ''} className="max-w-full max-h-[80vh] rounded-2xl object-contain" />
             {photo.title && <p className="text-white font-semibold mt-3">{photo.title}</p>}
+            {photo.onDelete && (
+                <button type="button" onClick={async e => { e.stopPropagation(); if (!sure) { setSure(true); return; } await photo.onDelete(); closePhoto(); }}
+                    className={cx('mt-4 h-11 px-5 rounded-xl font-semibold flex items-center gap-2 transition', sure ? 'bg-red-600 text-white' : 'bg-white/15 text-white hover:bg-white/25')}>
+                    <Icon name="Trash" size={18} />{sure ? 'Tik nog eens om te verwijderen' : 'Foto verwijderen'}
+                </button>
+            )}
             <button type="button" onClick={closePhoto} className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 w-11 h-11 rounded-full bg-white/15 text-white flex items-center justify-center" aria-label="Sluiten"><Icon name="X" size={22} /></button>
         </div>
     );
