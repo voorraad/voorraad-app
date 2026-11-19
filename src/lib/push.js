@@ -65,3 +65,25 @@ export async function uploadPhoto(fotoUrl, dataUrl) {
     if (!res.ok) throw new Error('Upload mislukt (' + res.status + ')');
     return (await res.json()).url;
 }
+
+// Foto die niet meer gebruikt wordt van de eigen server halen. Even wachten (zodat "Ongedaan" nog kan);
+// de server weigert zelf als de foto ondertussen nog ergens gebruikt wordt.
+export function forgetPhoto(server, url, wacht = 20000) {
+    if (!server || typeof url !== 'string' || url.startsWith('data:')) return;
+    const base = server.replace(/\/$/, '');
+    if (!url.startsWith(base + '/fotos/')) return;
+    setTimeout(async () => {
+        try {
+            const user = auth.currentUser; if (!user) return;
+            await fetch(url, { method: 'DELETE', headers: { Authorization: 'Bearer ' + await user.getIdToken() } });
+        } catch (e) { /* server niet bereikbaar: de opruimknop op de beheerpagina vangt het later op */ }
+    }, wacht);
+}
+// Beheer: ongebruikte foto's op de server tellen (wis = false) of verwijderen (wis = true).
+export async function cleanupPhotos(server, wis) {
+    const user = auth.currentUser; if (!user) throw new Error('Niet ingelogd');
+    const res = await fetch(server.replace(/\/$/, '') + '/opruimen' + (wis ? '?wis=1' : ''), { method: 'POST', headers: { Authorization: 'Bearer ' + await user.getIdToken() } });
+    if (res.status === 404) throw new Error('Werk eerst je server bij (versie 1.1.0 nodig)');
+    if (!res.ok) throw new Error('Server gaf fout ' + res.status);
+    return res.json();
+}

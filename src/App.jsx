@@ -4,6 +4,7 @@ import { useStore } from './state/store.jsx';
 import { useUi } from './state/ui.jsx';
 import { Toast, Button, IconButton, Sheet, metPunt } from './components/ui.jsx';
 import { isIos, standalone } from './lib/push.js';
+const ICOON_VERSIE = '14'; // verhogen bij een nieuw app-icoon
 import { ItemSheet, ConsumeSheet } from './components/items.jsx';
 import ItemForm from './components/ItemForm.jsx';
 import AuditSheet from './components/AuditSheet.jsx';
@@ -78,7 +79,7 @@ function Shell() {
             go('voorraad/' + typeOf(it)); ui.openItem(it.id);
             // iPhone opent een QR-code altijd in Safari, nooit in de app op het beginscherm: één keer uitleggen.
             let seen = false; try { seen = localStorage.getItem('tipQrIos') === '1'; localStorage.setItem('tipQrIos', '1'); } catch (e) {}
-            if (isIos() && !standalone() && !seen) setTimeout(() => actions.notify('Tip: op iPhone opent een QR-code altijd in Safari. Scan etiketten met de scanknop in de app, dan blijf je in de app.'), 800);
+            if (isIos() && !standalone() && !seen) setTimeout(() => ui.confirm({ title: 'Tip voor iPhone', message: 'Een QR-code die je met de camera scant, opent op iPhone altijd in Safari. Scan etiketten liever met de scanknop in de app (of houd het app-icoon ingedrukt → Scannen), dan blijf je in de app.', confirmLabel: 'Begrepen', hideCancel: true }), 800);
         }
         else { go('voorraad'); actions.notify('Dit product staat niet (meer) in deze voorraad.', 'error'); }
     }, [route.page, route.sub, dataLoaded]);
@@ -106,6 +107,11 @@ function Shell() {
         if (globalSettings.onboardingActive && !me.tourDisabled && me.hasSeenTutorial !== true) setShowTour(true);
         else if (seenVersion && seenVersion !== APP_VERSION) setShowNews(true);
         localStorage.setItem('app_version', APP_VERSION);
+        // iPhone ververst het icoon op het beginscherm nooit zelf: wie de app al had, krijgt één keer uitleg.
+        // (Een nieuw toegevoegde app begint met lege opslag en heeft het nieuwe icoon al.)
+        if (seenVersion && localStorage.getItem('icoon_versie') !== ICOON_VERSIE && isIos() && standalone())
+            setTimeout(() => ui.confirm({ title: 'Nieuw app-icoon', message: 'Je iPhone toont nog het oude icoon; dat kan de app niet zelf vervangen. Wil je het nieuwe? Houd het icoon ingedrukt → App verwijderen → Verwijder van beginscherm. Open daarna de app in Safari → Deel → Zet op beginscherm. Je gegevens blijven gewoon bewaard.', confirmLabel: 'Begrepen', hideCancel: true }), 1500);
+        localStorage.setItem('icoon_versie', ICOON_VERSIE);
     }, [dataLoaded, meLoaded, globalSettings.onboardingLoaded]);
 
     // Browsermelding (max. 1× per dag) wanneer er producten verlopen zijn.
@@ -116,7 +122,7 @@ function Shell() {
         if (!urgent.length || localStorage.getItem(key)) return;
         const title = urgent.length === 1 ? '1 product moet dringend op' : `${urgent.length} producten moeten dringend op`;
         const body = urgent.slice(0, 5).map(i => i.naam).join(', ') + (urgent.length > 5 ? '…' : '');
-        const opts = { body, icon: './icon_192x192.png?v=13', badge: './icon_192x192.png?v=13', tag: 'voorraad-alerts' };
+        const opts = { body, icon: './icon_192x192.png?v=14', badge: './icon_192x192.png?v=14', tag: 'voorraad-alerts' };
         (navigator.serviceWorker ? navigator.serviceWorker.ready.then(r => r.showNotification(title, opts)) : Promise.reject())
             .catch(() => { try { new Notification(title, opts); } catch (e) { } });
         localStorage.setItem(key, '1');
@@ -334,7 +340,7 @@ function AccountSwitcher({ onClose }) {
 export function Logo({ small }) {
     return (
         <span className={cx('font-extrabold tracking-tight text-stone-900 dark:text-white flex items-center gap-2', small ? 'text-lg' : 'text-xl')}>
-            <img src="./icon_logo_96.png?v=13" alt="" className={cx('rounded-lg ring-1 ring-stone-200', small ? 'w-7 h-7' : 'w-8 h-8')} />
+            <img src="./icon_logo_96.png?v=14" alt="" className={cx('rounded-lg ring-1 ring-stone-200', small ? 'w-7 h-7' : 'w-8 h-8')} />
             Voorraad<span className="text-teal-600 -ml-2">.</span>
         </span>
     );
@@ -357,7 +363,7 @@ function CenterCard({ children }) {
 function Splash() {
     return (
         <div className="min-h-dvh flex items-center justify-center bg-stone-50 dark:bg-stone-950">
-            <img src="./icon_192x192.png?v=13" alt="Voorraad. wordt geladen" className="w-16 h-16 rounded-2xl animate-pulse" />
+            <img src="./icon_192x192.png?v=14" alt="Voorraad. wordt geladen" className="w-16 h-16 rounded-2xl animate-pulse" />
         </div>
     );
 }

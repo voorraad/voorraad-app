@@ -10,7 +10,7 @@ import admin from 'firebase-admin';
 import webpush from 'web-push';
 import { itemStatus, shortText } from './status.js';
 
-const VERSIE = '1.0.0';
+const VERSIE = '1.1.0';
 const DATA = process.env.DATA_DIR || '/data';
 const CFG = {
     serviceAccount: process.env.SERVICE_ACCOUNT || path.join(DATA, 'service-account.json'),
@@ -164,6 +164,27 @@ async function userFrom(req) {
     if (!m) return null;
     try { return await admin.auth().verifyIdToken(m[1]); } catch (e) { return null; }
 }
+// Welke foto's worden nog gebruikt? Zoekt in alle documenten naar /fotos/<uid>/<naam>.
+const FOTO_RE = /\/fotos\/([A-Za-z0-9_-]+\/[a-f0-9]{32}\.(?:jpg|png|webp))/g;
+async function fotosInGebruik() {
+    const used = new Set();
+    for (const c of ['items', 'lades', 'vriezers', 'barcodes', 'users', 'recepten']) {
+        const snap = await db.collection(c).get();
+        snap.forEach(d => { for (const m of JSON.stringify(d.data()).matchAll(FOTO_RE)) used.add(m[1]); });
+    }
+    return used;
+}
+function alleFotos() {
+    const out = [];
+    if (!fs.existsSync(FOTOS)) return out;
+    for (const dir of fs.readdirSync(FOTOS)) {
+        const p = path.join(FOTOS, dir);
+        if (!fs.statSync(p).isDirectory()) continue;
+        for (const f of fs.readdirSync(p)) out.push({ key: dir + '/' + f, file: path.join(p, f), size: fs.statSync(path.join(p, f)).size, mtime: fs.statSync(path.join(p, f)).mtimeMs });
+    }
+    return out;
+}
+
 const TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const MIME = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
 
@@ -199,10 +220,25 @@ http.createServer(async (req, res) => {
         if (fm && req.method === 'DELETE') {
             const user = await userFrom(req);
             if (!user) return json(res, 401, { fout: 'Niet ingelogd' });
-            const isAdmin = (await db.collection('admins').doc(user.uid).get()).exists;
-            if (fm[1] !== user.uid && !isAdmin) return json(res, 403, { fout: 'Niet jouw foto' });
+            // Een foto mag weg zodra niets in de app hem nog gebruikt (ook als iemand anders hem uploadde,
+            // bv. in een gedeelde voorraad). Wordt hij nog gebruikt, dan blijft hij staan.
+            if ((await fotosInGebruik()).has(fm[1] + '/' + fm[2])) return json(res, 409, { fout: 'Foto wordt nog gebruikt' });
             fs.rmSync(path.join(FOTOS, fm[1], fm[2]), { force: true });
+            log('Foto verwijderd', fm[1] + '/' + fm[2]);
             return json(res, 200, { ok: true });
+        }
+
+        // Beheer: hoeveel foto's staan er, en welke worden niet meer gebruikt? (?wis=1 ruimt ze op)
+        if (req.method === 'POST' && url.pathname === '/opruimen') {
+            const user = await userFrom(req);
+            if (!user) return json(res, 401, { fout: 'Niet ingelogd' });
+            if (!(await db.collection('admins').doc(user.uid).get()).exists) return json(res, 403, { fout: 'Enkel voor beheerders' });
+            const used = await fotosInGebruik(), all = alleFotos();
+            // Heel recente foto's niet aanraken: misschien is iemand net een product aan het bewaren.
+            const weg = all.filter(f => !used.has(f.key) && Date.now() - f.mtime > 10 * 60 * 1000);
+            if (url.searchParams.get('wis') === '1') { weg.forEach(f => fs.rmSync(f.file, { force: true })); log('Opgeruimd', weg.length, "foto's"); }
+            const mb = (l) => Math.round(l.reduce((s, f) => s + f.size, 0) / 104857.6) / 10;
+            return json(res, 200, { totaal: all.length, totaalMb: mb(all), ongebruikt: weg.length, ongebruiktMb: mb(weg), gewist: url.searchParams.get('wis') === '1' });
         }
         res.writeHead(404); res.end();
     } catch (e) {
