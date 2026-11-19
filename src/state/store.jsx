@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { db, auth, GoogleAuthProvider, serverTimestamp, increment, runBatched } from '../lib/firebase.js';
+import { forgetPhoto } from '../lib/push.js';
 import { CATEGORIEEN_VRIES, DEFAULT_TOUR_STEPS, MENU_LOCATION_ID, UNIT_FIELD } from '../lib/constants.js';
 import { isMenuEntry, num, round2, randomToken, sortLocaties, todayKey, emojiForCategory, normalize, formatAantal } from '../lib/utils.js';
 
@@ -35,6 +36,8 @@ export function StoreProvider({ children }) {
     const [sharesLoaded, setSharesLoaded] = useState(false);
     const [usersList, setUsersList] = useState([]);
     const [globalSettings, setGlobalSettings] = useState({ onboardingActive: true, tourSteps: DEFAULT_TOUR_STEPS, maintenance: false });
+    const fotoServer = useRef(''); fotoServer.current = (globalSettings.push && globalSettings.push.fotoUrl) || '';
+    const forget = (url, wacht) => forgetPhoto(fotoServer.current, url, wacht);
 
     // ---------- Toast ----------
     const [toast, setToast] = useState(null);
@@ -339,6 +342,7 @@ export function StoreProvider({ children }) {
                 if ((editing.notitie || '') !== data.notitie) changes.push('Notitie aangepast');
                 if ('foto' in data && (editing.foto || '') !== (data.foto || '')) changes.push(data.foto ? 'Foto aangepast' : 'Foto verwijderd');
                 await db.collection('items').doc(editing.id).update(data);
+                if (editing.foto && editing.foto !== (data.foto || '')) forget(editing.foto);
                 touchLade(data.ladeId);
                 if (editing.ladeId && editing.ladeId !== data.ladeId) touchLade(editing.ladeId);
                 log('Bewerkt', data.naam, (changes.join(', ') || 'Geen velden gewijzigd') + (values.viaBalans ? ' (via Controle)' : ''));
@@ -355,6 +359,7 @@ export function StoreProvider({ children }) {
 
         async updateItem(item, patch, logText) {
             await db.collection('items').doc(item.id).update(patch);
+            if ('foto' in patch && item.foto && item.foto !== (patch.foto || '')) forget(item.foto);
             touchLade(patch.ladeId || item.ladeId);
             if (logText) log('Bewerkt', item.naam, logText);
         },
@@ -390,6 +395,7 @@ export function StoreProvider({ children }) {
         async removeItem(item, reason, shoppingOpt) {
             const { id, ...data } = item;
             await db.collection('items').doc(id).delete();
+            if (item.foto) forget(item.foto, 60000); // ruim na 'Ongedaan' nog op
             const value = num(item.prijs);
             if (reason === 'consumed') bumpStats('consumed', 1, value);
             if (reason === 'wasted') bumpStats('wasted', 1, value);
@@ -417,7 +423,7 @@ export function StoreProvider({ children }) {
         async deleteItems(ids) {
             const list = derived.items.filter(i => ids.includes(i.id));
             await runBatched(list.map(i => b => b.delete(db.collection('items').doc(i.id))));
-            list.forEach(i => log('Verwijderd', i.naam, 'Via selectie'));
+            list.forEach(i => { log('Verwijderd', i.naam, 'Via selectie'); if (i.foto) forget(i.foto); });
             notify(`${list.length} producten verwijderd`);
         },
 
@@ -504,11 +510,13 @@ export function StoreProvider({ children }) {
         },
         async setLadeFoto(lade, foto) {
             await db.collection('lades').doc(lade.id).update({ foto: foto || '' });
+            if (lade.foto && lade.foto !== (foto || '')) forget(lade.foto);
             notify(foto ? 'Foto van de lade bewaard' : 'Foto verwijderd');
         },
         async deleteLade(lade) {
             if (derived.items.some(i => i.ladeId === lade.id)) { notify('Maak deze lade eerst leeg.', 'error'); return false; }
             await db.collection('lades').doc(lade.id).delete();
+            if (lade.foto) forget(lade.foto);
             return true;
         },
 

@@ -15,7 +15,7 @@ export function ConfirmDialog() {
         <Sheet open size="sm" onClose={() => done(false)} title={confirmState.title || 'Ben je zeker?'}>
             {confirmState.message && <p className="text-sm text-stone-600 dark:text-stone-300 -mt-1">{confirmState.message}</p>}
             <div className="flex gap-2 mt-5">
-                <Button variant="secondary" className="flex-1" onClick={() => done(false)}>{confirmState.cancelLabel || 'Annuleren'}</Button>
+                {!confirmState.hideCancel && <Button variant="secondary" className="flex-1" onClick={() => done(false)}>{confirmState.cancelLabel || 'Annuleren'}</Button>}
                 <Button variant={confirmState.danger ? 'danger' : 'primary'} className="flex-1" onClick={() => done(true)}>{confirmState.confirmLabel || 'OK'}</Button>
             </div>
         </Sheet>

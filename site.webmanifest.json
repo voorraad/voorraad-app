@@ -10,25 +10,25 @@
   "lang": "nl",
   "icons": [
     {
-      "src": "icon_192x192.png",
+      "src": "icon_192x192.png?v=14",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon_512x512.png",
+      "src": "icon_512x512.png?v=14",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon_maskable_192.png",
+      "src": "icon_maskable_192.png?v=14",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "icon_maskable_512.png",
+      "src": "icon_maskable_512.png?v=14",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -41,7 +41,7 @@
       "url": "./?actie=scan",
       "icons": [
         {
-          "src": "icon_192x192.png",
+          "src": "icon_192x192.png?v=14",
           "sizes": "192x192"
         }
       ]
@@ -52,7 +52,7 @@
       "url": "./?actie=nieuw",
       "icons": [
         {
-          "src": "icon_192x192.png",
+          "src": "icon_192x192.png?v=14",
           "sizes": "192x192"
         }
       ]
@@ -62,7 +62,7 @@
       "url": "./#/voorraad/vriezer",
       "icons": [
         {
-          "src": "icon_192x192.png",
+          "src": "icon_192x192.png?v=14",
           "sizes": "192x192"
         }
       ]
@@ -73,7 +73,7 @@
       "url": "./#/lijst",
       "icons": [
         {
-          "src": "icon_192x192.png",
+          "src": "icon_192x192.png?v=14",
           "sizes": "192x192"
         }
       ]

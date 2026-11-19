@@ -6,7 +6,7 @@ import { useUi } from '../../state/ui.jsx';
 import { Card, Button, SectionTitle } from '../../components/ui.jsx';
 import { userTone } from '../../lib/userColors.js';
 import { useAllUserData, refreshAllUserData } from './data.js';
-import { sendTest, uploadPhoto } from '../../lib/push.js';
+import { sendTest, uploadPhoto, cleanupPhotos } from '../../lib/push.js';
 import { cx, toDate, formatDateTime, plural } from '../../lib/utils.js';
 
 const GUIDE = 'https://github.com/voorraad/voorraad-app/blob/main/server/INSTALLEREN.md';
@@ -52,6 +52,7 @@ export function ServerPanel() {
                     </Card>
                 </section>
                 {p.fotoUrl && <PhotoMigration server={p.fotoUrl} />}
+                {p.fotoUrl && <PhotoCleanup server={p.fotoUrl} />}
             </div>
             <section>
                 <SectionTitle>Meldingen aan ({subs ? new Set(subs.map(s => s.uid)).size : '…'} gebruikers)</SectionTitle>
@@ -110,6 +111,38 @@ function PhotoMigration({ server }) {
             <Card className="p-4">
                 <p className="text-sm text-stone-600 dark:text-stone-300">{!done ? 'Foto\'s tellen…' : todo.length ? `${plural(todo.length, 'foto zit', "foto's zitten")} nog in de database. Verhuis ze naar je server, dan laadt de app sneller.` : 'Alle foto\'s staan op je server.'}</p>
                 {todo.length > 0 && <Button className="mt-3" icon="Upload" disabled={!!busy || !done} onClick={run}>{busy ? 'Bezig ' + busy : 'Verhuizen'}</Button>}
+            </Card>
+        </section>
+    );
+}
+
+// Foto's op de server die nergens meer gebruikt worden (verwijderd product, andere foto gekozen…) opruimen
+function PhotoCleanup({ server }) {
+    const { actions } = useStore();
+    const { confirm } = useUi();
+    const [info, setInfo] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [err, setErr] = useState('');
+    const check = async () => { setErr(''); try { setInfo(await cleanupPhotos(server, false)); } catch (e) { setErr(e.message); } };
+    useEffect(() => { check(); }, [server]);
+    const run = async () => {
+        if (!(await confirm({ title: `${plural(info.ongebruikt, 'foto', "foto's")} verwijderen?`, message: 'Ze worden nergens meer gebruikt in de app. Dit kan niet ongedaan gemaakt worden.', confirmLabel: 'Verwijderen', danger: true }))) return;
+        setBusy(true);
+        try { const r = await cleanupPhotos(server, true); actions.notify(`${plural(r.ongebruikt, 'foto', "foto's")} verwijderd (${r.ongebruiktMb} MB)`); await check(); }
+        catch (e) { actions.notify(e.message, 'error'); }
+        setBusy(false);
+    };
+    return (
+        <section>
+            <SectionTitle>Foto's op je server</SectionTitle>
+            <Card className="p-4">
+                <p className="text-sm text-stone-600 dark:text-stone-300">
+                    {err ? err : !info ? 'Foto\'s tellen…'
+                        : `${plural(info.totaal, 'foto', "foto's")} (${info.totaalMb} MB). ` + (info.ongebruikt ? `${plural(info.ongebruikt, 'foto wordt', "foto's worden")} niet meer gebruikt (${info.ongebruiktMb} MB).` : 'Alles wordt nog gebruikt.')}
+                </p>
+                <p className="text-xs text-stone-500 mt-1">Verwijder je een foto in de app, dan verdwijnt hij na een halve minuut ook van je server. Hier ruim je wat achterbleef op.</p>
+                {info && info.ongebruikt > 0 && <Button className="mt-3" variant="danger" icon="Trash" disabled={busy} onClick={run}>{busy ? 'Bezig…' : 'Ongebruikte foto\'s verwijderen'}</Button>}
+                {err && <Button className="mt-3" variant="secondary" size="sm" onClick={check}>Opnieuw</Button>}
             </Card>
         </section>
     );
