@@ -127,7 +127,7 @@ const started = new Date();
 db.collection('berichten').where('gemaaktOp', '>', started).onSnapshot(s => {
     s.docChanges().filter(c => c.type === 'added').forEach(c => {
         const m = c.doc.data();
-        sendToUser(m.userId, { title: `Bericht van ${m.doorNaam || 'de beheerder'}`, body: m.text, url: CFG.appUrl, tag: 'bericht-' + c.doc.id })
+        sendToUser(m.userId, { title: 'Bericht van Voorraad.', body: m.text, url: CFG.appUrl, tag: 'bericht-' + c.doc.id })
             .then(n => log('Bericht-melding', m.userId, n));
     });
 }, e => log('Berichten volgen mislukt:', e.message));
