@@ -117,7 +117,7 @@ export function ItemSheet() {
         <Sheet open onClose={closeItem} title={null}>
             <div className="flex items-start gap-4">
                 {item.foto
-                    ? <button type="button" onClick={() => openPhoto({ src: item.foto, title: item.naam })} className="flex-shrink-0" aria-label="Foto groot bekijken"><img src={item.foto} alt="" className="w-20 h-20 rounded-2xl object-cover bg-stone-100" /></button>
+                    ? <button type="button" onClick={() => openPhoto({ src: item.foto, title: item.naam, onDelete: canSee('fotos') && canSee('bewerken') ? () => actions.updateItem(item, { foto: '' }, 'foto verwijderd').then(() => actions.notify('Foto verwijderd')) : null })} className="flex-shrink-0" aria-label="Foto groot bekijken"><img src={item.foto} alt="" className="w-20 h-20 rounded-2xl object-cover bg-stone-100" /></button>
                     : <span className="text-5xl leading-none mt-1" aria-hidden="true">{emojiFor(item)}</span>}
                 <div className="min-w-0 flex-1">
                     <h2 className="text-xl font-bold text-stone-900 dark:text-white leading-tight break-words">{item.naam}</h2>

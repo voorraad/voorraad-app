@@ -3,6 +3,7 @@ import Icon from './lib/icons.jsx';
 import { useStore } from './state/store.jsx';
 import { useUi } from './state/ui.jsx';
 import { Toast, Button, IconButton, Sheet, metPunt } from './components/ui.jsx';
+import { isIos, standalone } from './lib/push.js';
 import { ItemSheet, ConsumeSheet } from './components/items.jsx';
 import ItemForm from './components/ItemForm.jsx';
 import AuditSheet from './components/AuditSheet.jsx';
@@ -73,7 +74,12 @@ function Shell() {
     useEffect(() => {
         if (route.page !== 'p' || !route.sub || !dataLoaded) return;
         const it = items.find(i => i.id === route.sub);
-        if (it) { go('voorraad/' + typeOf(it)); ui.openItem(it.id); }
+        if (it) {
+            go('voorraad/' + typeOf(it)); ui.openItem(it.id);
+            // iPhone opent een QR-code altijd in Safari, nooit in de app op het beginscherm: één keer uitleggen.
+            let seen = false; try { seen = localStorage.getItem('tipQrIos') === '1'; localStorage.setItem('tipQrIos', '1'); } catch (e) {}
+            if (isIos() && !standalone() && !seen) setTimeout(() => actions.notify('Tip: op iPhone opent een QR-code altijd in Safari. Scan etiketten met de scanknop in de app, dan blijf je in de app.'), 800);
+        }
         else { go('voorraad'); actions.notify('Dit product staat niet (meer) in deze voorraad.', 'error'); }
     }, [route.page, route.sub, dataLoaded]);
     // Snelkoppeling van het beginscherm: ?actie=scan | nieuw | eerst
