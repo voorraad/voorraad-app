@@ -3,7 +3,7 @@ import Icon from '../lib/icons.jsx';
 import { db, runBatched } from '../lib/firebase.js';
 import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
-import { Sheet, Button, Card, Textarea, Segmented, SectionTitle } from './ui.jsx';
+import { Sheet, Button, Card, Textarea, Segmented, SectionTitle, Merk } from './ui.jsx';
 import { cx, formatDateTime, toDate, plural } from '../lib/utils.js';
 
 // Persoonlijke berichten van een beheerder aan één gebruiker (collectie berichten).
@@ -39,7 +39,7 @@ export function MessagePopup() {
         setBusy(false);
     };
     return (
-        <Sheet open onClose={read} size="sm" title={list.length === 1 ? 'Bericht voor jou' : `${list.length} berichten voor jou`}
+        <Sheet open onClose={read} size="sm" title={list.length === 1 ? 'Bericht van Voorraad.' : `${list.length} berichten van Voorraad.`}
             footer={<Button block icon="Check" disabled={busy} onClick={read}>Oké, gelezen</Button>}>
             <div className="space-y-3">
                 {list.map(m => {
@@ -49,7 +49,7 @@ export function MessagePopup() {
                             <span className={cx('w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0', t.cls)}><Icon name={t.icon} size={18} /></span>
                             <div className="min-w-0 flex-1">
                                 <p className="text-[15px] whitespace-pre-line break-words">{m.text}</p>
-                                <p className="text-xs text-stone-400 mt-1">{m.doorNaam} · {formatDateTime(m.gemaaktOp)}</p>
+                                <p className="text-xs text-stone-400 mt-1">{formatDateTime(m.gemaaktOp)}</p>
                             </div>
                         </div>
                     );
