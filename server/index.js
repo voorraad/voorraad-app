@@ -10,7 +10,7 @@ import admin from 'firebase-admin';
 import webpush from 'web-push';
 import { itemStatus, shortText } from './status.js';
 
-const VERSIE = '1.3.1';
+const VERSIE = '1.4.0';
 const DATA = process.env.DATA_DIR || '/data';
 const CFG = {
     serviceAccount: process.env.SERVICE_ACCOUNT || path.join(DATA, 'service-account.json'),
@@ -309,6 +309,20 @@ db.collection('settings').doc('mededeling').onSnapshot(d => {
 }, e => log('Mededeling volgen mislukt:', e.message));
 
 // Testmeldingen vanuit de app (pushTest/{id} = { uid, soort: 'test' | 'voorraad' })
+// Voorbeelden om elke soort melding te testen (beheerpagina)
+const DAGELIJKS = ['verlopen', 'bijna', 'lang', 'menu', 'lijst', 'week'];
+const VOORBEELD = {
+    verlopen: { title: '2 producten zijn verlopen', body: 'Yoghurt, Sla. Tik voor de volledige lijst.', url: '#/eerst/now' },
+    bijna: { title: '1 product vervalt binnenkort', body: 'Melk (nog 2 d). Tik om te bekijken.', url: '#/eerst/soon' },
+    lang: { title: '1 product ligt al lang in de vriezer', body: 'Gehakt (7 mnd ingevroren). Tik om te bekijken.', url: '#/eerst/now' },
+    menu: { title: 'Vandaag op het menu', body: 'Spaghetti. Haal Kipfilet vandaag al uit de diepvries voor morgen.', url: '#/menu/week' },
+    lijst: { title: 'Boodschappen: 3 dingen op je lijstje', body: 'Melk, Brood, Eieren.', url: '#/lijst' },
+    week: { title: 'Je week in Voorraad.', body: '12 producten toegevoegd, 9 opgegeten, 1 weggegooid.', url: '#/meer/statistieken' },
+    wijziging: { title: 'Diepvries keuken: 2 wijzigingen', body: 'Marie: Gehakt toegevoegd, Kip opgegeten.', url: '#/voorraad/vriezer' },
+    uitnodiging: { title: 'Uitnodiging om samen te beheren', body: 'Marie nodigt je uit om samen de voorraad bij te houden. Tik om te antwoorden.', url: '#/voorraad' },
+    bericht: { title: 'Bericht van Voorraad.', body: 'Dit is een testbericht van de beheerder.', url: '' },
+    mededeling: { title: 'Belangrijk bericht van Voorraad.', body: 'Morgen tussen 9 en 10 u onderhoud aan de app.', url: '' }
+};
 db.collection('pushTest').onSnapshot(s => {
     s.docChanges().filter(c => c.type === 'added').forEach(async c => {
         const { uid, soort, subId } = c.doc.data();
@@ -317,8 +331,13 @@ db.collection('pushTest').onSnapshot(s => {
         let n = 0;
         if (soort === 'voorraad') {
             const list = await dailyMessages(uid, { alles: true });
-            for (const m of list) n += await sendToUser(uid, m);
-            if (!list.length) n = await sendToUser(uid, { title: 'Alles in orde', body: 'Er moet vandaag niets dringend op.', url: CFG.appUrl, tag: 'test' });
+            for (const m of list) n += await sendToUser(uid, m, subId || null);
+            if (!list.length) n = await sendToUser(uid, { title: 'Alles in orde', body: 'Er moet vandaag niets dringend op.', url: CFG.appUrl, tag: 'test' }, subId || null);
+        } else if (VOORBEELD[soort]) {
+            // Eén soort melding testen: met de echte gegevens als die er zijn, anders een voorbeeld.
+            const echt = DAGELIJKS.includes(soort) ? (await dailyMessages(uid, { alles: true })).find(m => m.tag === 'voorraad-' + soort) : null;
+            const m = echt || { ...VOORBEELD[soort], body: 'Voorbeeld: ' + VOORBEELD[soort].body, url: CFG.appUrl + VOORBEELD[soort].url };
+            n = await sendToUser(uid, { ...m, tag: 'test-' + soort }, subId || null);
         } else n = await sendToUser(uid, msg, subId || null);
         await pushDoc.set({ laatsteTest: { uid, soort: soort || 'test', verstuurd: n, op: FV.serverTimestamp(), ...(toestel ? { toestel } : {}) } }, { merge: true }).catch(() => { });
         await c.doc.ref.delete().catch(() => { });
