@@ -25,3 +25,11 @@ export function meldingPrefs(me) {
 
 // Deze meldingen kan enkel een beheerder uitzetten.
 export const VERGRENDELD = ['bericht', 'uitnodiging'];
+
+// Soorten testmeldingen (beheerpagina)
+export const TEST_SOORTEN = [
+    { id: 'test', label: 'Gewone testmelding', icon: 'Bell' },
+    { id: 'voorraad', label: 'Alles van vandaag (echte gegevens)', icon: 'Zap' },
+    ...MELDING_SOORTEN.map(m => ({ id: m.id, label: m.label, icon: m.icon })),
+    { id: 'mededeling', label: 'Belangrijke mededeling', icon: 'Alert' }
+];

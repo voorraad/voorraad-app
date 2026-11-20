@@ -3,10 +3,11 @@ import Icon from '../../lib/icons.jsx';
 import { db } from '../../lib/firebase.js';
 import { useStore } from '../../state/store.jsx';
 import { useUi } from '../../state/ui.jsx';
-import { Card, Button, SectionTitle } from '../../components/ui.jsx';
+import { Card, Button, SectionTitle, Select } from '../../components/ui.jsx';
 import { userTone } from '../../lib/userColors.js';
 import { useAllUserData, refreshAllUserData } from './data.js';
 import { MeldingSamenvatting } from './Meldingen.jsx';
+import { TEST_SOORTEN } from '../../lib/meldingen.js';
 import { sendTest, uploadPhoto, cleanupPhotos } from '../../lib/push.js';
 import { cx, toDate, formatDateTime, plural } from '../../lib/utils.js';
 
@@ -21,7 +22,9 @@ export function ServerPanel() {
     const online = last && Date.now() - last < 10 * 60000;
     const [subs, setSubs] = useState(null);
     useEffect(() => db.collection('pushAbonnementen').onSnapshot(s => setSubs(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => setSubs([])), []);
-    const test = async (uid, soort, s) => { await sendTest(uid, soort, s ? s.id : null); actions.notify(s ? `Testmelding naar ${s.toestel || 'dit toestel'} gestuurd` : 'Opdracht naar de server gestuurd'); };
+    const [soort, setSoort] = useState('test');
+    const label = (TEST_SOORTEN.find(t => t.id === soort) || {}).label || 'Testmelding';
+    const test = async (uid, _s, s) => { await sendTest(uid, soort, s ? s.id : null); actions.notify(`${label}: naar ${s ? (s.toestel || 'dit toestel') : 'alle toestellen'} gestuurd`); };
 
     return (
         <div className="grid gap-6 lg:grid-cols-2 items-start">
@@ -58,6 +61,14 @@ export function ServerPanel() {
             <section>
                 <SectionTitle>Meldingen aan ({subs ? new Set(subs.map(s => s.uid)).size : '…'} gebruikers)</SectionTitle>
                 <Card className="divide-y divide-stone-100 dark:divide-stone-800">
+                    {subs && subs.length > 0 && (
+                        <label className="flex items-center gap-3 px-4 py-3">
+                            <span className="text-sm text-stone-600 dark:text-stone-300 flex-shrink-0">Test met</span>
+                            <Select className="h-9 text-sm" value={soort} onChange={e => setSoort(e.target.value)}>
+                                {TEST_SOORTEN.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                            </Select>
+                        </label>
+                    )}
                     {subs && !subs.length && <p className="p-4 text-sm text-stone-500">Nog niemand heeft meldingen aangezet. Dat doet elke gebruiker zelf in Instellingen → Meldingen op dit toestel.</p>}
                     {usersList.filter(u => (subs || []).some(s => s.uid === u.id)).map(u => (
                         <div key={u.id} className="px-4 py-2.5">

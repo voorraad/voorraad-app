@@ -4,7 +4,8 @@ import { db } from '../../lib/firebase.js';
 import { useStore } from '../../state/store.jsx';
 import { Card, Button } from '../../components/ui.jsx';
 import { MeldingKeuze } from '../../components/MeldingKeuze.jsx';
-import { MELDING_SOORTEN, meldingPrefs } from '../../lib/meldingen.js';
+import { MELDING_SOORTEN, TEST_SOORTEN, meldingPrefs } from '../../lib/meldingen.js';
+import { sendTest } from '../../lib/push.js';
 import { cx } from '../../lib/utils.js';
 
 // Openstaande vragen om een vergrendelde melding (berichten, uitnodigingen) uit te zetten.
@@ -46,6 +47,18 @@ export function UserMeldingen({ u }) {
                 <p className="text-sm text-stone-500 pt-4">Wat {nameOf(u)} heeft ingesteld. Je kan alles aanpassen, ook berichten en uitnodigingen (die kan de gebruiker zelf niet uitzetten).
                     {u.meldingen ? '' : ' Deze gebruiker heeft nog niets gekozen: dit zijn de standaardinstellingen.'}</p>
                 <MeldingKeuze admin prefs={p} uid={u.id} standaardUur={(globalSettings.push && globalSettings.push.meldingUur) || '08:00'} verzoek={u.meldingVerzoek || {}} onSave={save} />
+            </Card>
+            <Card className="p-4">
+                <p className="text-sm font-semibold flex items-center gap-2"><Icon name="Bell" size={16} />Elke melding testen</p>
+                <p className="text-xs text-stone-500 mt-0.5">Gaat naar alle toestellen van {nameOf(u)}, ook als die melding uit staat. Met echte gegevens als die er zijn, anders een voorbeeld.</p>
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                    {TEST_SOORTEN.map(t => (
+                        <button key={t.id} type="button" onClick={async () => { await sendTest(u.id, t.id); actions.notify(t.label + ': testmelding gestuurd'); }}
+                            className="h-8 px-3 rounded-lg text-sm font-medium bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 flex items-center gap-1.5">
+                            <Icon name={t.icon} size={14} />{t.label}
+                        </button>
+                    ))}
+                </div>
             </Card>
         </div>
     );
