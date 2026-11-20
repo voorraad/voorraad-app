@@ -263,14 +263,15 @@ export function AnnouncementBanner({ preview }) {
     const a = preview || globalSettings.mededeling;
     const [gone, setGone] = useState(readDismissed);
     if (!a || !a.active || !(a.text || '').trim()) return null;
-    if (!preview && gone === String(a.versie)) return null;
+    // Belangrijke mededelingen (vast) kan niemand wegklikken.
+    if (!preview && !a.vast && gone === String(a.versie)) return null;
     const t = ANN_TONES[a.tone] || ANN_TONES.info;
     const close = () => { try { localStorage.setItem(ANN_KEY, String(a.versie)); } catch (e) { } setGone(String(a.versie)); };
     return (
-        <div className={cx('rounded-2xl border px-4 py-3 flex items-start gap-3', t.cls)} role="status">
+        <div className={cx('rounded-2xl border px-4 py-3 flex items-start gap-3', t.cls, a.vast && 'border-2')} role={a.vast ? 'alert' : 'status'}>
             <Icon name={t.icon} size={18} className="mt-0.5 flex-shrink-0" />
             <p className="flex-1 text-sm whitespace-pre-line">{a.text}</p>
-            {!preview && <button type="button" onClick={close} aria-label="Mededeling sluiten" className="w-7 h-7 -my-1 -mr-1 rounded-lg flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10"><Icon name="X" size={16} /></button>}
+            {!preview && !a.vast && <button type="button" onClick={close} aria-label="Mededeling sluiten" className="w-7 h-7 -my-1 -mr-1 rounded-lg flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10"><Icon name="X" size={16} /></button>}
         </div>
     );
 }
@@ -280,9 +281,10 @@ export function AnnouncementEditor() {
     const cur = globalSettings.mededeling || {};
     const [text, setText] = useState(cur.text || '');
     const [tone, setTone] = useState(cur.tone || 'info');
-    useEffect(() => { setText(cur.text || ''); setTone(cur.tone || 'info'); }, [cur.versie]);
+    const [vast, setVast] = useState(!!cur.vast);
+    useEffect(() => { setText(cur.text || ''); setTone(cur.tone || 'info'); setVast(!!cur.vast); }, [cur.versie]);
     const publish = async (active) => {
-        await actions.setGlobal('mededeling', { text: text.trim(), tone, active, versie: Date.now() });
+        await actions.setGlobal('mededeling', { text: text.trim(), tone, vast, active, versie: Date.now() });
         actions.notify(active ? 'Mededeling staat bij iedereen bovenaan' : 'Mededeling verborgen');
     };
     return (
@@ -291,12 +293,13 @@ export function AnnouncementEditor() {
             <Card className="p-4 space-y-3">
                 <Textarea rows={3} value={text} onChange={e => setText(e.target.value)} placeholder="Bv. Nieuw: je kan nu per ¼ opmaken!" />
                 <Segmented value={tone} onChange={setTone} options={Object.entries(ANN_TONES).map(([id, t]) => ({ id, label: t.label, icon: t.icon }))} />
-                {text.trim() && <div><p className="text-xs text-stone-500 mb-1.5">Voorbeeld</p><AnnouncementBanner preview={{ text, tone, active: true }} /></div>}
+                <Toggle checked={vast} onChange={setVast} label="Belangrijk: niet weg te klikken" description="Blijft bij iedereen bovenaan staan tot jij hem verbergt." />
+                {text.trim() && <div><p className="text-xs text-stone-500 mb-1.5">Voorbeeld</p><AnnouncementBanner preview={{ text, tone, vast, active: true }} /></div>}
                 <div className="flex flex-wrap gap-2">
                     <Button icon="Bell" disabled={!text.trim()} onClick={() => publish(true)}>{cur.active ? 'Bijwerken' : 'Publiceren'}</Button>
                     {cur.active && <Button variant="secondary" icon="X" onClick={() => publish(false)}>Verbergen</Button>}
                 </div>
-                <p className="text-xs text-stone-500">{cur.active ? <>Staat nu online{cur.versie ? ' sinds ' + formatDateTime(cur.versie) : ''}. Gebruikers kunnen hem wegklikken; na bijwerken verschijnt hij opnieuw.</> : 'Er staat geen mededeling online.'}</p>
+                <p className="text-xs text-stone-500">{cur.active ? <>Staat nu online{cur.versie ? ' sinds ' + formatDateTime(cur.versie) : ''}. {cur.vast ? 'Gebruikers kunnen hem niet wegklikken.' : 'Gebruikers kunnen hem wegklikken; na bijwerken verschijnt hij opnieuw.'}</> : 'Er staat geen mededeling online.'}</p>
             </Card>
         </section>
     );
