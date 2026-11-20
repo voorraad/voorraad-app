@@ -271,10 +271,11 @@ export function StoreProvider({ children }) {
     // ---------- Acties ----------
     const ownerDoc = () => db.collection('users').doc(ownerId);
 
-    const log = (action, itemNaam, details) => {
+    // locId: locatie waar het om gaat (voor meldingen 'wijzigingen in een locatie')
+    const log = (action, itemNaam, details, locId) => {
         if (!user) return;
         db.collection('logs').add({
-            action, item: itemNaam || '', details: details || '', actorId: user.uid,
+            action, item: itemNaam || '', details: details || '', actorId: user.uid, ...(locId ? { locId } : {}),
             actorName: user.displayName || user.email || '', targetUserId: ownerId, timestamp: serverTimestamp(),
             ...(gezinslid ? { gezinslid: gezinslid.naam, gezinslidKleur: gezinslid.kleur || '' } : {})
         }).catch(e => console.warn('Kon log niet opslaan', e));
@@ -345,13 +346,13 @@ export function StoreProvider({ children }) {
                 if (editing.foto && editing.foto !== (data.foto || '')) forget(editing.foto);
                 touchLade(data.ladeId);
                 if (editing.ladeId && editing.ladeId !== data.ladeId) touchLade(editing.ladeId);
-                log('Bewerkt', data.naam, (changes.join(', ') || 'Geen velden gewijzigd') + (values.viaBalans ? ' (via Controle)' : ''));
+                log('Bewerkt', data.naam, (changes.join(', ') || 'Geen velden gewijzigd') + (values.viaBalans ? ' (via Controle)' : ''), data.vriezerId);
                 notify(`${data.naam} bijgewerkt`);
             } else {
                 const n = Math.min(50, Math.max(1, parseInt(times) || 1));
                 await Promise.all(Array.from({ length: n }, () => db.collection('items').add(data)));
                 touchLade(data.ladeId);
-                log('Toevoegen', data.naam, `${n > 1 ? n + ' losse items' : data.aantal + ' ' + data.eenheid} in ${where}${values.viaBalans ? ' (via Controle)' : ''}`);
+                log('Toevoegen', data.naam, `${n > 1 ? n + ' losse items' : data.aantal + ' ' + data.eenheid} in ${where}${values.viaBalans ? ' (via Controle)' : ''}`, data.vriezerId);
                 notify(n > 1 ? `${n}× ${data.naam} toegevoegd` : `${data.naam} toegevoegd`);
                 if (fromShoppingId) db.collection('shoppingList').doc(fromShoppingId).delete().catch(() => { });
             }
@@ -361,7 +362,7 @@ export function StoreProvider({ children }) {
             await db.collection('items').doc(item.id).update(patch);
             if ('foto' in patch && item.foto && item.foto !== (patch.foto || '')) forget(item.foto);
             touchLade(patch.ladeId || item.ladeId);
-            if (logText) log('Bewerkt', item.naam, logText);
+            if (logText) log('Bewerkt', item.naam, logText, item.vriezerId);
         },
 
         // Gebruik een deel van een product. Geeft true terug als het product daarmee op is
@@ -378,13 +379,13 @@ export function StoreProvider({ children }) {
             await db.collection('items').doc(item.id).update({ aantal: newAantal, prijs: item.prijs == null ? null : round2(prijs - usedValue) });
             if (reason !== 'other') bumpStats(reason, 1, usedValue);
             const verb = reason === 'wasted' ? 'weggegooid' : reason === 'other' ? 'afgetrokken' : 'gebruikt';
-            log(reason === 'consumed' ? 'Geconsumeerd' : 'Bewerkt', item.naam, `- ${amount} ${item.eenheid}${reason === 'wasted' ? ' (weggegooid)' : reason === 'other' ? ' (foutje/anders)' : ''}`);
+            log(reason === 'consumed' ? 'Geconsumeerd' : 'Bewerkt', item.naam, `- ${amount} ${item.eenheid}${reason === 'wasted' ? ' (weggegooid)' : reason === 'other' ? ' (foutje/anders)' : ''}`, item.vriezerId);
             notify(`${formatAantal(amount)} ${item.eenheid} ${item.naam} ${verb}`, 'success', {
                 label: 'Ongedaan',
                 fn: async () => {
                     await db.collection('items').doc(item.id).update({ aantal: current, prijs: item.prijs == null ? null : prijs });
                     if (reason !== 'other') bumpStats(reason, -1, -usedValue);
-                    log('Bewerkt', item.naam, 'Ongedaan gemaakt');
+                    log('Bewerkt', item.naam, 'Ongedaan gemaakt', item.vriezerId);
                 }
             });
             actions.checkMinimum({ ...item, aantal: newAantal });
@@ -400,7 +401,7 @@ export function StoreProvider({ children }) {
             if (reason === 'consumed') bumpStats('consumed', 1, value);
             if (reason === 'wasted') bumpStats('wasted', 1, value);
             touchLade(item.ladeId);
-            log('Verwijderd', item.naam, reason === 'consumed' ? 'Opgegeten' : reason === 'wasted' ? 'Weggegooid (verspild)' : 'Verwijderd');
+            log('Verwijderd', item.naam, reason === 'consumed' ? 'Opgegeten' : reason === 'wasted' ? 'Weggegooid (verspild)' : 'Verwijderd', item.vriezerId);
             let shopRef = null;
             if (shoppingOpt) {
                 shopRef = await db.collection('shoppingList').add({
@@ -415,7 +416,7 @@ export function StoreProvider({ children }) {
                     if (reason === 'consumed') bumpStats('consumed', -1, -value);
                     if (reason === 'wasted') bumpStats('wasted', -1, -value);
                     if (shopRef) shopRef.delete().catch(() => { });
-                    log('Toevoegen', item.naam, 'Verwijderen ongedaan gemaakt');
+                    log('Toevoegen', item.naam, 'Verwijderen ongedaan gemaakt', item.vriezerId);
                 }
             });
         },
@@ -423,7 +424,7 @@ export function StoreProvider({ children }) {
         async deleteItems(ids) {
             const list = derived.items.filter(i => ids.includes(i.id));
             await runBatched(list.map(i => b => b.delete(db.collection('items').doc(i.id))));
-            list.forEach(i => { log('Verwijderd', i.naam, 'Via selectie'); if (i.foto) forget(i.foto); });
+            list.forEach(i => { log('Verwijderd', i.naam, 'Via selectie', i.vriezerId); if (i.foto) forget(i.foto); });
             notify(`${list.length} producten verwijderd`);
         },
 
@@ -432,7 +433,7 @@ export function StoreProvider({ children }) {
             const loc = derived.locById[vriezerId];
             await runBatched(ids.map(id => b => b.update(db.collection('items').doc(id), { vriezerId, ladeId: ladeId || '', ladeNaam: lade ? lade.naam : '' })));
             touchLade(ladeId);
-            derived.items.filter(i => ids.includes(i.id)).forEach(i => log('Bewerkt', i.naam, `Verplaatst naar ${loc ? loc.naam : '?'}${lade ? ' › ' + lade.naam : ''}`));
+            derived.items.filter(i => ids.includes(i.id)).forEach(i => log('Bewerkt', i.naam, `Verplaatst naar ${loc ? loc.naam : '?'}${lade ? ' › ' + lade.naam : ''}`, vriezerId));
             notify(ids.length === 1 ? 'Verplaatst' : `${ids.length} producten verplaatst`);
         },
 
@@ -559,8 +560,8 @@ export function StoreProvider({ children }) {
                 ...list.map(i => b => b.delete(db.collection('items').doc(i.id))),
                 ...upd.map(c => b => b.update(db.collection('items').doc(c.item.id), { aantal: c.aantal }))
             ]);
-            list.forEach(i => log('Verwijderd', i.naam, 'Ligt niet meer in lade (via Controle)'));
-            upd.forEach(c => log('Bewerkt', c.item.naam, `Aantal: ${c.item.aantal} ➔ ${c.aantal} (via Controle)`));
+            list.forEach(i => log('Verwijderd', i.naam, 'Ligt niet meer in lade (via Controle)', i.vriezerId));
+            upd.forEach(c => log('Bewerkt', c.item.naam, `Aantal: ${c.item.aantal} ➔ ${c.aantal} (via Controle)`, c.item.vriezerId));
             await db.collection('lades').doc(lade.id).update({ laatstGecontroleerd: new Date(), laatstGewijzigd: new Date() }).catch(() => { });
             notify(`${lade.naam} gecontroleerd`);
         },
