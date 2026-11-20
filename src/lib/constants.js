@@ -1,8 +1,25 @@
 // Vaste configuratie van de app. Alles wat hier staat is statisch (geen Firestore).
 
-export const APP_VERSION = '11.0';
+export const APP_VERSION = '12.0';
 
 export const VERSION_HISTORY = [
+    {
+        version: '12.0',
+        changes: [
+            'Nieuw icoon: een inox diepvriezer vol boodschappen. Op iPhone zie je het pas als je de app opnieuw op je beginscherm zet.',
+            'Barcode scannen: scan een product en de app vult naam, categorie en foto in. Gekende barcodes worden voortaan meteen herkend.',
+            'Etiketten: druk etiketten af met een QR-code. Scan die met de scanknop in de app en je ziet meteen het product.',
+            "Foto's: geef een product, lade of schap een foto. Tik op de foto om hem groot te bekijken of te verwijderen.",
+            'Vriezerkaart: zie in één oogopslag wat in welke lade ligt.',
+            'Meldingen op je gsm: krijg een seintje als iets bijna vervalt of als je een bericht krijgt. Zet ze aan bij Instellingen.',
+            'Gezinsleden: kies wie het toestel gebruikt, dan zie je in het logboek wie wat toevoegde.',
+            'Snelkoppelingen: houd het app-icoon ingedrukt om meteen te scannen, iets toe te voegen of je lijstje te openen.',
+            'Samen beheren: deel je voorraad met huisgenoten, of geef familie een bekijk-link zonder account.',
+            'Rondleiding: een volledige rondleiding door de app, altijd terug te vinden via Instellingen → Hulp.',
+            'Berichten: belangrijke berichten van Voorraad. verschijnen als pop-up of bovenaan de app.',
+            'Opgelost: lege lijsten bij het laden, dubbele namen in gedeelde voorraden, oude logo na vernieuwen en een te brede instellingenpagina op gsm.'
+        ]
+    },
     {
         version: '11.0',
         changes: [
