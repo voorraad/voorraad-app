@@ -47,7 +47,8 @@ export async function disablePush() {
     await sub.unsubscribe();
 }
 
-export const sendTest = (uid, soort = 'test') => db.collection('pushTest').add({ uid, soort, op: new Date() });
+// subId: enkel naar dat ene toestel (pushAbonnementen/{subId}); zonder: naar alle toestellen van de gebruiker.
+export const sendTest = (uid, soort = 'test', subId = null) => db.collection('pushTest').add({ uid, soort, op: new Date(), ...(subId ? { subId } : {}) });
 
 export function deviceName() {
     const ua = navigator.userAgent;

@@ -21,7 +21,7 @@ export function ServerPanel() {
     const online = last && Date.now() - last < 10 * 60000;
     const [subs, setSubs] = useState(null);
     useEffect(() => db.collection('pushAbonnementen').onSnapshot(s => setSubs(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => setSubs([])), []);
-    const test = async (uid, soort) => { await sendTest(uid, soort); actions.notify('Opdracht naar de server gestuurd'); };
+    const test = async (uid, soort, s) => { await sendTest(uid, soort, s ? s.id : null); actions.notify(s ? `Testmelding naar ${s.toestel || 'dit toestel'} gestuurd` : 'Opdracht naar de server gestuurd'); };
 
     return (
         <div className="grid gap-6 lg:grid-cols-2 items-start">
@@ -40,7 +40,7 @@ export function ServerPanel() {
                             <dl className="text-sm divide-y divide-stone-100 dark:divide-stone-800">
                                 <Fact k="Dagelijkse melding" v={`om ${p.meldingUur || '08:00'}`} />
                                 <Fact k="Laatste ronde" v={p.laatsteRonde ? `${formatDateTime(p.laatsteRonde.op)} · ${plural(p.laatsteRonde.verstuurd || 0, 'melding', 'meldingen')}` : 'nog niet'} />
-                                <Fact k="Laatste test" v={p.laatsteTest ? `${formatDateTime(p.laatsteTest.op)} · ${p.laatsteTest.verstuurd ? 'aangekomen bij ' + plural(p.laatsteTest.verstuurd, 'toestel', 'toestellen') : 'geen toestel bereikt'}` : '—'} />
+                                <Fact k="Laatste test" v={p.laatsteTest ? `${formatDateTime(p.laatsteTest.op)} · ${p.laatsteTest.verstuurd ? 'aangekomen ' + (p.laatsteTest.toestel ? 'op ' + p.laatsteTest.toestel : 'bij ' + plural(p.laatsteTest.verstuurd, 'toestel', 'toestellen')) : 'geen toestel bereikt'}` : '—'} />
                                 <Fact k="Foto-opslag" v={p.fotoUrl ? p.fotoUrl : 'uit (foto\'s blijven in de database)'} />
                             </dl>
                         )}
@@ -65,14 +65,15 @@ export function ServerPanel() {
                                 <span className={cx('w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold', userTone(u.id, usersList).pill)}>{(u.email || '?')[0].toUpperCase()}</span>
                                 <p className="flex-1 text-sm font-medium truncate">{nameOf(u)}</p>
                                 <a href={`#/admin/dashboard/${u.id}/meldingen`} className="text-sm font-semibold text-teal-700 dark:text-teal-300 px-2">Aanpassen</a>
-                                <Button size="sm" variant="ghost" icon="Bell" onClick={() => test(u.id, 'test')}>Test</Button>
+                                <Button size="sm" variant="ghost" icon="Bell" onClick={() => test(u.id, 'test')}>{subs.filter(s => s.uid === u.id).length > 1 ? 'Test alle' : 'Test'}</Button>
                             </div>
                             <div className="ml-11 mt-1"><MeldingSamenvatting u={u} standaardUur={p.meldingUur || '08:00'} /></div>
                             <ul className="ml-11 mt-1 space-y-0.5">
                                 {subs.filter(s => s.uid === u.id).map(s => (
                                     <li key={s.id} className="text-xs text-stone-500 flex items-center gap-2">
                                         <Icon name="Bell" size={12} />{s.toestel || 'Toestel'} · sinds {formatDateTime(s.gemaaktOp)}
-                                        <button type="button" className="ml-auto text-stone-400 hover:text-red-600" aria-label="Verwijderen" onClick={async () => { if (await confirm({ title: 'Meldingen voor dit toestel uitzetten?', confirmLabel: 'Uitzetten', danger: true })) db.collection('pushAbonnementen').doc(s.id).delete(); }}><Icon name="X" size={14} /></button>
+                                        <button type="button" className="ml-auto h-7 px-2 rounded-lg font-semibold text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40" onClick={() => test(u.id, 'test', s)}>Test</button>
+                                        <button type="button" className="text-stone-400 hover:text-red-600" aria-label="Verwijderen" onClick={async () => { if (await confirm({ title: 'Meldingen voor dit toestel uitzetten?', confirmLabel: 'Uitzetten', danger: true })) db.collection('pushAbonnementen').doc(s.id).delete(); }}><Icon name="X" size={14} /></button>
                                     </li>
                                 ))}
                             </ul>

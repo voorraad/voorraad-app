@@ -10,7 +10,7 @@ import admin from 'firebase-admin';
 import webpush from 'web-push';
 import { itemStatus, shortText } from './status.js';
 
-const VERSIE = '1.3.0';
+const VERSIE = '1.3.1';
 const DATA = process.env.DATA_DIR || '/data';
 const CFG = {
     serviceAccount: process.env.SERVICE_ACCOUNT || path.join(DATA, 'service-account.json'),
@@ -52,8 +52,10 @@ async function heartbeat(extra = {}) {
 }
 
 // ---------- Versturen ----------
-async function sendToUser(uid, payload) {
-    const subs = await db.collection('pushAbonnementen').where('uid', '==', uid).get();
+async function sendToUser(uid, payload, subId = null) {
+    const subs = subId
+        ? { docs: [await db.collection('pushAbonnementen').doc(subId).get()].filter(d => d.exists && d.data().uid === uid) }
+        : await db.collection('pushAbonnementen').where('uid', '==', uid).get();
     let ok = 0;
     await Promise.all(subs.docs.map(async d => {
         try {
@@ -309,15 +311,16 @@ db.collection('settings').doc('mededeling').onSnapshot(d => {
 // Testmeldingen vanuit de app (pushTest/{id} = { uid, soort: 'test' | 'voorraad' })
 db.collection('pushTest').onSnapshot(s => {
     s.docChanges().filter(c => c.type === 'added').forEach(async c => {
-        const { uid, soort } = c.doc.data();
-        let msg = { title: 'Testmelding', body: 'Meldingen werken op dit toestel 🎉', url: CFG.appUrl, tag: 'test' };
+        const { uid, soort, subId } = c.doc.data();
+        const toestel = subId ? ((await db.collection('pushAbonnementen').doc(subId).get().catch(() => null))?.data()?.toestel || '') : '';
+        let msg = { title: 'Testmelding', body: (toestel ? `Meldingen werken op ${toestel}` : 'Meldingen werken op dit toestel') + ' 🎉', url: CFG.appUrl, tag: 'test' };
         let n = 0;
         if (soort === 'voorraad') {
             const list = await dailyMessages(uid, { alles: true });
             for (const m of list) n += await sendToUser(uid, m);
             if (!list.length) n = await sendToUser(uid, { title: 'Alles in orde', body: 'Er moet vandaag niets dringend op.', url: CFG.appUrl, tag: 'test' });
-        } else n = await sendToUser(uid, msg);
-        await pushDoc.set({ laatsteTest: { uid, soort: soort || 'test', verstuurd: n, op: FV.serverTimestamp() } }, { merge: true }).catch(() => { });
+        } else n = await sendToUser(uid, msg, subId || null);
+        await pushDoc.set({ laatsteTest: { uid, soort: soort || 'test', verstuurd: n, op: FV.serverTimestamp(), ...(toestel ? { toestel } : {}) } }, { merge: true }).catch(() => { });
         await c.doc.ref.delete().catch(() => { });
         log('Testmelding', uid, soort, n);
     });
