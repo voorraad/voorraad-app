@@ -6,6 +6,7 @@ import { Toast, Button, IconButton, Sheet, metPunt } from './components/ui.jsx';
 import { isIos, standalone } from './lib/push.js';
 const ICOON_VERSIE = '14'; // verhogen bij een nieuw app-icoon
 import { ItemSheet, ConsumeSheet } from './components/items.jsx';
+import { UrgentSheet } from './components/Urgent.jsx';
 import ItemForm from './components/ItemForm.jsx';
 import AuditSheet from './components/AuditSheet.jsx';
 import { ConfirmDialog, PromptDialog, RemoveDialog, MoveSheet, PlanSheet, NewsSheet, Tour } from './components/dialogs.jsx';
@@ -83,6 +84,12 @@ function Shell() {
         }
         else { go('voorraad'); actions.notify('Dit product staat niet (meer) in deze voorraad.', 'error'); }
     }, [route.page, route.sub, dataLoaded]);
+    // Pushmelding 'verlopen / vervalt binnenkort' (#/eerst/<groep>): volledige lijst openen.
+    useEffect(() => {
+        if (route.page !== 'eerst') return;
+        go('voorraad/vriezer');
+        ui.openUrgent(route.sub || true);
+    }, [route.page, route.sub]);
     // Snelkoppeling van het beginscherm: ?actie=scan | nieuw | eerst
     const actieDone = useRef(false);
     useEffect(() => {
@@ -93,7 +100,7 @@ function Shell() {
         history.replaceState(null, '', location.pathname + location.hash);
         if (a === 'scan' && canSee('scan')) ui.openScan({});
         else if (a === 'nieuw' && canSee('toevoegen')) openForm({ type: 'vriezer', nonce: Date.now() });
-        else if (a === 'eerst') go('voorraad/vriezer');
+        else if (a === 'eerst') { go('voorraad/vriezer'); ui.openUrgent(); }
     }, [dataLoaded]);
     const [switcher, setSwitcher] = useState(false);
     const openCount = shopping.filter(s => !s.checked).length;
@@ -250,6 +257,7 @@ function GlobalSheets() {
             <ScanSheet />
             <LabelSheet />
             <PhotoViewer />
+            <UrgentSheet />
             <ConfirmDialog />
             <Toast toast={toast} onClose={() => setToast(null)} />
         </>

@@ -3,7 +3,7 @@
 //   Zo krijg je altijd meteen de nieuwste versie, en werkt de app toch offline.
 // - Firebase-scripts en lettertypes van CDN: uit de cache (die veranderen niet per versie).
 // - Firestore/inloggen worden NIET onderschept; Firestore heeft zijn eigen offline-opslag.
-const BUILD = 'mwomlvnw';
+const BUILD = 'mwon8uap';
 const CACHE = 'voorraad-' + BUILD;
 const CDN_CACHE = 'voorraad-cdn-v1';
 
@@ -99,7 +99,12 @@ self.addEventListener('notificationclick', (event) => {
     event.waitUntil((async () => {
         const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
         const open = all.find(c => c.url.startsWith(self.registration.scope));
-        if (open) { await open.focus(); if ('navigate' in open) return open.navigate(url); return; }
+        if (open) {
+            await open.focus();
+            // De open app zelf laten navigeren (werkt ook op iPhone, waar navigate() niet altijd kan).
+            open.postMessage({ type: 'navigeer', url });
+            return;
+        }
         return self.clients.openWindow(url);
     })());
 });

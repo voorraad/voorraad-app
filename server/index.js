@@ -10,7 +10,7 @@ import admin from 'firebase-admin';
 import webpush from 'web-push';
 import { itemStatus, shortText } from './status.js';
 
-const VERSIE = '1.1.0';
+const VERSIE = '1.2.0';
 const DATA = process.env.DATA_DIR || '/data';
 const CFG = {
     serviceAccount: process.env.SERVICE_ACCOUNT || path.join(DATA, 'service-account.json'),
@@ -68,77 +68,194 @@ async function sendToUser(uid, payload) {
 }
 
 const today = () => new Date().toLocaleDateString('sv-SE'); // JJJJ-MM-DD in de tijdzone van de container
-async function urgentFor(uid) {
+const dateKey = (d) => d.toLocaleDateString('sv-SE');
+const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d; };
+
+// ---------- Meldingvoorkeuren per gebruiker (users/{uid}.meldingen) ----------
+// Zelfde standaarden als in de app (src/lib/meldingen.js).
+const STANDAARD = { tijd: '', verlopen: true, bijna: true, lang: true, menu: true, lijst: false, lijstDag: 6, week: false, uitnodiging: true, bericht: true };
+const prefsOf = (u) => {
+    const p = { ...STANDAARD, ...((u && u.meldingen) || {}) };
+    if (u && u.notificationsEnabled === false && !(u.meldingen)) { p.verlopen = p.bijna = p.lang = p.menu = false; } // oude schakelaar
+    return p;
+};
+const shortList = (names, max = 5) => names.slice(0, max).join(', ') + (names.length > max ? ` en nog ${names.length - max}` : '');
+const plural = (n, een, meer) => `${n} ${n === 1 ? een : meer}`;
+
+// Gebruikers en abonnementen live bijhouden (klein aantal, scheelt veel lezen)
+const users = new Map();
+db.collection('users').onSnapshot(s => s.docChanges().forEach(c => c.type === 'removed' ? users.delete(c.doc.id) : users.set(c.doc.id, c.doc.data())),
+    e => log('Gebruikers volgen mislukt:', e.message));
+const subUids = new Set();
+db.collection('pushAbonnementen').onSnapshot(s => { subUids.clear(); s.docs.forEach(d => subUids.add(d.data().uid)); }, e => log('Abonnementen volgen mislukt:', e.message));
+
+async function ownersOf(uid) {
     const owners = new Set([uid]);
     const t = await db.collection('toegang').where('uid', '==', uid).get().catch(() => ({ docs: [] }));
     t.docs.forEach(d => owners.add(d.data().ownerId));
-    const out = [];
-    for (const owner of owners) {
-        const [v, i] = await Promise.all([db.collection('vriezers').where('userId', '==', owner).get(), db.collection('items').where('userId', '==', owner).get()]);
+    return [...owners];
+}
+async function dataFor(uid) {
+    const out = { urgent: [], menu: [], lijst: [] };
+    for (const owner of await ownersOf(uid)) {
+        const [v, i, l] = await Promise.all([
+            db.collection('vriezers').where('userId', '==', owner).get(),
+            db.collection('items').where('userId', '==', owner).get(),
+            db.collection('shoppingList').where('userId', '==', owner).get()]);
         const types = Object.fromEntries(v.docs.map(d => [d.id, d.data().type || 'vriezer']));
         i.docs.forEach(d => {
-            const it = d.data();
+            const it = { id: d.id, ...d.data() };
+            if (it.geplandeDatum) out.menu.push({ naam: it.naam, dag: it.geplandeDatum, type: types[it.vriezerId] || null });
             if (it.vriezerId === 'custom_menu' || !types[it.vriezerId]) return;
             const st = itemStatus(it, types[it.vriezerId]);
-            if (st.level !== 'ok') out.push({ naam: it.naam, st, type: types[it.vriezerId] });
+            if (st.level !== 'ok') out.urgent.push({ id: it.id, naam: it.naam, st, type: types[it.vriezerId] });
+        });
+        l.docs.forEach(d => { const x = d.data(); if (!x.checked) out.lijst.push(x.naam); });
+    }
+    out.urgent.sort((a, b) => (a.st.days ?? 0) - (b.st.days ?? 0));
+    return out;
+}
+
+// Alle meldingen die deze gebruiker vandaag krijgt (elk apart, zodat lange lijsten niet wegvallen)
+async function dailyMessages(uid, opts = {}) {
+    const u = users.get(uid) || {};
+    const p = prefsOf(u);
+    const d = await dataFor(uid);
+    const msgs = [];
+    const lvl = (l) => d.urgent.filter(x => x.st.level === l);
+    const urgentMsg = (list, key, title, groep) => {
+        if (!list.length) return;
+        msgs.push({
+            title, tag: 'voorraad-' + key, url: CFG.appUrl + '#/eerst/' + groep,
+            body: list.length === 1 ? `${list[0].naam} (${shortText(list[0].st)}). Tik om te bekijken.`
+                : `${shortList(list.map(x => x.naam))}. Tik voor de volledige lijst.`
+        });
+    };
+    if (p.verlopen || opts.alles) urgentMsg(lvl('expired'), 'verlopen', lvl('expired').length === 1 ? '1 product is verlopen' : `${lvl('expired').length} producten zijn verlopen`, 'now');
+    if (p.bijna || opts.alles) urgentMsg(lvl('soon'), 'bijna', lvl('soon').length === 1 ? '1 product vervalt binnenkort' : `${lvl('soon').length} producten vervallen binnenkort`, 'soon');
+    if (p.lang || opts.alles) urgentMsg(lvl('veryold'), 'lang', lvl('veryold').length === 1 ? '1 product ligt al lang in de vriezer' : `${lvl('veryold').length} producten liggen al lang in de vriezer`, 'now');
+    if (p.menu || opts.alles) {
+        const vandaag = d.menu.filter(x => x.dag === today()).map(x => x.naam);
+        const ontdooien = d.menu.filter(x => x.dag === dateKey(addDays(1)) && x.type === 'vriezer').map(x => x.naam);
+        if (vandaag.length || ontdooien.length) msgs.push({
+            title: vandaag.length ? 'Vandaag op het menu' : 'Morgen op het menu',
+            body: [vandaag.length ? shortList(vandaag, 4) + '.' : '', ontdooien.length ? `Haal ${shortList(ontdooien, 3)} vandaag al uit de diepvries voor morgen.` : ''].filter(Boolean).join(' '),
+            url: CFG.appUrl + '#/menu/week', tag: 'voorraad-menu'
         });
     }
-    const order = { expired: 0, veryold: 1, soon: 2 };
-    return out.sort((a, b) => order[a.st.level] - order[b.st.level]);
+    if ((p.lijst && new Date().getDay() === Number(p.lijstDag)) || (opts.alles && d.lijst.length)) {
+        if (d.lijst.length) msgs.push({ title: `Boodschappen: ${plural(d.lijst.length, 'ding', 'dingen')} op je lijstje`, body: shortList(d.lijst, 6) + '.', url: CFG.appUrl + '#/lijst', tag: 'voorraad-lijst' });
+    }
+    if ((p.week && new Date().getDay() === 0) || opts.alles) {
+        const w = await weekSummary(uid);
+        if (w) msgs.push(w);
+    }
+    return msgs;
 }
-async function stockMessage(uid) {
-    const list = await urgentFor(uid);
-    if (!list.length) return null;
-    const n = list.length;
+
+// Weekoverzicht uit het logboek (laatste 7 dagen, alle voorraden waar je bij kan)
+let logCache = { dag: '', docs: [] };
+async function weekSummary(uid) {
+    if (logCache.dag !== today()) {
+        const s = await db.collection('logs').where('timestamp', '>=', addDays(-7)).get().catch(() => ({ docs: [] }));
+        logCache = { dag: today(), docs: s.docs.map(d => d.data()) };
+    }
+    const owners = new Set(await ownersOf(uid));
+    const mine = logCache.docs.filter(l => owners.has(l.targetUserId));
+    const n = (f) => mine.filter(f).length;
+    const toe = n(l => l.action === 'Toevoegen' && !/ongedaan/i.test(l.details || ''));
+    const op = n(l => l.action === 'Verwijderd' && /Opgegeten/.test(l.details || ''));
+    const weg = n(l => l.action === 'Verwijderd' && /Weggegooid/.test(l.details || ''));
+    if (!toe && !op && !weg) return null;
     return {
-        title: n === 1 ? '1 product moet op' : `${n} producten moeten op`,
-        body: list.slice(0, 4).map(x => `${x.naam} (${shortText(x.st)})`).join(', ') + (n > 4 ? ` en nog ${n - 4}` : ''),
-        url: CFG.appUrl + '#/voorraad/' + list[0].type, tag: 'voorraad-dagelijks'
+        title: 'Je week in Voorraad.',
+        body: `${plural(toe, 'product', 'producten')} toegevoegd, ${op} opgegeten, ${weg} weggegooid.` + (weg === 0 && op > 0 ? ' Niets verspild, goed bezig!' : ''),
+        url: CFG.appUrl + '#/meer/statistieken', tag: 'voorraad-week'
     };
 }
 
-async function dailyRound() {
-    const subs = await db.collection('pushAbonnementen').get();
-    const uids = [...new Set(subs.docs.map(d => d.data().uid))];
+async function dailyFor(uid) {
+    const u = users.get(uid) || {};
+    if (u.disabled || (u.vakantieTot && u.vakantieTot >= today())) return 0;
     let sent = 0;
-    for (const uid of uids) {
-        const u = (await db.collection('users').doc(uid).get()).data() || {};
-        if (u.disabled || u.notificationsEnabled === false || (u.vakantieTot && u.vakantieTot >= today())) continue;
-        const msg = await stockMessage(uid);
-        if (msg) sent += await sendToUser(uid, msg);
-    }
-    log(`Dagelijkse ronde: ${sent} meldingen naar ${uids.length} gebruikers`);
-    await heartbeat({ laatsteRonde: { op: FV.serverTimestamp(), verstuurd: sent, gebruikers: uids.length } });
+    for (const m of await dailyMessages(uid)) sent += await sendToUser(uid, m);
+    return sent;
 }
 
-// Elke 30 s kijken of het tijd is voor de dagelijkse ronde
-setInterval(() => {
-    const now = new Date();
-    const hm = now.toTimeString().slice(0, 5);
-    if (hm >= CFG.uur && state.laatsteDag !== today()) {
-        state.laatsteDag = today(); saveState();
-        dailyRound().catch(e => log('Ronde mislukt:', e.message));
-    }
+// Elke 30 s: wie heeft zijn meldingsuur bereikt en kreeg vandaag nog niets?
+state.dag = state.dag || {};
+let busy = false;
+setInterval(async () => {
+    if (busy || !users.size) return;
+    busy = true;
+    try {
+        const hm = new Date().toTimeString().slice(0, 5);
+        let sent = 0, n = 0;
+        for (const uid of subUids) {
+            if (state.dag[uid] === today()) continue;
+            // Bijgewerkt van een oudere server die vandaag al een ronde deed: niet opnieuw sturen.
+            if (state.laatsteDag === today() && state.dag[uid] === undefined && !state.perGebruiker) { state.dag[uid] = today(); continue; }
+            const tijd = prefsOf(users.get(uid)).tijd || CFG.uur;
+            if (hm < tijd) continue;
+            state.dag[uid] = today(); saveState();
+            try { sent += await dailyFor(uid); n++; } catch (e) { log('Melding mislukt', uid, e.message); }
+        }
+        if (subUids.size && !state.perGebruiker) { state.perGebruiker = true; saveState(); }
+        if (n) { log(`Dagelijkse meldingen: ${sent} naar ${n} gebruikers`); await heartbeat({ laatsteRonde: { op: FV.serverTimestamp(), verstuurd: sent, gebruikers: n } }); }
+    } finally { busy = false; }
 }, 30000);
 setInterval(() => heartbeat(), 5 * 60 * 1000);
 
-// Persoonlijke berichten van een beheerder → meteen een melding
 const started = new Date();
+// Persoonlijke berichten van een beheerder → meteen een melding
 db.collection('berichten').where('gemaaktOp', '>', started).onSnapshot(s => {
     s.docChanges().filter(c => c.type === 'added').forEach(c => {
         const m = c.doc.data();
+        if (!prefsOf(users.get(m.userId)).bericht) return;
         sendToUser(m.userId, { title: 'Bericht van Voorraad.', body: m.text, url: CFG.appUrl, tag: 'bericht-' + c.doc.id })
             .then(n => log('Bericht-melding', m.userId, n));
     });
 }, e => log('Berichten volgen mislukt:', e.message));
+
+// Uitnodiging om samen een voorraad te beheren → melding naar wie uitgenodigd wordt
+db.collection('shares').where('status', '==', 'pending').onSnapshot(s => {
+    s.docChanges().filter(c => c.type === 'added').forEach(c => {
+        const sh = c.doc.data();
+        if (new Date(sh.createdAt || 0) < started) return;
+        const email = (sh.sharedWithEmail || '').toLowerCase();
+        for (const [uid, u] of users) {
+            if ((u.email || '').toLowerCase() !== email || !prefsOf(u).uitnodiging) continue;
+            const van = (users.get(sh.ownerId) || {}).displayName || sh.ownerEmail || 'Iemand';
+            sendToUser(uid, { title: 'Uitnodiging om samen te beheren', body: `${van} nodigt je uit om samen de voorraad bij te houden. Tik om te antwoorden.`, url: CFG.appUrl + '#/voorraad', tag: 'uitnodiging-' + c.doc.id })
+                .then(n => log('Uitnodiging-melding', uid, n));
+        }
+    });
+}, e => log('Uitnodigingen volgen mislukt:', e.message));
+
+// Belangrijke mededeling (niet weg te klikken) → meteen een melding naar iedereen
+let laatsteMededeling = null;
+db.collection('settings').doc('mededeling').onSnapshot(d => {
+    const m = d.exists ? d.data() : null;
+    const first = laatsteMededeling === null; laatsteMededeling = m ? m.versie : 0;
+    if (first || !m || !m.active || !m.vast || !(m.text || '').trim()) return;
+    for (const uid of subUids) {
+        if (!prefsOf(users.get(uid)).bericht) continue;
+        sendToUser(uid, { title: 'Belangrijk bericht van Voorraad.', body: m.text, url: CFG.appUrl, tag: 'mededeling' });
+    }
+    log('Mededeling als melding verstuurd naar', subUids.size, 'gebruikers');
+}, e => log('Mededeling volgen mislukt:', e.message));
 
 // Testmeldingen vanuit de app (pushTest/{id} = { uid, soort: 'test' | 'voorraad' })
 db.collection('pushTest').onSnapshot(s => {
     s.docChanges().filter(c => c.type === 'added').forEach(async c => {
         const { uid, soort } = c.doc.data();
         let msg = { title: 'Testmelding', body: 'Meldingen werken op dit toestel 🎉', url: CFG.appUrl, tag: 'test' };
-        if (soort === 'voorraad') msg = (await stockMessage(uid)) || { title: 'Alles in orde', body: 'Er moet vandaag niets dringend op.', url: CFG.appUrl, tag: 'test' };
-        const n = await sendToUser(uid, msg);
+        let n = 0;
+        if (soort === 'voorraad') {
+            const list = await dailyMessages(uid, { alles: true });
+            for (const m of list) n += await sendToUser(uid, m);
+            if (!list.length) n = await sendToUser(uid, { title: 'Alles in orde', body: 'Er moet vandaag niets dringend op.', url: CFG.appUrl, tag: 'test' });
+        } else n = await sendToUser(uid, msg);
         await pushDoc.set({ laatsteTest: { uid, soort: soort || 'test', verstuurd: n, op: FV.serverTimestamp() } }, { merge: true }).catch(() => { });
         await c.doc.ref.delete().catch(() => { });
         log('Testmelding', uid, soort, n);

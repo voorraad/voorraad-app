@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Icon from '../lib/icons.jsx';
 import { useStore } from '../state/store.jsx';
+import { useUi } from '../state/ui.jsx';
 import { Sheet, Button, Card } from './ui.jsx';
 import { ItemRow } from './items.jsx';
 import { cx, itemStatus, URGENCY } from '../lib/utils.js';
@@ -31,39 +32,53 @@ export function useUrgent() {
 // Klein balkje bovenaan de voorraad: wat moet eerst op (over alle locaties heen)?
 export function UrgentBanner() {
     const urgent = useUrgent();
-    const [open, setOpen] = useState(false);
+    const { openUrgent } = useUi();
     const parts = GROUPS.filter(g => urgent[g.id].length);
     if (!parts.length) return null;
     const hasExpired = urgent.now.length > 0;
     return (
-        <>
-            <button type="button" onClick={() => setOpen(true)}
-                className={cx('w-full flex items-center gap-3 px-4 h-12 rounded-2xl text-left border transition-colors print:hidden',
-                    hasExpired ? 'bg-red-50 border-red-200 hover:bg-red-100 dark:bg-red-950/30 dark:border-red-900' : 'bg-amber-50 border-amber-200 hover:bg-amber-100 dark:bg-amber-950/30 dark:border-amber-900')}>
-                <Icon name="Alert" size={18} className={hasExpired ? 'text-red-600' : 'text-amber-600'} />
-                <span className="flex-1 min-w-0 text-sm truncate">
-                    <b className="text-stone-900 dark:text-white">Eerst opmaken: </b>
-                    {parts.map((g, i) => <span key={g.id} className={g.tone}>{i > 0 && <span className="text-stone-400"> · </span>}{urgent[g.id].length} {g.short}</span>)}
-                </span>
-                <Icon name="ChevronRight" size={18} className="text-stone-400 flex-shrink-0" />
-            </button>
-            <Sheet open={open} onClose={() => setOpen(false)} title="Eerst opmaken" subtitle="Over al je vriezers, frigo's en kasten" size="lg">
-                <div className="space-y-4">
-                    {parts.map(g => (
-                        <Card key={g.id} className="overflow-hidden">
-                            <div className="flex items-center gap-2 px-4 pt-3 pb-1">
-                                <Icon name={g.icon} size={16} className={g.tone} />
-                                <h4 className={cx('font-semibold text-sm', g.tone)}>{g.title}</h4>
-                                <span className="text-xs text-stone-400 tabular-nums">{urgent[g.id].length}</span>
-                            </div>
-                            <ul className="divide-y divide-stone-100 dark:divide-stone-800/80">
-                                {urgent[g.id].map(({ item, type }) => <ItemRow key={item.id} item={item} type={type} showWhere />)}
-                            </ul>
-                        </Card>
-                    ))}
-                </div>
-            </Sheet>
-        </>
+        <button type="button" onClick={() => openUrgent()}
+            className={cx('w-full flex items-center gap-3 px-4 h-12 rounded-2xl text-left border transition-colors print:hidden',
+                hasExpired ? 'bg-red-50 border-red-200 hover:bg-red-100 dark:bg-red-950/30 dark:border-red-900' : 'bg-amber-50 border-amber-200 hover:bg-amber-100 dark:bg-amber-950/30 dark:border-amber-900')}>
+            <Icon name="Alert" size={18} className={hasExpired ? 'text-red-600' : 'text-amber-600'} />
+            <span className="flex-1 min-w-0 text-sm truncate">
+                <b className="text-stone-900 dark:text-white">Eerst opmaken: </b>
+                {parts.map((g, i) => <span key={g.id} className={g.tone}>{i > 0 && <span className="text-stone-400"> · </span>}{urgent[g.id].length} {g.short}</span>)}
+            </span>
+            <Icon name="ChevronRight" size={18} className="text-stone-400 flex-shrink-0" />
+        </button>
+    );
+}
+
+// Volledige lijst 'Eerst opmaken' (ook te openen vanuit een pushmelding: #/eerst/<groep>)
+export function UrgentSheet() {
+    const urgent = useUrgent();
+    const { urgentOpen, closeUrgent } = useUi();
+    const parts = GROUPS.filter(g => urgent[g.id].length);
+    useEffect(() => {
+        if (typeof urgentOpen !== 'string') return;
+        const t = setTimeout(() => { const el = document.getElementById('eerst-' + urgentOpen); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 350);
+        return () => clearTimeout(t);
+    }, [urgentOpen]);
+    if (!urgentOpen) return null;
+    return (
+        <Sheet open onClose={closeUrgent} title="Eerst opmaken" subtitle="Over al je vriezers, frigo's en kasten" size="lg">
+            {!parts.length && <p className="text-sm text-stone-500 flex items-center gap-2"><Icon name="Check" size={18} className="text-emerald-600" />Niets verlopen en niets dat deze week op moet.</p>}
+            <div className="space-y-4">
+                {parts.map(g => (
+                    <Card key={g.id} id={'eerst-' + g.id} className={cx('overflow-hidden scroll-mt-4', urgentOpen === g.id && 'ring-2 ring-teal-500/40')}>
+                        <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+                            <Icon name={g.icon} size={16} className={g.tone} />
+                            <h4 className={cx('font-semibold text-sm', g.tone)}>{g.title}</h4>
+                            <span className="text-xs text-stone-400 tabular-nums">{urgent[g.id].length}</span>
+                        </div>
+                        <ul className="divide-y divide-stone-100 dark:divide-stone-800/80">
+                            {urgent[g.id].map(({ item, type }) => <ItemRow key={item.id} item={item} type={type} showWhere />)}
+                        </ul>
+                    </Card>
+                ))}
+            </div>
+        </Sheet>
     );
 }
 
