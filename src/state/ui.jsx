@@ -17,6 +17,16 @@ export function UiProvider({ children }) {
         window.addEventListener('hashchange', onHash);
         return () => window.removeEventListener('hashchange', onHash);
     }, []);
+    // Tik op een pushmelding terwijl de app al open is: de service worker vraagt om te navigeren.
+    useEffect(() => {
+        if (!('serviceWorker' in navigator)) return;
+        const onMsg = (e) => {
+            if (!e.data || e.data.type !== 'navigeer') return;
+            try { const h = new URL(e.data.url).hash; window.location.hash = h || '#/'; } catch (err) { }
+        };
+        navigator.serviceWorker.addEventListener('message', onMsg);
+        return () => navigator.serviceWorker.removeEventListener('message', onMsg);
+    }, []);
     const go = useCallback((path) => {
         const target = '#/' + path.replace(/^#?\/?/, '');
         if (window.location.hash !== target) window.location.hash = target;
@@ -36,6 +46,7 @@ export function UiProvider({ children }) {
     const [scan, setScan] = useState(null);         // { onCode? } – barcode-scanner
     const [labelIds, setLabelIds] = useState(null); // etiketten afdrukken
     const [photo, setPhoto] = useState(null);       // foto groot bekijken
+    const [urgentOpen, setUrgentOpen] = useState(null); // 'Eerst opmaken'-lijst: true of de groep (now|soon|week)
 
     const confirm = useCallback((opts) => new Promise(resolve => setConfirmState({ ...opts, resolve })), []);
     const prompt = useCallback((opts) => new Promise(resolve => setPromptState({ ...opts, resolve })), []);
@@ -54,7 +65,8 @@ export function UiProvider({ children }) {
         showTour, setShowTour, showNews, setShowNews,
         scan, openScan: (o) => setScan(o || {}), closeScan: () => setScan(null),
         labelIds, openLabels: setLabelIds, closeLabels: () => setLabelIds(null),
-        photo, openPhoto: setPhoto, closePhoto: () => setPhoto(null)
+        photo, openPhoto: setPhoto, closePhoto: () => setPhoto(null),
+        urgentOpen, openUrgent: (g) => setUrgentOpen(g || true), closeUrgent: () => setUrgentOpen(null)
     };
     return <UiCtx.Provider value={value}>{children}</UiCtx.Provider>;
 }
