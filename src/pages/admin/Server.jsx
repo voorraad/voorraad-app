@@ -6,6 +6,7 @@ import { useUi } from '../../state/ui.jsx';
 import { Card, Button, SectionTitle } from '../../components/ui.jsx';
 import { userTone } from '../../lib/userColors.js';
 import { useAllUserData, refreshAllUserData } from './data.js';
+import { MeldingSamenvatting } from './Meldingen.jsx';
 import { sendTest, uploadPhoto, cleanupPhotos } from '../../lib/push.js';
 import { cx, toDate, formatDateTime, plural } from '../../lib/utils.js';
 
@@ -63,8 +64,10 @@ export function ServerPanel() {
                             <div className="flex items-center gap-3">
                                 <span className={cx('w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold', userTone(u.id, usersList).pill)}>{(u.email || '?')[0].toUpperCase()}</span>
                                 <p className="flex-1 text-sm font-medium truncate">{nameOf(u)}</p>
+                                <a href={`#/admin/dashboard/${u.id}/meldingen`} className="text-sm font-semibold text-teal-700 dark:text-teal-300 px-2">Aanpassen</a>
                                 <Button size="sm" variant="ghost" icon="Bell" onClick={() => test(u.id, 'test')}>Test</Button>
                             </div>
+                            <div className="ml-11 mt-1"><MeldingSamenvatting u={u} standaardUur={p.meldingUur || '08:00'} /></div>
                             <ul className="ml-11 mt-1 space-y-0.5">
                                 {subs.filter(s => s.uid === u.id).map(s => (
                                     <li key={s.id} className="text-xs text-stone-500 flex items-center gap-2">

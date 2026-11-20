@@ -68,14 +68,21 @@ service cloud.firestore {
     }
 
     // ---------- Gebruikers ----------
+    // Berichten en uitnodigingen kan enkel een beheerder uitzetten (users/{uid}.meldingen).
+    function meldingenSlotOk() {
+      let nieuw = request.resource.data.get('meldingen', {});
+      let oud = resource.data.get('meldingen', {});
+      return (nieuw.get('bericht', true) == true || nieuw.get('bericht', true) == oud.get('bericht', true))
+        && (nieuw.get('uitnodiging', true) == true || nieuw.get('uitnodiging', true) == oud.get('uitnodiging', true));
+    }
     match /users/{userId} {
       // Eigen profiel altijd (ook geblokkeerd, voor het blokkeerscherm); profiel van een gedeelde voorraad; admins alles.
       allow get: if signedIn() && (userId == me() || canUse(userId));
       allow list: if isAdmin();
       allow create: if isAdmin() || (signedIn() && userId == me() && request.resource.data.get('disabled', false) != true);
       allow update: if isAdmin()
-        || (signedIn() && userId == me() && !changed(['disabled']))
-        || (canUse(userId) && !changed(['disabled', 'hiddenTabs', 'publicShareEnabled', 'publicShareToken', 'email', 'activeBeheerdeUserId', 'adminKleur']));
+        || (signedIn() && userId == me() && !changed(['disabled']) && meldingenSlotOk())
+        || (canUse(userId) && !changed(['disabled', 'hiddenTabs', 'publicShareEnabled', 'publicShareToken', 'email', 'activeBeheerdeUserId', 'adminKleur', 'meldingen', 'meldingVerzoek']));
       allow delete: if isAdmin();
     }
     match /admins/{uid} {

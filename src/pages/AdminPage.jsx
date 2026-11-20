@@ -9,6 +9,7 @@ import { UserMessages, useUnreadCount } from '../components/Berichten.jsx';
 import { ServerPanel } from './admin/Server.jsx';
 import { OnlineNow, HolidayMode, StorageUsage, NewUserDefaults, MonthReport, isOnline } from './admin/More2.jsx';
 import { GlobalSearch, StockValue, useTotalValue, FeatureUsage, BlockedAttempts, BulkRights, Invites, RestoreUser, SharedBarcodes, CopyLocation, LabelPicker } from './admin/More.jsx';
+import { UserMeldingen, MeldingVerzoekenBanner } from './admin/Meldingen.jsx';
 import { NewUsersBanner, InactiveUsers, inactiveUsers, ActivityChart, WasteRanking, AnnouncementEditor, BackupAll, AdminNote, Cleanup } from './admin/Extra.jsx';
 import { userToneKey, USER_TONE_DOTS, USER_TONE_NAMES } from '../lib/userColors.js';
 import Stock from './Stock.jsx';
@@ -133,6 +134,7 @@ function AdminOverview() {
     return (
         <div className="space-y-6">
             <NewUsersBanner />
+            <MeldingVerzoekenBanner />
             <OnlineNow />
             <GlobalSearch />
             {globalSettings.maintenance && (
@@ -326,6 +328,7 @@ const USER_TABS = [
     { id: 'eenheden', label: 'Eenheden', icon: 'List' },
     { id: 'stats', label: 'Statistieken', icon: 'Chart' },
     { id: 'berichten', label: 'Berichten', icon: 'Message' },
+    { id: 'meldingen', label: 'Meldingen', icon: 'Bell' },
     { id: 'log', label: 'Logboek', icon: 'Log' },
     { id: 'etiketten', label: 'Etiketten afdrukken', icon: 'Printer' },
     { id: 'kopieer', label: 'Locatie kopiëren', icon: 'Copy' },
@@ -467,6 +470,7 @@ function AdminUser() {
                     {sub === 'log' && <Logboek />}
                     {sub === 'opkuisen' && <Cleanup />}
                     {sub === 'berichten' && <UserMessages uid={ownerId} />}
+                    {sub === 'meldingen' && <UserMeldingen u={u} />}
                     {sub === 'etiketten' && <LabelPicker />}
                     {sub === 'kopieer' && <CopyLocation />}
                     {sub === 'rechten' && <Card className="px-4 pb-4 max-w-2xl"><UserRights u={u} /></Card>}

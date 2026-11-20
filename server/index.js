@@ -10,7 +10,7 @@ import admin from 'firebase-admin';
 import webpush from 'web-push';
 import { itemStatus, shortText } from './status.js';
 
-const VERSIE = '1.2.0';
+const VERSIE = '1.3.0';
 const DATA = process.env.DATA_DIR || '/data';
 const CFG = {
     serviceAccount: process.env.SERVICE_ACCOUNT || path.join(DATA, 'service-account.json'),
@@ -71,9 +71,11 @@ const today = () => new Date().toLocaleDateString('sv-SE'); // JJJJ-MM-DD in de 
 const dateKey = (d) => d.toLocaleDateString('sv-SE');
 const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d; };
 
+const started = new Date();
+
 // ---------- Meldingvoorkeuren per gebruiker (users/{uid}.meldingen) ----------
 // Zelfde standaarden als in de app (src/lib/meldingen.js).
-const STANDAARD = { tijd: '', verlopen: true, bijna: true, lang: true, menu: true, lijst: false, lijstDag: 6, week: false, uitnodiging: true, bericht: true };
+const STANDAARD = { tijd: '', verlopen: true, bijna: true, lang: true, menu: true, lijst: false, lijstDag: 6, week: false, uitnodiging: true, bericht: true, wijziging: false, locaties: [] };
 const prefsOf = (u) => {
     const p = { ...STANDAARD, ...((u && u.meldingen) || {}) };
     if (u && u.notificationsEnabled === false && !(u.meldingen)) { p.verlopen = p.bijna = p.lang = p.menu = false; } // oude schakelaar
@@ -84,8 +86,30 @@ const plural = (n, een, meer) => `${n} ${n === 1 ? een : meer}`;
 
 // Gebruikers en abonnementen live bijhouden (klein aantal, scheelt veel lezen)
 const users = new Map();
-db.collection('users').onSnapshot(s => s.docChanges().forEach(c => c.type === 'removed' ? users.delete(c.doc.id) : users.set(c.doc.id, c.doc.data())),
-    e => log('Gebruikers volgen mislukt:', e.message));
+const verzoekGemeld = new Set();
+db.collection('users').onSnapshot(s => s.docChanges().forEach(c => {
+    if (c.type === 'removed') return users.delete(c.doc.id);
+    const u = c.doc.data();
+    users.set(c.doc.id, u);
+    // Vraag om een vergrendelde melding uit te zetten → beheerders verwittigen
+    Object.entries(u.meldingVerzoek || {}).forEach(([soort, op]) => {
+        const d = op && (op.toDate ? op.toDate() : new Date(op));
+        const key = c.doc.id + soort + (d ? d.getTime() : '');
+        if (!d || d < started || verzoekGemeld.has(key)) return;
+        verzoekGemeld.add(key);
+        naarBeheerders({ title: 'Vraag over meldingen', body: `${u.displayName || u.email || 'Een gebruiker'} vraagt om ${soort === 'bericht' ? 'berichten' : 'uitnodigingen'} uit te zetten.`, url: CFG.appUrl + '#/admin/dashboard/' + c.doc.id + '/meldingen', tag: 'verzoek-' + c.doc.id });
+    });
+}), e => log('Gebruikers volgen mislukt:', e.message));
+async function naarBeheerders(msg) {
+    const a = await db.collection('admins').get().catch(() => ({ docs: [] }));
+    for (const d of a.docs) await sendToUser(d.id, msg);
+}
+// Wie kan aan welke voorraad? (eigenaar + toegang)
+const toegang = new Map(); // ownerId → Set(uid)
+db.collection('toegang').onSnapshot(s => {
+    toegang.clear();
+    s.docs.forEach(d => { const t = d.data(); if (!toegang.has(t.ownerId)) toegang.set(t.ownerId, new Set()); toegang.get(t.ownerId).add(t.uid); });
+}, e => log('Toegang volgen mislukt:', e.message));
 const subUids = new Set();
 db.collection('pushAbonnementen').onSnapshot(s => { subUids.clear(); s.docs.forEach(d => subUids.add(d.data().uid)); }, e => log('Abonnementen volgen mislukt:', e.message));
 
@@ -206,7 +230,6 @@ setInterval(async () => {
 }, 30000);
 setInterval(() => heartbeat(), 5 * 60 * 1000);
 
-const started = new Date();
 // Persoonlijke berichten van een beheerder → meteen een melding
 db.collection('berichten').where('gemaaktOp', '>', started).onSnapshot(s => {
     s.docChanges().filter(c => c.type === 'added').forEach(c => {
@@ -231,6 +254,44 @@ db.collection('shares').where('status', '==', 'pending').onSnapshot(s => {
         }
     });
 }, e => log('Uitnodigingen volgen mislukt:', e.message));
+
+// Wijzigingen in een locatie → melding naar wie die locatie volgt (niet naar wie het zelf deed).
+// Wijzigingen worden 90 s gebundeld, zodat je niet per product een melding krijgt.
+const bundels = new Map(); // uid|locId → { list, timer }
+const werkwoord = (l) => l.action === 'Toevoegen' ? (/ongedaan/i.test(l.details || '') ? 'teruggezet' : 'toegevoegd')
+    : l.action === 'Geconsumeerd' ? 'deels gebruikt'
+        : l.action === 'Verwijderd' ? (/Opgegeten/.test(l.details || '') ? 'opgegeten' : /Weggegooid/.test(l.details || '') ? 'weggegooid' : 'verwijderd')
+            : /Verplaatst/.test(l.details || '') ? 'verplaatst' : 'aangepast';
+db.collection('logs').where('timestamp', '>', started).onSnapshot(s => {
+    s.docChanges().filter(c => c.type === 'added').forEach(c => {
+        const l = c.doc.data();
+        if (!l.locId || !l.targetUserId) return;
+        const wie = new Set([l.targetUserId, ...(toegang.get(l.targetUserId) || [])]);
+        for (const uid of wie) {
+            if (uid === l.actorId || !subUids.has(uid)) continue;
+            const p = prefsOf(users.get(uid));
+            if (!p.wijziging || !(p.locaties || []).includes(l.locId)) continue;
+            const key = uid + '|' + l.locId;
+            if (!bundels.has(key)) bundels.set(key, { list: [], timer: setTimeout(() => stuurBundel(key).catch(e => log('Wijziging-melding mislukt', e.message)), 90000) });
+            bundels.get(key).list.push(l);
+        }
+    });
+}, e => log('Logboek volgen mislukt:', e.message));
+async function stuurBundel(key) {
+    const b = bundels.get(key); bundels.delete(key);
+    if (!b || !b.list.length) return;
+    const [uid, locId] = key.split('|');
+    const loc = (await db.collection('vriezers').doc(locId).get().catch(() => null));
+    const ld = loc && loc.exists ? loc.data() : {};
+    const naam = (l) => (l.gezinslid || (l.actorName || '').split(/[ @]/)[0] || 'Iemand');
+    const regels = b.list.map(l => `${l.item} ${werkwoord(l)}`);
+    const door = [...new Set(b.list.map(naam))].join(' en ');
+    await sendToUser(uid, {
+        title: `${ld.naam || 'Locatie'}: ${b.list.length === 1 ? '1 wijziging' : b.list.length + ' wijzigingen'}`,
+        body: `${door}: ${shortList(regels, 5)}.`,
+        url: CFG.appUrl + '#/voorraad/' + (ld.type || 'vriezer'), tag: 'wijziging-' + locId
+    });
+}
 
 // Belangrijke mededeling (niet weg te klikken) → meteen een melding naar iedereen
 let laatsteMededeling = null;
