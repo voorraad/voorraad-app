@@ -9,9 +9,9 @@ import crypto from 'node:crypto';
 import admin from 'firebase-admin';
 import webpush from 'web-push';
 import { itemStatus, shortText } from './status.js';
-import { maakBackup, lijstBackups, leesBackup, ruimPrullenbakOp, bouwRapport, mailer } from './extra.js';
+import { maakBackup, lijstBackups, leesBackup, ruimPrullenbakOp, bouwRapport, bouwPersoonlijk, mailer } from './extra.js';
 
-const VERSIE = '1.6.0';
+const VERSIE = '1.7.0';
 const DATA = process.env.DATA_DIR || '/data';
 const CFG = {
     serviceAccount: process.env.SERVICE_ACCOUNT || path.join(DATA, 'service-account.json'),
@@ -93,7 +93,7 @@ const started = new Date();
 
 // ---------- Meldingvoorkeuren per gebruiker (users/{uid}.meldingen) ----------
 // Zelfde standaarden als in de app (src/lib/meldingen.js).
-const STANDAARD = { tijd: '', verlopen: true, bijna: true, lang: true, menu: true, lijst: false, lijstDag: 6, week: false, uitnodiging: true, bericht: true, wijziging: false, locaties: [], activiteit: false, activiteitVan: [] };
+const STANDAARD = { tijd: '', verlopen: true, bijna: true, lang: true, menu: true, lijst: false, lijstDag: 6, week: false, uitnodiging: true, bericht: true, wijziging: false, locaties: [], activiteit: false, activiteitVan: [], mail: false, mailUur: '20:00' };
 const prefsOf = (u) => {
     const p = { ...STANDAARD, ...((u && u.meldingen) || {}) };
     if (u && u.notificationsEnabled === false && !(u.meldingen)) { p.verlopen = p.bijna = p.lang = p.menu = false; } // oude schakelaar
@@ -403,13 +403,36 @@ async function stuurRapport(test = false) {
     if (!aan.length) return melden({ ok: false, fout: 'Geen ontvangers gekozen.' });
     try {
         const r = await bouwRapport(db, { users, itemStatus, appUrl: CFG.appUrl, status: { versie: VERSIE, verstuurd: stats.verstuurd, mislukt: stats.mislukt, backup: state.laatsteBackupNaam || '' } });
-        await mail.sendMail({ from: process.env.MAIL_VAN || process.env.SMTP_USER, to: aan.join(', '), subject: (test ? '[Test] ' : '') + r.onderwerp, html: r.html, text: r.tekst });
+        // Elke ontvanger krijgt een eigen mail (niemand ziet de andere adressen)
+        for (const a of aan) await mail.sendMail({ from: process.env.MAIL_VAN || process.env.SMTP_USER, to: a, subject: (test ? '[Test] ' : '') + r.onderwerp, html: r.html, text: r.tekst });
         log('Dagrapport verstuurd naar', aan.join(', '));
         return melden({ ok: true, aan });
     } catch (e) { log('Dagrapport mislukt:', e.message); logFout('Dagrapport: ' + e.message); return melden({ ok: false, fout: e.message }); }
 }
+// Persoonlijk dagrapport (users/{uid}.meldingen.mail): enkel de eigen en gedeelde voorraden
+async function stuurPersoonlijk(uid, test = false) {
+    const u = users.get(uid) || {};
+    const melden = (x) => db.collection('users').doc(uid).set({ laatsteDagrapport: { op: FV.serverTimestamp(), test, ...x } }, { merge: true }).catch(() => { });
+    const mail = await mailer(process.env).catch(() => null);
+    if (!mail) return melden({ ok: false, fout: 'Geen mailserver ingesteld op de server.' });
+    if (!u.email) return melden({ ok: false, fout: 'Deze gebruiker heeft geen e-mailadres.' });
+    try {
+        const r = await bouwPersoonlijk(db, { uid, owners: await ownersOf(uid), users, itemStatus, shortText, appUrl: CFG.appUrl });
+        if (!r) { if (test) await mail.sendMail({ from: process.env.MAIL_VAN || process.env.SMTP_USER, to: u.email, subject: '[Test] Je dag in Voorraad.', text: 'Vandaag gebeurde er niets en moet er niets dringend op. Op zo\'n dag krijg je geen mail.' }); return melden({ ok: true, leeg: true }); }
+        await mail.sendMail({ from: process.env.MAIL_VAN || process.env.SMTP_USER, to: u.email, subject: (test ? '[Test] ' : '') + r.onderwerp, html: r.html, text: r.tekst });
+        log('Persoonlijk dagrapport naar', u.email);
+        return melden({ ok: true });
+    } catch (e) { log('Persoonlijk dagrapport mislukt', uid, e.message); logFout('Dagrapport ' + (u.email || uid) + ': ' + e.message); return melden({ ok: false, fout: e.message }); }
+}
 setInterval(() => {
     const hm = new Date().toTimeString().slice(0, 5), dag = today();
+    state.mailDag = state.mailDag || {};
+    for (const [uid, u] of users) {
+        const p = prefsOf(u);
+        if (!p.mail || u.disabled || state.mailDag[uid] === dag || hm < (p.mailUur || '20:00')) continue;
+        state.mailDag[uid] = dag; saveState();
+        stuurPersoonlijk(uid).catch(() => { });
+    }
     if (hm >= CFG.backupUur && state.backupDag !== dag) {
         state.backupDag = dag; saveState();
         doeBackup('nachtelijk').then(r => { state.laatsteBackupNaam = r.bestand; saveState(); }).catch(() => { });
@@ -448,6 +471,7 @@ db.collection('pushTest').onSnapshot(s => {
         const toestel = subId ? ((await db.collection('pushAbonnementen').doc(subId).get().catch(() => null))?.data()?.toestel || '') : '';
         let msg = { title: 'Testmelding', body: (toestel ? `Meldingen werken op ${toestel}` : 'Meldingen werken op dit toestel') + ' 🎉', url: CFG.appUrl, tag: 'test' };
         let n = 0;
+        if (soort === 'dagrapport') { await stuurPersoonlijk(uid, true); await c.doc.ref.delete().catch(() => { }); log('Test-dagrapport', uid); return; }
         if (soort === 'voorraad') {
             const list = await dailyMessages(uid, { alles: true });
             for (const m of list) n += await sendToUser(uid, m, subId || null);

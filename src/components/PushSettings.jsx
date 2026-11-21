@@ -47,7 +47,7 @@ export function PushSettings() {
                     <Button size="sm" variant="ghost" icon="Alert" disabled={busy} onClick={() => run(async () => { await sendTest(user.uid, 'voorraad'); actions.notify('Voorbeeld van je meldingen onderweg'); })}>Stuur nu een voorbeeld</Button>
                 </div>
             )}
-            {sub && <EigenMeldingen standaardUur={push.meldingUur || '08:00'} />}
+            <EigenMeldingen standaardUur={push.meldingUur || '08:00'} pushAan={sub} />
         </div>
     );
 }
@@ -67,15 +67,18 @@ function LocalNotifications() {
 }
 
 // Welke meldingen wil je krijgen, en hoe laat?
-function EigenMeldingen({ standaardUur }) {
+function EigenMeldingen({ standaardUur, pushAan }) {
     const { me, user, accounts, actions, isAdmin, usersList } = useStore();
     return (
         <div className="pt-2 mt-1 border-t border-stone-100 dark:border-stone-800">
             <p className="text-sm font-semibold mt-2">Welke meldingen wil je?</p>
+            {!pushAan && <p className="text-xs text-stone-500 mt-0.5">Meldingen op je gsm staan op dit toestel uit; het dagrapport per mail werkt ook zonder.</p>}
             <MeldingKeuze prefs={meldingPrefs(me)} standaardUur={standaardUur} uid={user.uid} admin={isAdmin} isBeheerder={isAdmin} gebruikers={usersList}
                 owners={accounts.filter(a => !a.viaAdmin).map(a => a.id)} verzoek={me.meldingVerzoek || {}}
                 onSave={(m) => actions.setMine({ meldingen: m, notificationsEnabled: true })}
-                onVraag={(id) => { actions.setMine({ meldingVerzoek: { [id]: new Date() } }); actions.notify('Gevraagd aan de beheerder'); }} />
+                onVraag={(id) => { actions.setMine({ meldingVerzoek: { [id]: new Date() } }); actions.notify('Gevraagd aan de beheerder'); }}
+                email={me.email || user.email} laatsteMail={me.laatsteDagrapport}
+                onTestMail={async () => { await sendTest(user.uid, 'dagrapport'); actions.notify('Testmail onderweg naar ' + (me.email || user.email)); }} />
         </div>
     );
 }

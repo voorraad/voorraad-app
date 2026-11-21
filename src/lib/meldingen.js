@@ -1,6 +1,6 @@
 // Welke pushmeldingen wil iemand krijgen? Bewaard in users/{uid}.meldingen.
 // Zelfde standaarden als op de server (server/index.js → STANDAARD).
-export const MELDING_STANDAARD = { tijd: '', verlopen: true, bijna: true, lang: true, menu: true, lijst: false, lijstDag: 6, week: false, uitnodiging: true, bericht: true, wijziging: false, locaties: [], activiteit: false, activiteitVan: [] };
+export const MELDING_STANDAARD = { tijd: '', verlopen: true, bijna: true, lang: true, menu: true, lijst: false, lijstDag: 6, week: false, uitnodiging: true, bericht: true, wijziging: false, locaties: [], activiteit: false, activiteitVan: [], mail: false, mailUur: '20:00' };
 
 export const MELDING_SOORTEN = [
     { id: 'verlopen', groep: 'Elke dag', icon: 'Alert', tone: 'text-red-600', label: 'Verlopen producten', uitleg: 'Wat over de datum is. Tik op de melding voor de volledige lijst.' },
@@ -12,6 +12,7 @@ export const MELDING_SOORTEN = [
     { id: 'wijziging', groep: 'Meteen', icon: 'Edit', tone: 'text-stone-600', label: 'Wijzigingen in een locatie', uitleg: 'Als iemand anders iets toevoegt, opmaakt, aanpast of verwijdert in de locaties die je kiest.' },
     { id: 'uitnodiging', groep: 'Meteen', icon: 'Users', tone: 'text-indigo-600', label: 'Uitnodigingen', uitleg: 'Als iemand je uitnodigt om samen een voorraad te beheren.' },
     { id: 'bericht', groep: 'Meteen', icon: 'Message', tone: 'text-amber-600', label: 'Berichten', uitleg: 'Berichten en belangrijke mededelingen van Voorraad.' },
+    { id: 'mail', groep: 'Mail', icon: 'Message', tone: 'text-sky-600', label: 'Dagrapport per mail', uitleg: 'Elke avond een mail met wat er in je voorraad gebeurde (ook in gedeelde voorraden) en wat eerst op moet. Op een dag zonder nieuws krijg je niets.' },
     { id: 'activiteit', groep: 'Beheer', alleenAdmin: true, icon: 'Log', tone: 'text-teal-700', label: 'Alles wat gebruikers doen', uitleg: 'Elke wijziging: toegevoegd, opgegeten, weggegooid, aangepast, verplaatst, boodschappen, weekmenu, recepten, locaties, delen… Per gebruiker gebundeld per minuut.' },
 ];
 
@@ -31,6 +32,7 @@ export const VERGRENDELD = ['bericht', 'uitnodiging'];
 export const TEST_SOORTEN = [
     { id: 'test', label: 'Gewone testmelding', icon: 'Bell' },
     { id: 'voorraad', label: 'Alles van vandaag (echte gegevens)', icon: 'Zap' },
-    ...MELDING_SOORTEN.map(m => ({ id: m.id, label: m.label, icon: m.icon })),
-    { id: 'mededeling', label: 'Belangrijke mededeling', icon: 'Alert' }
+    ...MELDING_SOORTEN.filter(m => m.id !== 'mail').map(m => ({ id: m.id, label: m.label, icon: m.icon })),
+    { id: 'mededeling', label: 'Belangrijke mededeling', icon: 'Alert' },
+    { id: 'dagrapport', label: 'Dagrapport per mail (nu)', icon: 'Message' }
 ];
