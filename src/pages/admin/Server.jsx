@@ -7,6 +7,7 @@ import { Card, Button, SectionTitle, Select } from '../../components/ui.jsx';
 import { userTone } from '../../lib/userColors.js';
 import { useAllUserData, refreshAllUserData } from './data.js';
 import { MeldingSamenvatting } from './Meldingen.jsx';
+import { ServerStatus, ServerBackups, Dagrapport } from './ServerExtra.jsx';
 import { TEST_SOORTEN } from '../../lib/meldingen.js';
 import { sendTest, uploadPhoto, cleanupPhotos } from '../../lib/push.js';
 import { cx, toDate, formatDateTime, plural } from '../../lib/utils.js';
@@ -55,6 +56,9 @@ export function ServerPanel() {
                         )}
                     </Card>
                 </section>
+                <ServerStatus />
+                <ServerBackups />
+                <Dagrapport />
                 {p.fotoUrl && <PhotoMigration server={p.fotoUrl} />}
                 {p.fotoUrl && <PhotoCleanup server={p.fotoUrl} />}
             </div>

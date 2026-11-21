@@ -4,7 +4,7 @@ import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
 import { Sheet, Merk, metMerk, Button, Field, Input, Select, Stepper, Segmented, StorePicker } from './ui.jsx';
 import { WINKELS, TYPES, TYPE_BY_ID, APP_VERSION, VERSION_HISTORY, TOUR_TONE } from '../lib/constants.js';
-import { cx, num, emojiFor, formatAantal, sortLocaties, byName, mondayOf, addDays, dateKey, weekdayLabel, smartMatch, isMenuEntry, todayKey } from '../lib/utils.js';
+import { cx, num, emojiFor, formatAantal, sortLocaties, byName, mondayOf, addDays, dateKey, weekdayLabel, smartMatch, isMenuEntry, todayKey, tourKey } from '../lib/utils.js';
 
 // ---------- Bevestigen / vraag ----------
 export function ConfirmDialog() {
@@ -273,7 +273,10 @@ export function Tour() {
     const { showTour, setShowTour, route, go } = useUi();
     const { globalSettings, actions, canSee } = useStore();
     // Stappen over onderdelen die de gebruiker niet mag gebruiken, worden overgeslagen.
-    const steps = (globalSettings.tourSteps || []).filter(s => !s.recht || canSee(s.recht));
+    // showTour: true = volledige rondleiding, { keys, nieuw } = enkel die stappen
+    const { me } = useStore();
+    const keys = showTour && typeof showTour === 'object' ? showTour.keys : null;
+    const steps = (globalSettings.tourSteps || []).filter(s => !s.recht || canSee(s.recht)).filter(s => !keys || keys.includes(tourKey(s)));
     const [i, setI] = useState(0);
     const [touchX, setTouchX] = useState(null);
     useEffect(() => { if (showTour) setI(0); }, [showTour]);
@@ -282,7 +285,11 @@ export function Tour() {
     useEffect(() => { if (showTour && cur && cur.ga && route.page !== 'admin') go(cur.ga); }, [showTour, i]);
     if (!showTour || !steps.length) return null;
     const s = steps[Math.min(i, steps.length - 1)];
-    const finish = () => { setShowTour(false); actions.setMine({ hasSeenTutorial: true }); };
+    const finish = () => {
+        setShowTour(false);
+        const gezien = [...new Set([...(Array.isArray(me.tourGezien) ? me.tourGezien : []), ...steps.map(tourKey)])];
+        actions.setMine({ hasSeenTutorial: true, tourGezien: gezien, tourTonen: [] });
+    };
     const next = () => (i < steps.length - 1 ? setI(i + 1) : finish());
     const prev = () => setI(Math.max(0, i - 1));
     return (
@@ -293,6 +300,7 @@ export function Tour() {
                 <div className={cx('w-20 h-20 mx-auto rounded-3xl flex items-center justify-center mb-5', TOUR_TONE[s.colorName] || TOUR_TONE.blue)}>
                     <Icon name={s.icon} size={38} />
                 </div>
+                {keys && <p className="text-xs font-bold uppercase tracking-wide text-teal-600 mb-1">{showTour.nieuw ? 'Nieuw in de app' : 'Even uitgelegd'}</p>}
                 <h2 className="text-xl font-bold text-stone-900 dark:text-white">{metMerk(s.title)}</h2>
                 <p className="text-stone-600 dark:text-stone-300 mt-2 leading-relaxed whitespace-pre-line">{metMerk(s.content)}</p>
                 <div className="flex justify-center gap-1.5 my-6">

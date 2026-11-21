@@ -13,6 +13,7 @@ import { Gebruikers, Dashboard, TourEditor } from './meer/Admin.jsx';
 import { Gezin } from './meer/Gezin.jsx';
 import { PushSettings } from '../components/PushSettings.jsx';
 import { Snelkoppelingen } from './meer/Snelkoppelingen.jsx';
+import { Prullenbak } from './meer/Prullenbak.jsx';
 
 const SUBPAGES = {
     locaties: { title: 'Locaties & lades', C: Locaties, right: 'locaties' },
@@ -23,6 +24,7 @@ const SUBPAGES = {
     snelkoppelingen: { title: 'Snelkoppelingen', C: Snelkoppelingen },
     statistieken: { title: 'Statistieken', C: Statistieken, right: 'stats' },
     logboek: { title: 'Logboek', C: Logboek, right: 'logboek' },
+    prullenbak: { title: 'Prullenbak', C: Prullenbak },
     gebruikers: { title: 'Gebruikers', C: Gebruikers, admin: true },
     dashboard: { title: 'Dashboard', C: Dashboard, admin: true },
     tour: { title: 'Rondleiding aanpassen', C: TourEditor, admin: true }
@@ -115,6 +117,7 @@ function MoreHome() {
                 <Group title="Gegevens">
                     {canSee('stats') && <Row icon="Chart" title="Statistieken" onClick={() => go('meer/statistieken')} />}
                     {canSee('logboek') && <Row icon="Log" title="Logboek" onClick={() => go('meer/logboek')} />}
+                    <Row icon="Trash" title="Prullenbak" subtitle="Per ongeluk verwijderd? 30 dagen terug te zetten" onClick={() => go('meer/prullenbak')} />
                     {canSee('export') && <>
                         <Row icon="Download" title="Exporteer naar Excel (CSV)" onClick={() => exportCSV(items, locById, ladeById)} right={null} />
                         <Row icon="Download" title="Exporteer naar PDF" onClick={() => run(() => exportPDF(items, locById, ladeById))} right={null} />

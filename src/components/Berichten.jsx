@@ -5,6 +5,7 @@ import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
 import { Sheet, Button, Card, Textarea, Segmented, SectionTitle, Merk } from './ui.jsx';
 import { cx, formatDateTime, toDate, plural } from '../lib/utils.js';
+import { useBeheerDoc, saveBeheerDoc, nieuwId } from '../pages/admin/beheerDoc.js';
 
 // Persoonlijke berichten van een beheerder aan één gebruiker (collectie berichten).
 export const TONES = {
@@ -65,6 +66,14 @@ export function MessageComposer({ userIds, onSent, compact }) {
     const [text, setText] = useState('');
     const [tone, setTone] = useState('info');
     const [busy, setBusy] = useState(false);
+    const sj = useBeheerDoc('sjablonen');
+    const sjablonen = (sj && sj.lijst) || [];
+    const bewaar = async () => {
+        if (sjablonen.some(x => x.text === text.trim())) { actions.notify('Dit bericht staat al bij je sjablonen'); return; }
+        await saveBeheerDoc('sjablonen', { lijst: [...sjablonen, { id: nieuwId(), text: text.trim(), tone }] });
+        actions.notify('Opgeslagen als sjabloon');
+    };
+    const wis = (id) => saveBeheerDoc('sjablonen', { lijst: sjablonen.filter(x => x.id !== id) });
     const send = async () => {
         setBusy(true);
         try {
@@ -76,10 +85,26 @@ export function MessageComposer({ userIds, onSent, compact }) {
     };
     return (
         <div className="space-y-2">
+            {sjablonen.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                    {sjablonen.map(x => {
+                        const t = TONES[x.tone] || TONES.info;
+                        return (
+                            <span key={x.id} className={cx('inline-flex items-center rounded-lg text-xs font-medium max-w-full', t.cls)}>
+                                <button type="button" title={x.text} onClick={() => { setText(x.text); setTone(x.tone || 'info'); }} className="h-8 pl-2 pr-1 inline-flex items-center gap-1 min-w-0">
+                                    <Icon name={t.icon} size={12} className="flex-shrink-0" /><span className="truncate max-w-[11rem]">{x.text}</span>
+                                </button>
+                                <button type="button" aria-label="Sjabloon verwijderen" onClick={() => wis(x.id)} className="h-8 px-1.5 opacity-60 hover:opacity-100"><Icon name="X" size={12} /></button>
+                            </span>
+                        );
+                    })}
+                </div>
+            )}
             <Textarea rows={compact ? 2 : 3} value={text} onChange={e => setText(e.target.value)} placeholder="Bv. Ik heb je vriezer opgekuist, kijk je even na?" />
             <div className="flex flex-wrap items-center gap-2">
                 <Segmented size="sm" value={tone} onChange={setTone} className="w-64" options={Object.entries(TONES).map(([id, t]) => ({ id, label: t.label, icon: t.icon }))} />
                 <div className="flex-1" />
+                {text.trim() && !sjablonen.some(x => x.text === text.trim()) && <Button size="sm" variant="ghost" icon="Star" onClick={bewaar}>Bewaar als sjabloon</Button>}
                 <Button size="sm" icon="Message" disabled={!text.trim() || !userIds.length || busy} onClick={send}>Versturen</Button>
             </div>
         </div>

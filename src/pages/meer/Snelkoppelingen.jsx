@@ -7,6 +7,7 @@ const LINKS = [
     { id: 'scan', label: 'Barcode scannen', icon: 'Scan', right: 'scan', q: '?actie=scan' },
     { id: 'nieuw', label: 'Product toevoegen', icon: 'Plus', right: 'toevoegen', q: '?actie=nieuw' },
     { id: 'eerst', label: 'Eerst opmaken', icon: 'Alert', q: '?actie=eerst' },
+    { id: 'restje', label: 'Restje bewaren', icon: 'Box', right: 'toevoegen', q: '?actie=restje' },
     { id: 'lijst', label: 'Boodschappenlijst', icon: 'Cart', right: 'lijst', q: '#/lijst' }
 ];
 

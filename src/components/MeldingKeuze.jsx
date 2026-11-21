@@ -92,7 +92,7 @@ export function MeldingKeuze({ prefs: p, onSave, standaardUur, uid, owners, admi
                                         </div>
                                     </div>
                                 )}
-                                {m.id === 'wijziging' && p.wijziging && (
+                                {m.id === 'wijziging' && p.wijziging && uid && (
                                     <div className="-mt-1 mb-1">
                                         {!locs ? <p className="text-xs text-stone-400">Locaties laden…</p>
                                             : !locs.length ? <p className="text-xs text-stone-500">Nog geen locaties.</p>

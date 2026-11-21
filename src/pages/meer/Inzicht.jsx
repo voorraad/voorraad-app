@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Icon from '../../lib/icons.jsx';
 import { db } from '../../lib/firebase.js';
 import { useStore } from '../../state/store.jsx';
+import { useUi } from '../../state/ui.jsx';
 import { Card, Segmented, EmptyState, Chip } from '../../components/ui.jsx';
 import { TYPES } from '../../lib/constants.js';
 import { cx, num, euro, formatDateTime, itemStatus, categoriesFor } from '../../lib/utils.js';
@@ -125,8 +126,13 @@ export const logTone = (a) => a === 'Toevoegen' ? ['Plus', 'bg-emerald-100 text-
             : ['Edit', 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300'];
 
 export function Logboek({ defaultAll = false }) {
-    const { isAdmin, ownerId, user, usersList } = useStore();
+    const { isAdmin, ownerId, user, usersList, actions } = useStore();
+    const { confirm } = useUi();
     const [logs, setLogs] = useState(null);
+    const undo = async (l) => {
+        if (!(await confirm({ title: 'Ongedaan maken?', message: `${l.item || l.action}: ${l.details || ''}`, confirmLabel: 'Ongedaan maken' }))) return;
+        await actions.undoLog(l);
+    };
     const [onlyThis, setOnlyThis] = useState(!defaultAll);
     const [who, setWho] = useState(null); // filter op één gebruiker bij 'Alle gebruikers'
     const emailOf = (id) => personName(id, usersList, ((logs || []).find(l => l.actorId === id) || {}).actorName || 'andere voorraad');
@@ -176,8 +182,10 @@ export function Logboek({ defaultAll = false }) {
                                         <p className="font-semibold text-sm truncate">{l.item || l.action}</p>
                                         <p className="text-xs text-stone-400 flex-shrink-0 tabular-nums">{formatDateTime(l.timestamp)}</p>
                                     </div>
-                                    {l.details && <p className="text-xs text-stone-500 dark:text-stone-400 break-words">{l.details}</p>}
+                                    {l.details && <p className={cx('text-xs text-stone-500 dark:text-stone-400 break-words', l.ongedaan && 'line-through')}>{l.details}</p>}
                                     <LogMeta l={l} usersList={usersList} meId={user && user.uid} showOwner={all} />
+                                    {l.ongedaan ? <p className="text-[11px] font-semibold text-stone-400 mt-1 flex items-center gap-1"><Icon name="Undo" size={11} />Ongedaan gemaakt {formatDateTime(l.ongedaan.op)}</p>
+                                        : isAdmin && l.undo && <button type="button" onClick={() => undo(l)} className="mt-1 h-7 px-2 -ml-2 rounded-lg text-xs font-semibold text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 inline-flex items-center gap-1"><Icon name="Undo" size={13} />Ongedaan maken</button>}
                                 </div>
                             </div>
                         );

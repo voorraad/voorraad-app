@@ -3,13 +3,17 @@ import Icon from '../lib/icons.jsx';
 import { db } from '../lib/firebase.js';
 import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
-import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select, ColorPicker } from '../components/ui.jsx';
+import { Card, Button, Toggle, IconButton, SectionTitle, Segmented, Select, ColorPicker, Chip } from '../components/ui.jsx';
 import { useAllUserData } from './admin/data.js';
 import { UserMessages, useUnreadCount } from '../components/Berichten.jsx';
 import { ServerPanel } from './admin/Server.jsx';
 import { OnlineNow, HolidayMode, StorageUsage, NewUserDefaults, MonthReport, isOnline } from './admin/More2.jsx';
 import { GlobalSearch, StockValue, useTotalValue, FeatureUsage, BlockedAttempts, BulkRights, Invites, RestoreUser, SharedBarcodes, CopyLocation, LabelPicker } from './admin/More.jsx';
 import { UserMeldingen, MeldingVerzoekenBanner } from './admin/Meldingen.jsx';
+import { Prullenbak } from './meer/Prullenbak.jsx';
+import { UserRondleiding } from './admin/Rondleiding.jsx';
+import { Groepen, useGroepen, GroepBadges } from './admin/Groepen.jsx';
+import { ServerOfflineBanner } from './admin/ServerExtra.jsx';
 import { NewUsersBanner, InactiveUsers, inactiveUsers, ActivityChart, WasteRanking, AnnouncementEditor, BackupAll, AdminNote, Cleanup } from './admin/Extra.jsx';
 import { userToneKey, USER_TONE_DOTS, USER_TONE_NAMES } from '../lib/userColors.js';
 import Stock from './Stock.jsx';
@@ -20,7 +24,7 @@ import Shopping from './Shopping.jsx';
 import { Week, Recipes } from './Menu.jsx';
 import { UrgentList } from '../components/Urgent.jsx';
 import { exportCSV, exportPDF, exportBackup } from '../lib/exporters.js';
-import { APP_VERSION, TYPES } from '../lib/constants.js';
+import { APP_VERSION, TYPES, DOT } from '../lib/constants.js';
 import { cx, formatDateTime, toDate, itemStatus, isMenuEntry, smartMatch, statusText, STATUS_TONE, emojiFor, formatAantal, URGENCY, euro } from '../lib/utils.js';
 
 // Aparte beheerpagina voor admins (#/admin). Admins komen hier na het inloggen terecht.
@@ -96,6 +100,8 @@ function AdminOverview() {
     const [logs, setLogs] = useState([]);
     const [q, setQ] = useState('');
     const [sort, setSort] = useState('gezien');
+    const { groepen } = useGroepen();
+    const [groep, setGroep] = useState(null);
     useEffect(() => db.collection('logs').orderBy('timestamp', 'desc').limit(8)
         .onSnapshot(s => setLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))), () => { }), []);
 
@@ -123,16 +129,18 @@ function AdminOverview() {
     // Wie meebeheert en zelf geen producten heeft (lege locaties tellen niet), staat alleen ingesprongen onder de eigenaar.
     // Zolang de cijfers laden, staan meebeheerders al ingesprongen (zo staat niemand even dubbel).
     const onlyMember = (u) => memberOf(u.id).length > 0 && (!stats[u.id] || stats[u.id].error || !stats[u.id].items);
-    const matches = (u) => smartMatch(u.email || u.displayName || '', q);
+    const inGroep = (u) => !groep || (groepen.find(g => g.id === groep) || { leden: [] }).leden.includes(u.id);
+    const matches = (u) => smartMatch(u.email || u.displayName || '', q) && inGroep(u);
     const rows = useMemo(() => usersList.filter(u => !onlyMember(u) && (matches(u) || (members[u.id] || []).some(matches))).sort((a, b) => {
         if (sort === 'producten') return ((stats[b.id] || {}).items || 0) - ((stats[a.id] || {}).items || 0);
         if (sort === 'verlopen') return ((stats[b.id] || {}).expired || 0) - ((stats[a.id] || {}).expired || 0);
         return (toDate(b.laatstGezien) || 0) - (toDate(a.laatstGezien) || 0);
-    }), [usersList, stats, q, sort, members]);
+    }), [usersList, stats, q, sort, members, groep, groepen]);
     const nm = (id) => { const u = usersList.find(x => x.id === id); return u ? (u.email || u.displayName || '').split('@')[0] : '?'; };
 
     return (
         <div className="space-y-6">
+            <ServerOfflineBanner />
             <NewUsersBanner />
             <MeldingVerzoekenBanner />
             <OnlineNow />
@@ -165,6 +173,12 @@ function AdminOverview() {
                             <button key={id} type="button" onClick={() => setSort(id)} className={cx('h-10 px-3 rounded-xl text-sm font-semibold', sort === id ? 'bg-stone-900 text-white dark:bg-white dark:text-stone-900' : 'bg-white border border-stone-200 dark:bg-stone-900 dark:border-stone-800')}>{lbl}</button>
                         ))}
                     </div>
+                    {groepen.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                            <Chip active={!groep} onClick={() => setGroep(null)}>Iedereen</Chip>
+                            {groepen.map(g => <Chip key={g.id} active={groep === g.id} onClick={() => setGroep(groep === g.id ? null : g.id)}><span className={cx('inline-block w-2 h-2 rounded-full mr-1.5', DOT[g.kleur] || DOT.gray)} />{g.naam} · {(g.leden || []).length}</Chip>)}
+                        </div>
+                    )}
                     <Card className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="text-left text-xs text-stone-500 border-b border-stone-100 dark:border-stone-800">
@@ -186,6 +200,7 @@ function AdminOverview() {
                                                     </span>
                                                     <span className="min-w-0">
                                                         <span className="block truncate max-w-[6.5rem] sm:max-w-[16rem] font-medium">{u.email || u.displayName || u.id}</span>
+                                                        <GroepBadges groepen={groepen} uid={u.id} />
                                                         {mem.length > 0 && <span className="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-300"><Icon name="Users" size={11} />gedeeld met {mem.length}</span>}
                                                         {also.length > 0 && <span className="block truncate max-w-[6.5rem] sm:max-w-[16rem] text-[11px] text-stone-400">ook bij {also.map(nm).join(', ')}</span>}
                                                     </span>
@@ -307,7 +322,7 @@ function AppSettings() {
                     <AnnouncementEditor />
                 </div>
             )}
-            {sub === 'gebruikers' && <div className="grid gap-6 xl:grid-cols-2 items-start"><div className="space-y-6"><Invites /><NewUserDefaults /></div><BulkRights /></div>}
+            {sub === 'gebruikers' && <div className="grid gap-6 xl:grid-cols-2 items-start"><div className="space-y-6"><Groepen /><Invites /><NewUserDefaults /></div><BulkRights /></div>}
             {sub === 'gegevens' && <div className="grid gap-6 lg:grid-cols-2 items-start"><div className="space-y-6"><BackupAll /><RestoreUser /></div><SharedBarcodes /></div>}
             {sub === 'server' && <ServerPanel />}
             {sub === 'rondleiding' && <section><SectionTitle>Stappen van de rondleiding</SectionTitle><TourEditor /></section>}
@@ -329,10 +344,12 @@ const USER_TABS = [
     { id: 'stats', label: 'Statistieken', icon: 'Chart' },
     { id: 'berichten', label: 'Berichten', icon: 'Message' },
     { id: 'meldingen', label: 'Meldingen', icon: 'Bell' },
+    { id: 'rondleiding', label: 'Rondleiding', icon: 'Help' },
     { id: 'log', label: 'Logboek', icon: 'Log' },
     { id: 'etiketten', label: 'Etiketten afdrukken', icon: 'Printer' },
     { id: 'kopieer', label: 'Locatie kopiëren', icon: 'Copy' },
     { id: 'opkuisen', label: 'Opkuisen', icon: 'Wrench' },
+    { id: 'prullenbak', label: 'Prullenbak', icon: 'Trash' },
     { id: 'rechten', label: 'Rechten', icon: 'Lock' },
     { id: 'delen', label: 'Delen & export', icon: 'Share' }
 ];
@@ -401,6 +418,7 @@ function AdminUser() {
                     </Select>
                 </div>
                 {ownerId !== user.uid && <Button size="sm" variant="soft" icon="Swap" title="Open de app met de voorraad van deze gebruiker" onClick={() => { actions.switchAccount(ownerId); go('voorraad'); }}>Wissel</Button>}
+                {ownerId !== user.uid && u.email && <Button size="sm" variant="soft" icon="Eye" title="Zie de app precies zoals deze gebruiker hem ziet, met zijn of haar rechten" onClick={async () => { await actions.startAls(u); go('voorraad/vriezer'); }}>Bekijk als</Button>}
             </Card>
 
             {/* Profiel van de gebruiker */}
@@ -469,8 +487,10 @@ function AdminUser() {
                     {sub === 'stats' && <Statistieken />}
                     {sub === 'log' && <Logboek />}
                     {sub === 'opkuisen' && <Cleanup />}
+                    {sub === 'prullenbak' && <Prullenbak uid={ownerId} />}
                     {sub === 'berichten' && <UserMessages uid={ownerId} />}
                     {sub === 'meldingen' && <UserMeldingen u={u} />}
+                    {sub === 'rondleiding' && <UserRondleiding u={u} />}
                     {sub === 'etiketten' && <LabelPicker />}
                     {sub === 'kopieer' && <CopyLocation />}
                     {sub === 'rechten' && <Card className="px-4 pb-4 max-w-2xl"><UserRights u={u} /></Card>}

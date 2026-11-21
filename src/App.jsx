@@ -7,6 +7,7 @@ import { isIos, standalone } from './lib/push.js';
 const ICOON_VERSIE = '14'; // verhogen bij een nieuw app-icoon
 import { ItemSheet, ConsumeSheet } from './components/items.jsx';
 import { UrgentSheet } from './components/Urgent.jsx';
+import { RestjeSheet } from './components/Koken.jsx';
 import ItemForm from './components/ItemForm.jsx';
 import AuditSheet from './components/AuditSheet.jsx';
 import { ConfirmDialog, PromptDialog, RemoveDialog, MoveSheet, PlanSheet, NewsSheet, Tour } from './components/dialogs.jsx';
@@ -21,7 +22,7 @@ import { MessagePopup } from './components/Berichten.jsx';
 import { MemberButton } from './pages/meer/Gezin.jsx';
 import { ScanSheet, LabelSheet, PhotoViewer } from './components/media.jsx';
 import { APP_VERSION, TYPES, TYPE_BY_ID } from './lib/constants.js';
-import { cx, itemStatus, todayKey } from './lib/utils.js';
+import { cx, itemStatus, todayKey, tourKey } from './lib/utils.js';
 
 // Opende iemand de app zonder specifieke pagina? Dan sturen we admins naar de beheerpagina.
 const OPENED_WITHOUT_PAGE = !(window.location.hash || '').replace(/^#\/?/, '');
@@ -101,6 +102,7 @@ function Shell() {
         if (a === 'scan' && canSee('scan')) ui.openScan({});
         else if (a === 'nieuw' && canSee('toevoegen')) openForm({ type: 'vriezer', nonce: Date.now() });
         else if (a === 'eerst') { go('voorraad/vriezer'); ui.openUrgent(); }
+        else if (a === 'restje' && canSee('toevoegen')) { go('voorraad/frig'); ui.openRestje(); }
     }, [dataLoaded]);
     const [switcher, setSwitcher] = useState(false);
     const openCount = shopping.filter(s => !s.checked).length;
@@ -108,11 +110,23 @@ function Shell() {
     // Rondleiding voor nieuwe gebruikers, daarna eenmalig "wat is er nieuw" bij een nieuwe versie.
     const checked = useRef(false);
     useEffect(() => {
-        if (checked.current || !dataLoaded || !meLoaded || !globalSettings.onboardingLoaded) return;
+        if (checked.current || !dataLoaded || !meLoaded || !globalSettings.onboardingLoaded || !globalSettings.tourLoaded) return;
         checked.current = true;
+        if (store.als) return; // beheerder kijkt mee: geen rondleiding of 'wat is er nieuw' die iets bij de gebruiker zou aanpassen
         const seenVersion = localStorage.getItem('app_version');
         if (globalSettings.onboardingActive && !me.tourDisabled && me.hasSeenTutorial !== true) setShowTour(true);
         else if (seenVersion && seenVersion !== APP_VERSION) setShowNews(true);
+        else if (globalSettings.onboardingActive && !me.tourDisabled) {
+            // Rondleiding al gezien: enkel stappen die de beheerder klaarzette of die nieuw zijn.
+            const zichtbaar = (globalSettings.tourSteps || []).filter(s => !s.recht || canSee(s.recht)).map(tourKey);
+            const klaar = (Array.isArray(me.tourTonen) ? me.tourTonen : []).filter(k => zichtbaar.includes(k));
+            if (klaar.length) setShowTour({ keys: klaar });
+            else if (!Array.isArray(me.tourGezien)) actions.setMine({ tourGezien: zichtbaar }); // vertrekpunt voor wie de rondleiding vroeger al zag
+            else if (globalSettings.tourNieuweTonen !== false) {
+                const nieuw = zichtbaar.filter(k => !me.tourGezien.includes(k));
+                if (nieuw.length) setShowTour({ keys: nieuw, nieuw: true });
+            }
+        }
         localStorage.setItem('app_version', APP_VERSION);
         // iPhone ververst het icoon op het beginscherm nooit zelf: wie de app al had, krijgt één keer uitleg.
         // (Een nieuw toegevoegde app begint met lege opslag en heeft het nieuwe icoon al.)
@@ -153,6 +167,7 @@ function Shell() {
 
     return (
         <div className="min-h-dvh">
+            {store.als && <AlsBalk />}
             {/* Hamburgermenu */}
             {drawer && (
                 <div className="fixed inset-0 z-50 print:hidden" role="dialog" aria-modal="true" aria-label="Menu">
@@ -258,6 +273,7 @@ function GlobalSheets() {
             <LabelSheet />
             <PhotoViewer />
             <UrgentSheet />
+            <RestjeSheet />
             <ConfirmDialog />
             <Toast toast={toast} onClose={() => setToast(null)} />
         </>
@@ -414,5 +430,21 @@ function Blocked() {
             <p className="text-stone-500 mt-2 mb-6">Je account is uitgeschakeld door de beheerder.</p>
             <Button variant="ghost" icon="LogOut" onClick={actions.logout}>Uitloggen</Button>
         </CenterCard>
+    );
+}
+
+// Beheerder bekijkt de app als een gebruiker: duidelijke balk bovenaan met een stopknop.
+function AlsBalk() {
+    const { als, actions } = useStore();
+    const { go } = useUi();
+    const naam = als.displayName || als.email || 'gebruiker';
+    return (
+        <div className="sticky top-0 z-40 bg-purple-700 text-white text-sm print:hidden pt-[env(safe-area-inset-top)]">
+            <div className="max-w-7xl mx-auto px-4 py-2 flex items-center gap-3">
+                <Icon name="Eye" size={17} className="flex-shrink-0" />
+                <p className="flex-1 min-w-0 truncate">Je bekijkt de app als <b>{naam}</b>, met zijn of haar rechten.</p>
+                <button type="button" onClick={async () => { await actions.stopAls(); go('admin'); }} className="h-8 px-3 rounded-lg bg-white/20 hover:bg-white/30 font-semibold flex-shrink-0">Stoppen</button>
+            </div>
+        </div>
     );
 }
