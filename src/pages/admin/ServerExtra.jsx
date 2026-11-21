@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Icon from '../../lib/icons.jsx';
-import { auth } from '../../lib/firebase.js';
+import { auth, db } from '../../lib/firebase.js';
 import { useStore } from '../../state/store.jsx';
 import { Card, Button, SectionTitle, Select, Input, Toggle, Chip } from '../../components/ui.jsx';
 import { cx, toDate, formatDateTime, plural, downloadBlob } from '../../lib/utils.js';
@@ -109,6 +109,8 @@ export function Dagrapport() {
     const { usersList, globalSettings, actions } = useStore();
     const cfg = useBeheerDoc('dagrapport');
     const [mail, setMail] = useState('');
+    const [admins, setAdmins] = useState([]);
+    useEffect(() => { Promise.all(usersList.map(u => db.collection('admins').doc(u.id).get().then(d => d.exists ? u.id : null).catch(() => null))).then(l => setAdmins(l.filter(Boolean))); }, [usersList.length]);
     if (!cfg) return null;
     const aan = cfg.aan || [];
     const zet = (patch) => saveBeheerDoc('dagrapport', patch);
@@ -118,9 +120,10 @@ export function Dagrapport() {
     const mailOk = globalSettings.push && globalSettings.push.status && globalSettings.push.status.mail;
     return (
         <section>
-            <SectionTitle>Dagrapport per mail</SectionTitle>
+            <SectionTitle>Beheerdersrapport per mail</SectionTitle>
             <Card className="p-4 space-y-3">
-                <Toggle checked={!!cfg.actief} onChange={c => zet({ actief: c })} label="Elke dag een rapport mailen" description="Alles wat er die dag gebeurde, per gebruiker: toegevoegd, opgegeten, weggegooid, aangepast… plus wat verlopen is en nieuwe gebruikers." />
+                <Toggle checked={!!cfg.actief} onChange={c => zet({ actief: c })} label="Elke dag een rapport over de hele app" description="Alles wat er die dag bij álle gebruikers gebeurde: toegevoegd, opgegeten, weggegooid, aangepast… plus wat verlopen is en nieuwe gebruikers. Enkel bedoeld voor beheerders." />
+                <p className="text-xs text-stone-500">Gewone gebruikers zetten hun eigen, persoonlijke dagrapport aan bij Instellingen → Meldingen (of jij doet het voor hen bij Per gebruiker → Meldingen of bij een groep).</p>
                 <label className="flex items-center gap-3">
                     <span className="flex-1 text-sm text-stone-600 dark:text-stone-300">Versturen om</span>
                     <Select className="h-9 w-32 text-sm" value={cfg.uur || '20:00'} onChange={e => zet({ uur: e.target.value })}>{uren.map(u => <option key={u} value={u}>{u}</option>)}</Select>
@@ -129,7 +132,7 @@ export function Dagrapport() {
                     <p className="text-sm text-stone-600 dark:text-stone-300 mb-1.5">Naar</p>
                     <div className="flex flex-wrap gap-1.5 mb-2">
                         {aan.map(m => <Chip key={m} active onClick={() => zet({ aan: aan.filter(x => x !== m) })}>{m}<Icon name="X" size={12} className="inline ml-1 -mt-0.5" /></Chip>)}
-                        {usersList.filter(u => u.email && !aan.includes(u.email.toLowerCase())).slice(0, 6).map(u => <Chip key={u.id} onClick={() => voeg(u.email)}>+ {u.email}</Chip>)}
+                        {usersList.filter(u => u.email && admins.includes(u.id) && !aan.includes(u.email.toLowerCase())).map(u => <Chip key={u.id} onClick={() => voeg(u.email)}>+ {u.email}</Chip>)}
                     </div>
                     <div className="flex gap-2">
                         <Input type="email" value={mail} onChange={e => setMail(e.target.value)} onKeyDown={e => e.key === 'Enter' && voeg(mail)} placeholder="ander@adres.be" />
@@ -139,7 +142,7 @@ export function Dagrapport() {
                 <div className="flex flex-wrap items-center gap-2">
                     <Button size="sm" variant="soft" icon="Message" disabled={!aan.length} onClick={() => { zet({ testOp: new Date() }); actions.notify('Testrapport wordt verstuurd…'); }}>Stuur nu een testrapport</Button>
                 </div>
-                {l && <p className={cx('text-xs', l.ok ? 'text-emerald-700' : 'text-red-600')}>{l.test ? 'Test' : 'Laatste rapport'} {formatDateTime(l.op)}: {l.ok ? `verstuurd naar ${(l.aan || []).join(', ')}` : l.fout}</p>}
+                {l && <p className={cx('text-xs', l.ok ? 'text-emerald-700' : 'text-red-600')}>{l.test ? 'Test' : 'Laatste rapport'} {formatDateTime(l.op)}: {l.ok ? `apart verstuurd naar ${(l.aan || []).join(', ')}` : l.fout}</p>}
                 {!mailOk && <p className="text-xs text-amber-700">Op de server staat nog geen mailaccount. Vul in <code>/opt/voorraad-server/.env</code> de regels SMTP_HOST, SMTP_USER en SMTP_PASS in (zie installatiegids, stap 8) en herstart met <code>systemctl restart voorraad</code>.</p>}
             </Card>
         </section>

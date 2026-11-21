@@ -124,3 +124,58 @@ export async function mailer(env) {
     });
     return transporter;
 }
+
+// ---------- Persoonlijk dagrapport: enkel de eigen voorraad + voorraden die met de gebruiker gedeeld zijn ----------
+export async function bouwPersoonlijk(db, { uid, owners, users, itemStatus, shortText, appUrl, uren = 24 }) {
+    const sinds = new Date(Date.now() - uren * 3600000);
+    const u = users.get(uid) || {};
+    const naam = (id) => { const x = users.get(id) || {}; return id === uid ? 'jij' : (x.displayName || (x.email || '?').split('@')[0]); };
+    const eigenaar = (id) => id === uid ? 'je eigen voorraad' : 'de voorraad van ' + naam(id);
+    const alle = (await db.collection('logs').where('timestamp', '>=', sinds).get()).docs.map(d => d.data());
+    const logs = alle.filter(l => owners.includes(l.targetUserId))
+        .sort((a, b) => (a.timestamp?.toMillis?.() || 0) - (b.timestamp?.toMillis?.() || 0));
+    // Wat moet er op, per voorraad
+    const dringend = [];
+    for (const o of owners) {
+        const [v, i] = await Promise.all([db.collection('vriezers').where('userId', '==', o).get(), db.collection('items').where('userId', '==', o).get()]);
+        const locs = Object.fromEntries(v.docs.map(d => [d.id, d.data()]));
+        i.docs.forEach(d => {
+            const it = d.data(), loc = locs[it.vriezerId];
+            if (!loc) return;
+            const st = itemStatus(it, loc.type || 'vriezer');
+            if (st.level !== 'ok') dringend.push({ naam: it.naam, st, waar: loc.naam, owner: o });
+        });
+    }
+    const order = { expired: 0, soon: 1, veryold: 2 };
+    dringend.sort((a, b) => order[a.st.level] - order[b.st.level]);
+    if (!logs.length && !dringend.length) return null; // niets te melden: geen mail
+    const tel = (s) => logs.filter(l => soortVan(l) === s).length;
+    const perOwner = {};
+    logs.forEach(l => (perOwner[l.targetUserId] = perOwner[l.targetUserId] || []).push(l));
+    const meer = owners.length > 1;
+    const datum = new Date().toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' });
+    const voornaam = (u.displayName || '').split(' ')[0];
+    const blok = Object.entries(perOwner).map(([o, list]) => `
+        ${meer ? `<h3 style="margin:22px 0 6px;font-size:16px">${esc(eigenaar(o).replace(/^./, c => c.toUpperCase()))}</h3>` : ''}
+        <table style="border-collapse:collapse;width:100%;font-size:13px">${list.slice(0, 50).map(l => `
+            <tr><td style="padding:3px 6px;color:#78716c;white-space:nowrap;vertical-align:top">${l.timestamp?.toDate ? l.timestamp.toDate().toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : ''}</td>
+            <td style="padding:3px 6px;vertical-align:top">${EMOJI(l)} <b>${esc(l.item)}</b> ${esc(l.details)} <span style="color:#a8a29e">· ${esc(l.gezinslid || naam(l.actorId))}</span></td></tr>`).join('')}
+        </table>`).join('');
+    const kleur = { expired: '#dc2626', soon: '#ea580c', veryold: '#0369a1' };
+    const lijst = dringend.slice(0, 25).map(x => `<li><b>${esc(x.naam)}</b> <span style="color:${kleur[x.st.level]}">${esc(shortText(x.st))}</span> <span style="color:#a8a29e">· ${esc(x.waar)}${meer && x.owner !== uid ? ' (' + esc(naam(x.owner)) + ')' : ''}</span></li>`).join('');
+    const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:640px;margin:auto;color:#1c1917">
+        <h1 style="font-size:22px;margin:0 0 4px">Je dag in Voorraad<span style="color:#0d9488">.</span></h1>
+        <p style="color:#78716c;margin:0 0 18px">${voornaam ? 'Hallo ' + esc(voornaam) + ' · ' : ''}${esc(datum)}</p>
+        ${logs.length ? `<table style="width:100%;border-collapse:separate;border-spacing:8px 0;margin:0 -8px 8px"><tr>
+            ${[['Toegevoegd', tel('toe')], ['Opgegeten', tel('op')], ['Weggegooid', tel('weg')]].map(([k, n]) => `<td style="background:#f5f5f4;border-radius:12px;padding:10px 12px"><div style="font-size:22px;font-weight:700">${n}</div><div style="font-size:12px;color:#78716c">${k}</div></td>`).join('')}
+        </tr></table>
+        <h2 style="margin:22px 0 6px;font-size:17px">Wat er gebeurde</h2>${blok}` : '<p style="color:#78716c">Vandaag werd er niets aangepast.</p>'}
+        ${lijst ? `<h2 style="margin:24px 0 6px;font-size:17px">Eerst opmaken</h2><ul style="font-size:13px;padding-left:18px;line-height:1.6">${lijst}</ul>${dringend.length > 25 ? `<p style="font-size:12px;color:#78716c">… en nog ${dringend.length - 25}.</p>` : ''}` : ''}
+        <p style="margin-top:20px"><a href="${appUrl}#/eerst" style="background:#0d9488;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:600">Open de app</a></p>
+        <p style="font-size:11px;color:#a8a29e;margin-top:24px">Je krijgt deze mail omdat het dagrapport aan staat bij Instellingen → Meldingen. Daar kan je het ook uitzetten.</p>
+    </div>`;
+    const tekst = `Je dag in Voorraad. (${datum})\n\n` + logs.map(l => `${EMOJI(l)} ${l.item} ${l.details || ''} · ${l.gezinslid || naam(l.actorId)}`).join('\n') +
+        (dringend.length ? '\n\nEerst opmaken:\n' + dringend.slice(0, 25).map(x => `- ${x.naam} (${shortText(x.st)}, ${x.waar})`).join('\n') : '');
+    const exp = dringend.filter(x => x.st.level === 'expired').length;
+    return { onderwerp: `Je dag in Voorraad.: ${logs.length ? logs.length + ' wijzigingen' : 'niets gewijzigd'}${exp ? ', ' + exp + ' verlopen' : ''}`, html, tekst };
+}

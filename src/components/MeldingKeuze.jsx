@@ -4,7 +4,7 @@ import { db } from '../lib/firebase.js';
 import { useUi } from '../state/ui.jsx';
 import { Toggle, Select, Chip } from './ui.jsx';
 import { MELDING_SOORTEN, DAGEN, VERGRENDELD } from '../lib/meldingen.js';
-import { sortLocaties, toDate, formatDateTime } from '../lib/utils.js';
+import { sortLocaties, toDate, formatDateTime, cx } from '../lib/utils.js';
 
 // Locaties uit alle voorraden van deze gebruiker (eigen + gedeeld met hem/haar).
 // owners: lijst van voorraad-id's (gewone gebruiker: uit de app zelf); zonder lijst zoekt de beheerder het op.
@@ -32,7 +32,7 @@ export function useLocatiesVan(uid, owners) {
 }
 
 // Keuzelijst voor meldingen. admin = beheerder past de instellingen van iemand anders aan (niets vergrendeld).
-export function MeldingKeuze({ prefs: p, onSave, standaardUur, uid, owners, admin = false, isBeheerder = false, gebruikers = [], verzoek = {}, onVraag }) {
+export function MeldingKeuze({ prefs: p, onSave, standaardUur, uid, owners, admin = false, isBeheerder = false, gebruikers = [], verzoek = {}, onVraag, email, laatsteMail, onTestMail }) {
     const { confirm } = useUi();
     const locs = useLocatiesVan(p.wijziging ? uid : null, owners);
     const save = (patch) => onSave({ ...p, ...patch });
@@ -80,6 +80,19 @@ export function MeldingKeuze({ prefs: p, onSave, standaardUur, uid, owners, admi
                                             {[1, 2, 3, 4, 5, 6, 0].map(d => <option key={d} value={d}>{DAGEN[d]}</option>)}
                                         </Select>
                                     </label>
+                                )}
+                                {m.id === 'mail' && p.mail && (
+                                    <div className="-mt-1 mb-1 space-y-1.5">
+                                        <label className="flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300">
+                                            Om
+                                            <Select className="h-9 w-28 text-sm" value={p.mailUur || '20:00'} onChange={e => save({ mailUur: e.target.value })}>
+                                                {Array.from({ length: 18 }, (_, i) => String(6 + i).padStart(2, '0') + ':00').map(u => <option key={u} value={u}>{u}</option>)}
+                                            </Select>
+                                            {email && <span className="text-xs text-stone-500 truncate">naar {email}</span>}
+                                        </label>
+                                        {onTestMail && <button type="button" onClick={onTestMail} className="text-xs font-semibold text-teal-700 dark:text-teal-300">Stuur nu een testmail</button>}
+                                        {laatsteMail && <p className={cx('text-xs', laatsteMail.ok ? 'text-stone-500' : 'text-red-600')}>{laatsteMail.test ? 'Test' : 'Laatste'} {formatDateTime(toDate(laatsteMail.op))}: {laatsteMail.ok ? (laatsteMail.leeg ? 'niets te melden, geen mail nodig' : 'verstuurd') : laatsteMail.fout}</p>}
+                                    </div>
                                 )}
                                 {m.id === 'activiteit' && p.activiteit && (
                                     <div className="-mt-1 mb-1">
