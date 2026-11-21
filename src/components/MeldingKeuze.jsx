@@ -32,7 +32,7 @@ export function useLocatiesVan(uid, owners) {
 }
 
 // Keuzelijst voor meldingen. admin = beheerder past de instellingen van iemand anders aan (niets vergrendeld).
-export function MeldingKeuze({ prefs: p, onSave, standaardUur, uid, owners, admin = false, verzoek = {}, onVraag }) {
+export function MeldingKeuze({ prefs: p, onSave, standaardUur, uid, owners, admin = false, isBeheerder = false, gebruikers = [], verzoek = {}, onVraag }) {
     const { confirm } = useUi();
     const locs = useLocatiesVan(p.wijziging ? uid : null, owners);
     const save = (patch) => onSave({ ...p, ...patch });
@@ -59,7 +59,7 @@ export function MeldingKeuze({ prefs: p, onSave, standaardUur, uid, owners, admi
                     {uren.filter(u => u !== standaardUur).map(u => <option key={u} value={u}>{u}</option>)}
                 </Select>
             </label>
-            {MELDING_SOORTEN.map(m => {
+            {MELDING_SOORTEN.filter(m => !m.alleenAdmin || isBeheerder).map(m => {
                 const kop = m.groep !== groep ? (groep = m.groep) : null;
                 const slot = VERGRENDELD.includes(m.id);
                 const gevraagd = verzoek[m.id] && p[m.id];
@@ -80,6 +80,17 @@ export function MeldingKeuze({ prefs: p, onSave, standaardUur, uid, owners, admi
                                             {[1, 2, 3, 4, 5, 6, 0].map(d => <option key={d} value={d}>{DAGEN[d]}</option>)}
                                         </Select>
                                     </label>
+                                )}
+                                {m.id === 'activiteit' && p.activiteit && (
+                                    <div className="-mt-1 mb-1">
+                                        <p className="text-xs text-stone-500 mb-1">Van wie? {(p.activiteitVan || []).length ? '' : '(niets gekozen = iedereen)'}</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {gebruikers.filter(g => g.id !== uid).map(g => {
+                                                const on = (p.activiteitVan || []).includes(g.id);
+                                                return <Chip key={g.id} active={on} onClick={() => save({ activiteitVan: on ? p.activiteitVan.filter(x => x !== g.id) : [...(p.activiteitVan || []), g.id] })}>{g.displayName || (g.email || '').split('@')[0]}</Chip>;
+                                            })}
+                                        </div>
+                                    </div>
                                 )}
                                 {m.id === 'wijziging' && p.wijziging && (
                                     <div className="-mt-1 mb-1">

@@ -68,11 +68,11 @@ function LocalNotifications() {
 
 // Welke meldingen wil je krijgen, en hoe laat?
 function EigenMeldingen({ standaardUur }) {
-    const { me, user, accounts, actions } = useStore();
+    const { me, user, accounts, actions, isAdmin, usersList } = useStore();
     return (
         <div className="pt-2 mt-1 border-t border-stone-100 dark:border-stone-800">
             <p className="text-sm font-semibold mt-2">Welke meldingen wil je?</p>
-            <MeldingKeuze prefs={meldingPrefs(me)} standaardUur={standaardUur} uid={user.uid}
+            <MeldingKeuze prefs={meldingPrefs(me)} standaardUur={standaardUur} uid={user.uid} admin={isAdmin} isBeheerder={isAdmin} gebruikers={usersList}
                 owners={accounts.filter(a => !a.viaAdmin).map(a => a.id)} verzoek={me.meldingVerzoek || {}}
                 onSave={(m) => actions.setMine({ meldingen: m, notificationsEnabled: true })}
                 onVraag={(id) => { actions.setMine({ meldingVerzoek: { [id]: new Date() } }); actions.notify('Gevraagd aan de beheerder'); }} />

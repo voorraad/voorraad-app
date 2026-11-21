@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Icon from '../../lib/icons.jsx';
 import { db } from '../../lib/firebase.js';
 import { useStore } from '../../state/store.jsx';
@@ -17,8 +17,10 @@ const nameOf = (u) => u.displayName || (u.email || '').split('@')[0] || 'Gebruik
 
 // Beheer → gebruiker → Meldingen: alles zien en aanpassen, ook wat de gebruiker zelf niet mag.
 export function UserMeldingen({ u }) {
-    const { globalSettings, actions } = useStore();
+    const { globalSettings, actions, usersList } = useStore();
     const p = meldingPrefs(u);
+    const [isBeheerder, setIsBeheerder] = useState(false);
+    useEffect(() => { db.collection('admins').doc(u.id).get().then(d => setIsBeheerder(d.exists)).catch(() => { }); }, [u.id]);
     const save = async (m) => {
         const v = { ...(u.meldingVerzoek || {}) };
         // Een vraag is afgehandeld zodra de beheerder die melding aanpast.
@@ -46,7 +48,7 @@ export function UserMeldingen({ u }) {
             <Card className="px-4 pb-4">
                 <p className="text-sm text-stone-500 pt-4">Wat {nameOf(u)} heeft ingesteld. Je kan alles aanpassen, ook berichten en uitnodigingen (die kan de gebruiker zelf niet uitzetten).
                     {u.meldingen ? '' : ' Deze gebruiker heeft nog niets gekozen: dit zijn de standaardinstellingen.'}</p>
-                <MeldingKeuze admin prefs={p} uid={u.id} standaardUur={(globalSettings.push && globalSettings.push.meldingUur) || '08:00'} verzoek={u.meldingVerzoek || {}} onSave={save} />
+                <MeldingKeuze admin isBeheerder={isBeheerder} gebruikers={usersList} prefs={p} uid={u.id} standaardUur={(globalSettings.push && globalSettings.push.meldingUur) || '08:00'} verzoek={u.meldingVerzoek || {}} onSave={save} />
             </Card>
             <Card className="p-4">
                 <p className="text-sm font-semibold flex items-center gap-2"><Icon name="Bell" size={16} />Elke melding testen</p>

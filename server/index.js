@@ -10,7 +10,7 @@ import admin from 'firebase-admin';
 import webpush from 'web-push';
 import { itemStatus, shortText } from './status.js';
 
-const VERSIE = '1.4.0';
+const VERSIE = '1.5.0';
 const DATA = process.env.DATA_DIR || '/data';
 const CFG = {
     serviceAccount: process.env.SERVICE_ACCOUNT || path.join(DATA, 'service-account.json'),
@@ -77,7 +77,7 @@ const started = new Date();
 
 // ---------- Meldingvoorkeuren per gebruiker (users/{uid}.meldingen) ----------
 // Zelfde standaarden als in de app (src/lib/meldingen.js).
-const STANDAARD = { tijd: '', verlopen: true, bijna: true, lang: true, menu: true, lijst: false, lijstDag: 6, week: false, uitnodiging: true, bericht: true, wijziging: false, locaties: [] };
+const STANDAARD = { tijd: '', verlopen: true, bijna: true, lang: true, menu: true, lijst: false, lijstDag: 6, week: false, uitnodiging: true, bericht: true, wijziging: false, locaties: [], activiteit: false, activiteitVan: [] };
 const prefsOf = (u) => {
     const p = { ...STANDAARD, ...((u && u.meldingen) || {}) };
     if (u && u.notificationsEnabled === false && !(u.meldingen)) { p.verlopen = p.bijna = p.lang = p.menu = false; } // oude schakelaar
@@ -295,6 +295,60 @@ async function stuurBundel(key) {
     });
 }
 
+// ---------- Beheerders: alles wat gebruikers doen ----------
+// Per beheerder en per gebruiker 60 s gebundeld; elke regel met een duidelijk icoon en alle details.
+const adminUids = new Set();
+db.collection('admins').onSnapshot(s => { adminUids.clear(); s.docs.forEach(d => adminUids.add(d.id)); }, e => log('Beheerders volgen mislukt:', e.message));
+const activiteit = new Map(); // adminUid|actorId → { list, timer }
+const EMOJI = (l) => {
+    const d = (l.details || '');
+    if (l.action === 'Toevoegen') return /ongedaan/i.test(d) ? '↩️' : '➕';
+    if (l.action === 'Geconsumeerd') return /weggegooid/.test(d) ? '🗑️' : '🍽️';
+    if (l.action === 'Verwijderd') return /Opgegeten/.test(d) ? '🍽️' : /Weggegooid/.test(d) ? '🗑️' : '❌';
+    if (l.action === 'Bewerkt') return /Verplaatst/.test(d) ? '📦' : /Ongedaan/.test(d) ? '↩️' : '✏️';
+    return { Lijst: '🛒', Menu: '📅', Recept: '📖', Locatie: '📍', Lade: '🗄️', Delen: '👥', Instellingen: '⚙️' }[l.action] || '•';
+};
+const WAT = (l) => {
+    const d = (l.details || '');
+    if (l.action === 'Toevoegen') return /ongedaan/i.test(d) ? 'teruggezet' : 'toegevoegd: ' + d;
+    if (l.action === 'Geconsumeerd') return 'gebruikt: ' + d.replace(/^- /, '');
+    if (l.action === 'Verwijderd') return /Opgegeten/.test(d) ? 'opgegeten' : /Weggegooid/.test(d) ? 'weggegooid' : 'verwijderd' + (d && d !== 'Verwijderd' ? ' (' + d + ')' : '');
+    if (l.action === 'Bewerkt') return d || 'aangepast';
+    return d;
+};
+db.collection('logs').where('timestamp', '>', started).onSnapshot(s => {
+    s.docChanges().filter(c => c.type === 'added').forEach(c => {
+        const l = c.doc.data();
+        for (const admin of adminUids) {
+            if (admin === l.actorId || !subUids.has(admin)) continue;
+            const p = prefsOf(users.get(admin));
+            if (!p.activiteit) continue;
+            const van = p.activiteitVan || [];
+            if (van.length && !van.includes(l.actorId) && !van.includes(l.targetUserId)) continue;
+            const key = admin + '|' + l.actorId;
+            if (!activiteit.has(key)) activiteit.set(key, { list: [], timer: setTimeout(() => stuurActiviteit(key).catch(e => log('Activiteit-melding mislukt', e.message)), 60000) });
+            activiteit.get(key).list.push(l);
+        }
+    });
+}, e => log('Logboek (beheer) volgen mislukt:', e.message));
+async function stuurActiviteit(key) {
+    const b = activiteit.get(key); activiteit.delete(key);
+    if (!b || !b.list.length) return;
+    const [admin] = key.split('|');
+    const l0 = b.list[0];
+    const actor = users.get(l0.actorId) || {};
+    const wie = l0.gezinslid ? `${l0.gezinslid} (${actor.displayName || l0.actorName || '?'})` : (actor.displayName || l0.actorName || actor.email || 'Iemand');
+    const doelen = [...new Set(b.list.map(l => l.targetUserId))].filter(t => t !== l0.actorId);
+    const waar = doelen.length ? ' in voorraad van ' + doelen.map(t => { const u = users.get(t) || {}; return u.displayName || (u.email || '?').split('@')[0]; }).join(', ') : '';
+    const regels = b.list.map(l => `${EMOJI(l)} ${l.item ? l.item + ' ' : ''}${WAT(l)}`.trim());
+    const max = 8;
+    await sendToUser(admin, {
+        title: `${wie}${waar}: ${b.list.length === 1 ? '1 wijziging' : b.list.length + ' wijzigingen'}`,
+        body: regels.slice(0, max).join('\n') + (regels.length > max ? `\n… en nog ${regels.length - max} (zie logboek)` : ''),
+        url: CFG.appUrl + '#/admin/logboek', tag: 'activiteit-' + l0.actorId
+    });
+}
+
 // Belangrijke mededeling (niet weg te klikken) → meteen een melding naar iedereen
 let laatsteMededeling = null;
 db.collection('settings').doc('mededeling').onSnapshot(d => {
@@ -321,6 +375,7 @@ const VOORBEELD = {
     wijziging: { title: 'Diepvries keuken: 2 wijzigingen', body: 'Marie: Gehakt toegevoegd, Kip opgegeten.', url: '#/voorraad/vriezer' },
     uitnodiging: { title: 'Uitnodiging om samen te beheren', body: 'Marie nodigt je uit om samen de voorraad bij te houden. Tik om te antwoorden.', url: '#/voorraad' },
     bericht: { title: 'Bericht van Voorraad.', body: 'Dit is een testbericht van de beheerder.', url: '' },
+    activiteit: { title: 'Marie: 3 wijzigingen', body: '➕ Gehakt toegevoegd: 3 pak in Diepvries keuken › Lade 1\n🍽️ Kip opgegeten\n✏️ Melk: Aantal: 2 ➔ 1', url: '#/admin/logboek' },
     mededeling: { title: 'Belangrijk bericht van Voorraad.', body: 'Morgen tussen 9 en 10 u onderhoud aan de app.', url: '' }
 };
 db.collection('pushTest').onSnapshot(s => {
