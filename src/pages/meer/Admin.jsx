@@ -7,7 +7,7 @@ import { Card, Button, Toggle, Select, Input, Textarea, Field, IconButton, Empty
 import { TYPES, TOUR_COLORS, TOUR_TONE, DEFAULT_TOUR_STEPS, TOUR_VERSION, RIGHTS, RIGHT_GROUPS, RIGHT_PRESETS } from '../../lib/constants.js';
 
 const TOUR_PAGES = [['', 'Geen'], ['voorraad/vriezer', 'Vriezer'], ['voorraad/frig', 'Frigo'], ['voorraad/voorraad', 'Stock'], ['lijst', 'Boodschappen'], ['menu/week', 'Weekmenu'], ['menu/recepten', 'Recepten'], ['meer', 'Instellingen']];
-import { cx, formatDateTime, sortLocaties, byName, emojiFor, formatAantal, smartMatch } from '../../lib/utils.js';
+import { cx, formatDateTime, sortLocaties, byName, emojiFor, formatAantal, smartMatch, tourKey } from '../../lib/utils.js';
 
 export const TAB_OPTIONS = RIGHTS.map(r => [r.id, r.label]);
 
@@ -191,10 +191,15 @@ export function TourEditor() {
     const [steps, setSteps] = useState(() => JSON.parse(JSON.stringify(globalSettings.tourSteps || DEFAULT_TOUR_STEPS)));
     const set = (i, patch) => setSteps(s => s.map((x, j) => j === i ? { ...x, ...patch } : x));
     const mv = (i, d) => setSteps(s => { const a = [...s]; const j = i + d; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; return a; });
-    const save = async (list = steps) => { await actions.setGlobal('tourSteps', { steps: list, versie: TOUR_VERSION }); actions.notify('Rondleiding opgeslagen'); };
+    // Elke stap krijgt een vaste sleutel, zodat de app weet wie welke stap al zag (ook na het aanpassen van de titel).
+    const save = async (list = steps) => { await actions.setGlobal('tourSteps', { steps: list.map(s => ({ ...s, id: tourKey(s) })), versie: TOUR_VERSION, nieuweTonen: globalSettings.tourNieuweTonen !== false }); actions.notify('Rondleiding opgeslagen'); };
     const outdated = (globalSettings.tourVersie || 0) < TOUR_VERSION && globalSettings.tourSteps !== DEFAULT_TOUR_STEPS;
     return (
         <div className="space-y-3">
+            <Card className="px-4 py-1">
+                <Toggle checked={globalSettings.tourNieuweTonen !== false} onChange={c => actions.setGlobal('tourSteps', { nieuweTonen: c })}
+                    label="Nieuwe stappen automatisch tonen" description="Voeg je een stap toe, dan krijgt wie de rondleiding al zag enkel die nieuwe stap(pen) te zien." />
+            </Card>
             {outdated && (
                 <Card className="p-4 border-teal-300 bg-teal-50/70 dark:bg-teal-950/30 dark:border-teal-800 flex flex-wrap items-center gap-3">
                     <Icon name="Sparkles" size={20} className="text-teal-700" />

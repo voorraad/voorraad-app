@@ -46,7 +46,9 @@ export function UiProvider({ children }) {
     const [scan, setScan] = useState(null);         // { onCode? } – barcode-scanner
     const [labelIds, setLabelIds] = useState(null); // etiketten afdrukken
     const [photo, setPhoto] = useState(null);       // foto groot bekijken
-    const [urgentOpen, setUrgentOpen] = useState(null); // 'Eerst opmaken'-lijst: true of de groep (now|soon|week)
+    const [urgentOpen, setUrgentOpen] = useState(null);
+    const [restje, setRestje] = useState(false);     // 'Restje bewaren'
+    const [receptOpen, setReceptOpen] = useState(null); // recept-id om te openen op de receptenpagina // 'Eerst opmaken'-lijst: true of de groep (now|soon|week)
 
     const confirm = useCallback((opts) => new Promise(resolve => setConfirmState({ ...opts, resolve })), []);
     const prompt = useCallback((opts) => new Promise(resolve => setPromptState({ ...opts, resolve })), []);
@@ -66,6 +68,8 @@ export function UiProvider({ children }) {
         scan, openScan: (o) => setScan(o || {}), closeScan: () => setScan(null),
         labelIds, openLabels: setLabelIds, closeLabels: () => setLabelIds(null),
         photo, openPhoto: setPhoto, closePhoto: () => setPhoto(null),
+        restje, openRestje: () => setRestje(true), closeRestje: () => setRestje(false),
+        receptOpen, openRecept: (id) => { setReceptOpen(id); go('menu/recepten'); }, clearRecept: () => setReceptOpen(null),
         urgentOpen, openUrgent: (g) => setUrgentOpen(g || true), closeUrgent: () => setUrgentOpen(null)
     };
     return <UiCtx.Provider value={value}>{children}</UiCtx.Provider>;

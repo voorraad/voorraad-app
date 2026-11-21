@@ -142,6 +142,33 @@ In de app: **Beheerpagina → Instellingen → Server & meldingen** toont nu je 
 
 Heb je al een reverse proxy (bv. Nginx Proxy Manager of Traefik) met https? Laat die dan doorsturen naar poort 8080 van deze container (het IP-adres zie je met `hostname -I`) en zet dat adres in `PUBLIC_URL`; de tunnel heb je dan niet nodig.
 
+## 8. (Optioneel) Dagrapport per mail
+
+De server kan elke dag een rapport mailen met alles wat er gebeurde. Daarvoor heeft hij een mailaccount nodig om mee te versturen. Met Gmail:
+
+1. Zet tweestapsverificatie aan op je Google-account (nodig voor de volgende stap).
+2. Ga naar https://myaccount.google.com/apppasswords, maak een app-wachtwoord met als naam `Voorraad` en kopieer de 16 letters.
+3. Open de instellingen:
+   ```bash
+   nano /opt/voorraad-server/.env
+   ```
+   en voeg onderaan toe (of vul in):
+   ```
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=jouwadres@gmail.com
+   SMTP_PASS=de16letters
+   MAIL_VAN=Voorraad. <jouwadres@gmail.com>
+   ```
+4. Herstart: `systemctl restart voorraad`
+5. In de app: **Beheerpagina → App-instellingen → Server & meldingen → Dagrapport per mail**: kies ontvangers en uur, en tik op **Stuur nu een testrapport**.
+
+## Back-ups
+
+Elke nacht om 03:00 maakt de server een volledige back-up in `/opt/voorraad-server/data/backups` (30 dagen bewaard; aan te passen met `BACKUP_UUR` en `BACKUP_DAGEN` in `.env`). Met een publiek adres (stap 7) kan je ze ook downloaden op de beheerpagina. Terugzetten: **Beheerpagina → App-instellingen → Gegevens → Eén gebruiker terugzetten**.
+
+Tip: maak in Proxmox ook af en toe een back-up van de hele container (Datacenter → Backup).
+
 ## Bijwerken naar een nieuwe versie
 
 ```bash

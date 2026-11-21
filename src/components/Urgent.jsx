@@ -4,6 +4,7 @@ import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
 import { Sheet, Button, Card } from './ui.jsx';
 import { ItemRow } from './items.jsx';
+import { WatKanIkKoken } from './Koken.jsx';
 import { cx, itemStatus, URGENCY } from '../lib/utils.js';
 
 const GROUPS = [
@@ -53,7 +54,8 @@ export function UrgentBanner() {
 // Volledige lijst 'Eerst opmaken' (ook te openen vanuit een pushmelding: #/eerst/<groep>)
 export function UrgentSheet() {
     const urgent = useUrgent();
-    const { urgentOpen, closeUrgent } = useUi();
+    const { urgentOpen, closeUrgent, openRecept } = useUi();
+    const { canSee } = useStore();
     const parts = GROUPS.filter(g => urgent[g.id].length);
     useEffect(() => {
         if (typeof urgentOpen !== 'string') return;
@@ -77,6 +79,7 @@ export function UrgentSheet() {
                         </ul>
                     </Card>
                 ))}
+                {canSee('recepten') && <WatKanIkKoken compact onOpen={(r) => { closeUrgent(); openRecept(r.id); }} />}
             </div>
         </Sheet>
     );

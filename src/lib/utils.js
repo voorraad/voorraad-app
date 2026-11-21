@@ -232,3 +232,11 @@ export const loadScript = (src) => new Promise((resolve, reject) => {
 });
 
 export const cx = (...a) => a.filter(Boolean).join(' ');
+
+// Vaste sleutel van een rondleidingsstap (om bij te houden wie welke stap al zag)
+export const tourKey = (s) => {
+    if (s && s.id) return s.id;
+    const t = (s && s.title) || '';
+    let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0;
+    return 't' + (h >>> 0).toString(36);
+};

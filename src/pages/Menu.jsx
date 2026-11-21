@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Icon from '../lib/icons.jsx';
 import { useStore } from '../state/store.jsx';
 import { useUi } from '../state/ui.jsx';
 import { Card, Button, Segmented, Sheet, Field, Input, Select, Textarea, EmptyState, IconButton, Stepper, Chip } from '../components/ui.jsx';
 import { CATEGORIEEN_RECEPT, EENHEDEN_RECEPT } from '../lib/constants.js';
+import { WatKanIkKoken } from '../components/Koken.jsx';
 import { cx, mondayOf, addDays, dateKey, todayKey, weekdayLabel, emojiFor, formatAantal, isMenuEntry, ingredientMatches, num, round2, byName, smartMatch } from '../lib/utils.js';
 
 export default function Menu() {
@@ -84,7 +85,9 @@ const emptyRecipe = () => ({ naam: '', fotoUrl: '', personen: 4, categorie: 'Hoo
 
 export function Recipes() {
     const { recepten, items } = useStore();
+    const { receptOpen, clearRecept } = useUi();
     const [view, setView] = useState(null);
+    useEffect(() => { if (receptOpen) { const r = recepten.find(x => x.id === receptOpen); if (r) setView(r); clearRecept(); } }, [receptOpen, recepten]);
     const [edit, setEdit] = useState(null); // {data, id}
     const [q, setQ] = useState('');
     const [cat, setCat] = useState(null);
@@ -107,6 +110,7 @@ export function Recipes() {
                 </div>
                 <Button icon="Plus" onClick={() => setEdit({ data: emptyRecipe() })}>Recept</Button>
             </div>
+            {!q && !cat && <WatKanIkKoken onOpen={setView} />}
             {cats.length > 1 && (
                 <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4">
                     <Chip active={!cat} onClick={() => setCat(null)}>Alles</Chip>

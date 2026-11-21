@@ -9,8 +9,9 @@ import crypto from 'node:crypto';
 import admin from 'firebase-admin';
 import webpush from 'web-push';
 import { itemStatus, shortText } from './status.js';
+import { maakBackup, lijstBackups, leesBackup, ruimPrullenbakOp, bouwRapport, mailer } from './extra.js';
 
-const VERSIE = '1.5.0';
+const VERSIE = '1.6.0';
 const DATA = process.env.DATA_DIR || '/data';
 const CFG = {
     serviceAccount: process.env.SERVICE_ACCOUNT || path.join(DATA, 'service-account.json'),
@@ -20,8 +21,11 @@ const CFG = {
     contact: process.env.CONTACT || 'mailto:beheer@example.com',
     origins: (process.env.ALLOWED_ORIGINS || 'https://voorraad.github.io').split(',').map(s => s.trim()).filter(Boolean),
     port: Number(process.env.PORT || 8080),
-    maxFotoMb: Number(process.env.MAX_FOTO_MB || 8)
+    maxFotoMb: Number(process.env.MAX_FOTO_MB || 8),
+    backupUur: process.env.BACKUP_UUR || '03:00',
+    backupDagen: Number(process.env.BACKUP_DAGEN || 30)
 };
+const BACKUPS = path.join(process.env.DATA_DIR || '/data', 'backups');
 const FOTOS = path.join(DATA, 'fotos');
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
@@ -46,10 +50,22 @@ const stateFile = path.join(DATA, 'state.json');
 const state = fs.existsSync(stateFile) ? JSON.parse(fs.readFileSync(stateFile, 'utf8')) : {};
 const saveState = () => fs.writeFileSync(stateFile, JSON.stringify(state));
 const pushDoc = db.collection('settings').doc('push');
+const gestart = new Date();
 async function heartbeat(extra = {}) {
-    await pushDoc.set({ publicKey: vapid.publicKey, serverOp: FV.serverTimestamp(), versie: VERSIE, meldingUur: CFG.uur, fotoUrl: CFG.publicUrl, ...extra }, { merge: true })
+    await pushDoc.set({ publicKey: vapid.publicKey, serverOp: FV.serverTimestamp(), versie: VERSIE, meldingUur: CFG.uur, fotoUrl: CFG.publicUrl,
+        status: { ...stats, gestartOp: gestart.toISOString(), backupUur: CFG.backupUur, mail: !!(process.env.SMTP_HOST && process.env.SMTP_USER) }, ...extra }, { merge: true })
         .catch(e => log('Status bijwerken mislukt:', e.message));
 }
+
+// ---------- Status van vandaag (beheerpagina → Server) ----------
+const stats = { dag: '', verstuurd: 0, mislukt: 0, verlopen: 0, fouten: [] };
+function tel(soort, fout) {
+    const d = new Date().toLocaleDateString('sv-SE');
+    if (stats.dag !== d) Object.assign(stats, { dag: d, verstuurd: 0, mislukt: 0, verlopen: 0, fouten: [] });
+    stats[soort]++;
+    if (fout) { stats.fouten.unshift({ op: new Date().toISOString(), fout }); stats.fouten.length = Math.min(stats.fouten.length, 15); }
+}
+function logFout(fout) { tel('mislukt', fout); }
 
 // ---------- Versturen ----------
 async function sendToUser(uid, payload, subId = null) {
@@ -60,10 +76,10 @@ async function sendToUser(uid, payload, subId = null) {
     await Promise.all(subs.docs.map(async d => {
         try {
             await webpush.sendNotification(d.data().sub, JSON.stringify(payload), { TTL: 60 * 60 * 20 });
-            ok++;
+            ok++; tel('verstuurd');
         } catch (e) {
-            if (e.statusCode === 404 || e.statusCode === 410) { await d.ref.delete().catch(() => { }); log('Verlopen abonnement verwijderd', d.id); }
-            else log('Versturen mislukt', uid, e.statusCode || '', e.body || e.message);
+            if (e.statusCode === 404 || e.statusCode === 410) { await d.ref.delete().catch(() => { }); log('Verlopen abonnement verwijderd', d.id); tel('verlopen'); }
+            else { log('Versturen mislukt', uid, e.statusCode || '', e.body || e.message); tel('mislukt', `${d.data().toestel || 'toestel'}: ${e.statusCode || ''} ${(e.body || e.message || '').toString().slice(0, 120)}`); }
         }
     }));
     return ok;
@@ -363,6 +379,54 @@ db.collection('settings').doc('mededeling').onSnapshot(d => {
 }, e => log('Mededeling volgen mislukt:', e.message));
 
 // Testmeldingen vanuit de app (pushTest/{id} = { uid, soort: 'test' | 'voorraad' })
+// ---------- Back-up, prullenbak en dagrapport ----------
+async function doeBackup(reden) {
+    try {
+        const r = await maakBackup(db, BACKUPS, CFG.backupDagen);
+        const weg = await ruimPrullenbakOp(db).catch(() => 0);
+        log(`Back-up (${reden}): ${r.bestand}, ${Math.round(r.grootte / 1024)} kB, ${r.gebruikers} gebruikers; prullenbak: ${weg} opgeruimd`);
+        await heartbeat({ laatsteBackup: { op: FV.serverTimestamp(), ...r, reden } });
+        return r;
+    } catch (e) { log('Back-up mislukt:', e.message); logFout('Back-up: ' + e.message); await heartbeat({ laatsteBackup: { op: FV.serverTimestamp(), fout: e.message } }); throw e; }
+}
+let rapportCfg = {};
+db.collection('beheer').doc('dagrapport').onSnapshot(d => {
+    const vorige = rapportCfg.testOp; rapportCfg = d.exists ? d.data() : {};
+    const t = rapportCfg.testOp && (rapportCfg.testOp.toMillis ? rapportCfg.testOp.toMillis() : 0);
+    if (t && t > gestart.getTime() && (!vorige || (vorige.toMillis && vorige.toMillis() !== t))) stuurRapport(true).catch(() => { });
+}, e => log('Dagrapport volgen mislukt:', e.message));
+async function stuurRapport(test = false) {
+    const aan = (rapportCfg.aan || []).filter(Boolean);
+    const mail = await mailer(process.env).catch(e => { log('Mail instellen mislukt', e.message); return null; });
+    const melden = (x) => db.collection('beheer').doc('dagrapport').set({ laatste: { op: FV.serverTimestamp(), test, ...x } }, { merge: true }).catch(() => { });
+    if (!mail) return melden({ ok: false, fout: 'Geen mailserver ingesteld op de server (SMTP_HOST, SMTP_USER en SMTP_PASS in .env).' });
+    if (!aan.length) return melden({ ok: false, fout: 'Geen ontvangers gekozen.' });
+    try {
+        const r = await bouwRapport(db, { users, itemStatus, appUrl: CFG.appUrl, status: { versie: VERSIE, verstuurd: stats.verstuurd, mislukt: stats.mislukt, backup: state.laatsteBackupNaam || '' } });
+        await mail.sendMail({ from: process.env.MAIL_VAN || process.env.SMTP_USER, to: aan.join(', '), subject: (test ? '[Test] ' : '') + r.onderwerp, html: r.html, text: r.tekst });
+        log('Dagrapport verstuurd naar', aan.join(', '));
+        return melden({ ok: true, aan });
+    } catch (e) { log('Dagrapport mislukt:', e.message); logFout('Dagrapport: ' + e.message); return melden({ ok: false, fout: e.message }); }
+}
+setInterval(() => {
+    const hm = new Date().toTimeString().slice(0, 5), dag = today();
+    if (hm >= CFG.backupUur && state.backupDag !== dag) {
+        state.backupDag = dag; saveState();
+        doeBackup('nachtelijk').then(r => { state.laatsteBackupNaam = r.bestand; saveState(); }).catch(() => { });
+    }
+    if (rapportCfg.actief && hm >= (rapportCfg.uur || '20:00') && state.rapportDag !== dag) {
+        state.rapportDag = dag; saveState();
+        stuurRapport().catch(() => { });
+    }
+}, 30000);
+// Na een herstart (stroompanne, update…) de beheerders even verwittigen.
+setTimeout(() => {
+    if (!adminUids.size) return;
+    const kort = Date.now() - (state.laatsteHartslag || 0) < 15 * 60000;
+    if (!kort) naarBeheerders({ title: 'Voorraad.-server is weer online', body: `Versie ${VERSIE} draait opnieuw${state.laatsteHartslag ? ' (offline sinds ' + new Date(state.laatsteHartslag).toLocaleString('nl-BE') + ')' : ''}.`, url: CFG.appUrl + '#/admin/app', tag: 'server-online' });
+}, 20000);
+setInterval(() => { state.laatsteHartslag = Date.now(); saveState(); }, 60000);
+
 // Voorbeelden om elke soort melding te testen (beheerpagina)
 const DAGELIJKS = ['verlopen', 'bijna', 'lang', 'menu', 'lijst', 'week'];
 const VOORBEELD = {
@@ -406,6 +470,7 @@ const cors = (req, res) => {
     if (o && (CFG.origins.includes(o) || CFG.origins.includes('*'))) { res.setHeader('Access-Control-Allow-Origin', o); res.setHeader('Vary', 'Origin'); }
     res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
 };
 const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
 const readBody = (req, max) => new Promise((resolve, reject) => {
@@ -423,7 +488,7 @@ async function userFrom(req) {
 const FOTO_RE = /\/fotos\/([A-Za-z0-9_-]+\/[a-f0-9]{32}\.(?:jpg|png|webp))/g;
 async function fotosInGebruik() {
     const used = new Set();
-    for (const c of ['items', 'lades', 'vriezers', 'barcodes', 'users', 'recepten']) {
+    for (const c of ['items', 'lades', 'vriezers', 'barcodes', 'users', 'recepten', 'prullenbak']) {
         const snap = await db.collection(c).get();
         snap.forEach(d => { for (const m of JSON.stringify(d.data()).matchAll(FOTO_RE)) used.add(m[1]); });
     }
@@ -481,6 +546,22 @@ http.createServer(async (req, res) => {
             fs.rmSync(path.join(FOTOS, fm[1], fm[2]), { force: true });
             log('Foto verwijderd', fm[1] + '/' + fm[2]);
             return json(res, 200, { ok: true });
+        }
+
+        // Beheer: back-ups bekijken, downloaden en meteen maken
+        if (url.pathname === '/backups' || url.pathname.startsWith('/backups/')) {
+            const user = await userFrom(req);
+            if (!user) return json(res, 401, { fout: 'Niet ingelogd' });
+            if (!(await db.collection('admins').doc(user.uid).get()).exists) return json(res, 403, { fout: 'Enkel voor beheerders' });
+            if (req.method === 'GET' && url.pathname === '/backups') return json(res, 200, { lijst: lijstBackups(BACKUPS) });
+            if (req.method === 'POST' && url.pathname === '/backups/nu') { const r = await doeBackup('met de hand'); state.laatsteBackupNaam = r.bestand; saveState(); return json(res, 200, r); }
+            const bm = /^\/backups\/(voorraad-[0-9-]+\.json\.gz)$/.exec(url.pathname);
+            if (req.method === 'GET' && bm) {
+                const body = leesBackup(BACKUPS, bm[1]);
+                res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Disposition': `attachment; filename="${bm[1].replace('.gz', '')}"` });
+                return res.end(body);
+            }
+            return json(res, 404, { fout: 'Niet gevonden' });
         }
 
         // Beheer: hoeveel foto's staan er, en welke worden niet meer gebruikt? (?wis=1 ruimt ze op)

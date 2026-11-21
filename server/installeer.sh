@@ -17,7 +17,8 @@ if [ "$NODE_MAJOR" -lt 18 ]; then echo "Node.js $NODE_MAJOR is te oud (minstens 
 echo "==> Gebruiker en map aanmaken"
 id voorraad >/dev/null 2>&1 || useradd --system --home "$DOEL" --shell /usr/sbin/nologin voorraad
 mkdir -p "$DOEL/data/fotos"
-install -m 644 "$BRON/index.js" "$BRON/status.js" "$BRON/package.json" "$DOEL/"
+install -m 644 "$BRON"/*.js "$BRON/package.json" "$DOEL/"
+mkdir -p "$DOEL/data/backups"
 if [ ! -f "$DOEL/.env" ]; then
     install -m 640 "$BRON/.env.voorbeeld" "$DOEL/.env"
     echo "    Nieuw instellingenbestand: $DOEL/.env (pas het aan met: nano $DOEL/.env)"

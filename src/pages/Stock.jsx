@@ -14,7 +14,7 @@ const GROUP_KEY = 'voorraad_groep';
 export default function Stock({ type: typeProp, embedded } = {}) {
     const store = useStore();
     const { vriezers, lades, items, me, owner, typeOf, canSee, actions, dataLoaded, opVakantie } = store;
-    const { route, go, openForm, openMove, openAudit, prompt, confirm, openScan, openLabels, openPhoto } = useUi();
+    const { route, go, openForm, openMove, openAudit, prompt, confirm, openScan, openLabels, openPhoto, openRestje } = useUi();
     const visibleTypes = TYPES.filter(t => t.id === 'vriezer' || canSee(t.id));
     const canSelect = ['recepten', 'etiketten', 'bewerken', 'verwijderen'].some(canSee);
     const wanted = typeProp || route.sub;
@@ -157,6 +157,11 @@ export default function Stock({ type: typeProp, embedded } = {}) {
                     <input value={quick} onChange={e => setQuick(e.target.value)} placeholder="Snel toevoegen: typ en druk Enter" className="flex-1 min-w-0 bg-transparent outline-none text-[15px] placeholder-amber-700/50 dark:placeholder-amber-300/40" enterKeyHint="done" />
                     {quick && <Button size="sm" type="submit" variant="soft">Voeg toe</Button>}
                 </form>
+            )}
+            {type === 'frig' && locs.length > 0 && !selecting && !embedded && canSee('toevoegen') && (
+                <button type="button" onClick={openRestje} className="w-full h-11 px-3 rounded-xl border border-dashed border-stone-300 dark:border-stone-700 text-sm font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-900 flex items-center justify-center gap-2 print:hidden">
+                    <span aria-hidden="true">🥡</span>Restje bewaren
+                </button>
             )}
 
             {!dataLoaded ? <LoadingList /> : locs.length === 0 ? (

@@ -138,6 +138,13 @@ service cloud.firestore {
       allow read, delete: if isAdmin();
     }
 
+    // ---------- Prullenbak (30 dagen) ----------
+    match /prullenbak/{id} {
+      allow read, delete: if canUse(resource.data.userId);
+      allow create: if canUse(request.resource.data.userId) && request.resource.data.door == me();
+      allow update: if isAdmin();
+    }
+
     // ---------- Logboek ----------
     match /logs/{id} {
       allow read: if canUse(resource.data.targetUserId);
@@ -157,6 +164,9 @@ service cloud.firestore {
     }
 
     // ---------- Enkel voor beheerders ----------
+    match /beheer/{doc} {             // groepen, berichtsjablonen, dagrapport
+      allow read, write: if isAdmin();
+    }
     match /adminNotes/{uid} {
       allow read, write: if isAdmin();
     }

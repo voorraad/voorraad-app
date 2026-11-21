@@ -58,6 +58,17 @@
       ]
     },
     {
+      "name": "Restje bewaren",
+      "short_name": "Restje",
+      "url": "./?actie=restje",
+      "icons": [
+        {
+          "src": "icon_192x192.png?v=14",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
       "name": "Vriezer",
       "url": "./#/voorraad/vriezer",
       "icons": [

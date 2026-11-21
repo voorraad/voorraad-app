@@ -1,13 +1,18 @@
 {
   "name": "voorraad-server",
-  "version": "1.0.0",
+  "version": "1.6.0",
   "description": "Pushmeldingen en foto-opslag voor Voorraad. (draait op je eigen server)",
   "type": "module",
   "main": "index.js",
-  "scripts": { "start": "node index.js" },
-  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "firebase-admin": "^12.7.0",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "nodemailer": "^6.9.16"
   }
 }

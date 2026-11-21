@@ -8,6 +8,7 @@ import { TAB_OPTIONS } from '../meer/Admin.jsx';
 import { userTone, USER_TONE_DOTS, USER_TONE_NAMES } from '../../lib/userColors.js';
 import { useAllUserData, refreshAllUserData } from './data.js';
 import { MessageComposer } from '../../components/Berichten.jsx';
+import { useGroepen } from './Groepen.jsx';
 import { TYPE_BY_ID } from '../../lib/constants.js';
 import { cx, smartMatch, formatAantal, formatDateTime, euro, plural, itemStatus, statusText, STATUS_TONE, sortLocaties, byName, emojiFor, toDate } from '../../lib/utils.js';
 
@@ -199,6 +200,7 @@ export function BulkRights() {
     const others = usersList.filter(u => u.id !== user.uid);
     const toggle = (id) => setSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
     const chosen = others.filter(u => sel.has(u.id));
+    const { groepen } = useGroepen();
     const apply = async (patchFor, msg) => {
         setBusy(true);
         try {
@@ -220,6 +222,11 @@ export function BulkRights() {
                         <p className="text-sm font-semibold">1. Kies gebruikers</p>
                         <button type="button" className="text-sm font-semibold text-teal-700 dark:text-teal-300" onClick={() => setSel(sel.size === others.length ? new Set() : new Set(others.map(u => u.id)))}>{sel.size === others.length ? 'Niemand' : 'Iedereen'}</button>
                     </div>
+                    {groepen.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                            {groepen.map(g => <button key={g.id} type="button" onClick={() => setSel(new Set(g.leden || []))} className="h-7 px-2.5 rounded-lg text-xs font-semibold bg-stone-100 dark:bg-stone-800 inline-flex items-center gap-1.5"><Icon name="Users" size={12} />Groep {g.naam}</button>)}
+                        </div>
+                    )}
                     <div className="flex flex-wrap gap-1.5">
                         {others.map(u => (
                             <button key={u.id} type="button" onClick={() => toggle(u.id)} aria-pressed={sel.has(u.id)}

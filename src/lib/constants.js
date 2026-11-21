@@ -1,8 +1,17 @@
 // Vaste configuratie van de app. Alles wat hier staat is statisch (geen Firestore).
 
-export const APP_VERSION = '12.0';
+export const APP_VERSION = '12.1';
 
 export const VERSION_HISTORY = [
+    {
+        version: '12.1',
+        changes: [
+            'Restjes: tik in de frigo op "Restje bewaren". Het krijgt meteen een vervaldatum (standaard 3 dagen) en je krijgt een seintje voor het op moet.',
+            'Wat kan ik koken? Bij je recepten en in "Eerst opmaken" zie je welke recepten de producten gebruiken die eerst op moeten.',
+            'Prullenbak: per ongeluk iets verwijderd? Via Instellingen → Prullenbak zet je het binnen 30 dagen terug.',
+            'Rondleiding: komen er nieuwe stappen bij, dan zie je enkel die nieuwe.'
+        ]
+    },
     {
         version: '12.0',
         changes: [
