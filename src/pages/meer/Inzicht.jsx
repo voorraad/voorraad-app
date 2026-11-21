@@ -116,6 +116,12 @@ export function LogMeta({ l, usersList, meId, showOwner = true }) {
 export const logTone = (a) => a === 'Toevoegen' ? ['Plus', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300']
     : a === 'Verwijderd' ? ['Trash', 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300']
         : a === 'Geconsumeerd' ? ['Utensils', 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300']
+        : a === 'Lijst' ? ['Cart', 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300']
+        : a === 'Menu' ? ['Calendar', 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300']
+        : a === 'Recept' ? ['Book', 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300']
+        : a === 'Locatie' || a === 'Lade' ? ['Layers', 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300']
+        : a === 'Delen' ? ['Users', 'bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-300']
+        : a === 'Instellingen' ? ['Settings', 'bg-stone-200 text-stone-700 dark:bg-stone-700 dark:text-stone-200']
             : ['Edit', 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300'];
 
 export function Logboek({ defaultAll = false }) {

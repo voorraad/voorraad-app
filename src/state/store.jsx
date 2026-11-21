@@ -272,11 +272,11 @@ export function StoreProvider({ children }) {
     const ownerDoc = () => db.collection('users').doc(ownerId);
 
     // locId: locatie waar het om gaat (voor meldingen 'wijzigingen in een locatie')
-    const log = (action, itemNaam, details, locId) => {
+    const log = (action, itemNaam, details, locId, target) => {
         if (!user) return;
         db.collection('logs').add({
             action, item: itemNaam || '', details: details || '', actorId: user.uid, ...(locId ? { locId } : {}),
-            actorName: user.displayName || user.email || '', targetUserId: ownerId, timestamp: serverTimestamp(),
+            actorName: user.displayName || user.email || '', targetUserId: target || ownerId, timestamp: serverTimestamp(),
             ...(gezinslid ? { gezinslid: gezinslid.naam, gezinslidKleur: gezinslid.kleur || '' } : {})
         }).catch(e => console.warn('Kon log niet opslaan', e));
     };
@@ -437,14 +437,23 @@ export function StoreProvider({ children }) {
             notify(ids.length === 1 ? 'Verplaatst' : `${ids.length} producten verplaatst`);
         },
 
-        planItem: (item, key) => db.collection('items').doc(item.id).update({ geplandeDatum: key || null }),
-        addMenuEntry: (key, naam, extra = {}) => db.collection('items').add({
-            naam: naam.trim(), aantal: 1, eenheid: 'stuks', vriezerId: MENU_LOCATION_ID, ladeId: '', categorie: 'Menu',
-            emoji: extra.emoji || '🍽️', geplandeDatum: key, ingevrorenOp: todayKey(), userId: ownerId, ...(extra.receptId ? { receptId: extra.receptId } : {})
-        }),
-        unplan: (entry) => isMenuEntry(entry)
-            ? db.collection('items').doc(entry.id).delete()
-            : db.collection('items').doc(entry.id).update({ geplandeDatum: null }),
+        planItem: (item, key) => {
+            log('Menu', item.naam, key ? `Ingepland op ${key}` : 'Van het menu gehaald', item.vriezerId);
+            return db.collection('items').doc(item.id).update({ geplandeDatum: key || null });
+        },
+        addMenuEntry: (key, naam, extra = {}) => {
+            log('Menu', naam.trim(), `Op het menu gezet voor ${key}`);
+            return db.collection('items').add({
+                naam: naam.trim(), aantal: 1, eenheid: 'stuks', vriezerId: MENU_LOCATION_ID, ladeId: '', categorie: 'Menu',
+                emoji: extra.emoji || '🍽️', geplandeDatum: key, ingevrorenOp: todayKey(), userId: ownerId, ...(extra.receptId ? { receptId: extra.receptId } : {})
+            });
+        },
+        unplan: (entry) => {
+            log('Menu', entry.naam, `Van het menu gehaald${entry.geplandeDatum ? ' (' + entry.geplandeDatum + ')' : ''}`);
+            return isMenuEntry(entry)
+                ? db.collection('items').doc(entry.id).delete()
+                : db.collection('items').doc(entry.id).update({ geplandeDatum: null });
+        },
 
         // Zet een product op de boodschappenlijst als het onder het minimum zakt.
         async checkMinimum(item) {
@@ -454,20 +463,33 @@ export function StoreProvider({ children }) {
             if (totaal >= min) return;
             if (shopping.some(s => !s.checked && normalize(s.naam) === normalize(item.naam))) return;
             await db.collection('shoppingList').add({ naam: item.naam, aantal: round2(min - totaal) || 1, eenheid: item.eenheid || 'stuks', winkel: '', checked: false, userId: ownerId });
+            log('Lijst', item.naam, `Automatisch op het lijstje (onder minimum ${min})`);
             notify(`${item.naam} staat op je boodschappenlijst`, 'info');
         },
 
         // ----- Boodschappen -----
-        addShopping: (s) => db.collection('shoppingList').add({
-            naam: s.naam.trim(), aantal: num(s.aantal, 1) > 0 ? round2(num(s.aantal, 1)) : 1, eenheid: s.eenheid || 'stuks',
-            winkel: s.winkel || '', checked: false, userId: ownerId
-        }),
-        updateShopping: (s, patch) => db.collection('shoppingList').doc(s.id).update(patch),
-        toggleShopping: (s) => db.collection('shoppingList').doc(s.id).update({ checked: !s.checked }),
-        deleteShopping: (s) => db.collection('shoppingList').doc(s.id).delete(),
+        addShopping: (s) => {
+            const aantal = num(s.aantal, 1) > 0 ? round2(num(s.aantal, 1)) : 1;
+            log('Lijst', s.naam.trim(), `Op het lijstje gezet (${formatAantal(aantal)} ${s.eenheid || 'stuks'}${s.winkel ? ', ' + s.winkel : ''})`);
+            return db.collection('shoppingList').add({ naam: s.naam.trim(), aantal, eenheid: s.eenheid || 'stuks', winkel: s.winkel || '', checked: false, userId: ownerId });
+        },
+        updateShopping: (s, patch) => {
+            const d = [];
+            if ('naam' in patch && patch.naam !== s.naam) d.push(`naam ➔ ${patch.naam}`);
+            if ('aantal' in patch && num(patch.aantal) !== num(s.aantal)) d.push(`aantal ${formatAantal(s.aantal)} ➔ ${formatAantal(patch.aantal)}`);
+            if ('winkel' in patch && (patch.winkel || '') !== (s.winkel || '')) d.push(`winkel ➔ ${patch.winkel || 'geen'}`);
+            if (d.length) log('Lijst', s.naam, 'Aangepast: ' + d.join(', '));
+            return db.collection('shoppingList').doc(s.id).update(patch);
+        },
+        toggleShopping: (s) => {
+            log('Lijst', s.naam, s.checked ? 'Terug op het lijstje' : 'Afgevinkt (gekocht)');
+            return db.collection('shoppingList').doc(s.id).update({ checked: !s.checked });
+        },
+        deleteShopping: (s) => { log('Lijst', s.naam, 'Van het lijstje gehaald'); return db.collection('shoppingList').doc(s.id).delete(); },
         async clearCheckedShopping() {
             const done = shopping.filter(s => s.checked);
             await runBatched(done.map(s => b => b.delete(db.collection('shoppingList').doc(s.id))));
+            if (done.length) log('Lijst', done.map(s => s.naam).join(', '), `${done.length} afgevinkte items opgeruimd`);
             notify(`${done.length} afgevinkte items opgeruimd`);
         },
 
@@ -475,24 +497,36 @@ export function StoreProvider({ children }) {
         async addLocatie({ naam, type, color = 'blue', locatieGroep = 'Thuis' }) {
             const order = vriezers.filter(v => v.type === type).length;
             const ref = await db.collection('vriezers').add({ naam: naam.trim(), type, userId: ownerId, color, order, locatieGroep });
+            log('Locatie', naam.trim(), 'Nieuwe locatie aangemaakt', ref.id);
             return ref.id;
         },
-        updateLocatie: (loc, patch) => db.collection('vriezers').doc(loc.id).update(patch),
+        updateLocatie: (loc, patch) => {
+            const d = [];
+            if ('naam' in patch && patch.naam !== loc.naam) d.push(`hernoemd naar ${patch.naam}`);
+            if ('color' in patch && patch.color !== loc.color) d.push('andere kleur');
+            if ('locatieGroep' in patch && patch.locatieGroep !== loc.locatieGroep) d.push(`groep ➔ ${patch.locatieGroep}`);
+            if ('type' in patch && patch.type !== loc.type) d.push(`soort ➔ ${patch.type}`);
+            if (d.length) log('Locatie', loc.naam, d.join(', '), loc.id);
+            return db.collection('vriezers').doc(loc.id).update(patch);
+        },
         async deleteLocatie(loc) {
             if (lades.some(l => l.vriezerId === loc.id) || derived.items.some(i => i.vriezerId === loc.id)) {
                 notify('Maak deze locatie eerst leeg (lades en producten).', 'error'); return false;
             }
             await db.collection('vriezers').doc(loc.id).delete();
+            log('Locatie', loc.naam, 'Locatie verwijderd', loc.id);
             return true;
         },
         reorderLocaties: (list) => runBatched(list.map((l, i) => b => b.update(db.collection('vriezers').doc(l.id), { order: i }))),
         async addLade(vriezerId, naam) {
             const ref = await db.collection('lades').add({ naam: naam.trim(), vriezerId, userId: ownerId });
+            log('Lade', naam.trim(), `Nieuwe lade in ${(derived.locById[vriezerId] || {}).naam || '?'}`, vriezerId);
             return ref.id;
         },
         async renameLade(lade, naam) {
             naam = naam.trim(); if (!naam) return;
             await db.collection('lades').doc(lade.id).update({ naam });
+            if (naam !== lade.naam) log('Lade', naam, `Hernoemd (was ${lade.naam})`, lade.vriezerId);
             const list = derived.items.filter(i => i.ladeId === lade.id);
             await runBatched(list.map(i => b => b.update(db.collection('items').doc(i.id), { ladeNaam: naam })));
         },
@@ -512,18 +546,26 @@ export function StoreProvider({ children }) {
         async setLadeFoto(lade, foto) {
             await db.collection('lades').doc(lade.id).update({ foto: foto || '' });
             if (lade.foto && lade.foto !== (foto || '')) forget(lade.foto);
+            log('Lade', lade.naam, foto ? (lade.foto ? 'Andere foto' : 'Foto toegevoegd') : 'Foto verwijderd', lade.vriezerId);
             notify(foto ? 'Foto van de lade bewaard' : 'Foto verwijderd');
         },
         async deleteLade(lade) {
             if (derived.items.some(i => i.ladeId === lade.id)) { notify('Maak deze lade eerst leeg.', 'error'); return false; }
             await db.collection('lades').doc(lade.id).delete();
             if (lade.foto) forget(lade.foto);
+            log('Lade', lade.naam, 'Lade verwijderd', lade.vriezerId);
             return true;
         },
 
         // ----- Categorieën & eenheden (in users-document van de beheerde voorraad) -----
-        setCategories: (list) => ownerDoc().set({ customCategories: list.map(c => ({ name: c.name, color: c.color || 'gray' })) }, { merge: true }),
+        setCategories: (list) => {
+            const oud = (owner.customCategories || []).map(c => c.name), nieuw = list.map(c => c.name);
+            const bij = nieuw.filter(n => !oud.includes(n)), weg = oud.filter(n => !nieuw.includes(n));
+            log('Instellingen', 'Categorieën', [bij.length && 'toegevoegd: ' + bij.join(', '), weg.length && 'verwijderd: ' + weg.join(', ')].filter(Boolean).join(' · ') || 'Volgorde of kleur aangepast');
+            return ownerDoc().set({ customCategories: list.map(c => ({ name: c.name, color: c.color || 'gray' })) }, { merge: true });
+        },
         async renameCategory(list, oldName, newName, color) {
+            log('Instellingen', 'Categorie ' + oldName, oldName !== newName ? `Hernoemd naar ${newName}` : 'Andere kleur');
             const updated = list.map(c => c.name === oldName ? { name: newName, color } : c);
             await ownerDoc().set({ customCategories: updated }, { merge: true });
             if (oldName !== newName) {
@@ -531,8 +573,12 @@ export function StoreProvider({ children }) {
                 await runBatched(its.map(i => b => b.update(db.collection('items').doc(i.id), { categorie: newName })));
             }
         },
-        setUnits: (type, list) => ownerDoc().set({ [UNIT_FIELD[type]]: list }, { merge: true }),
+        setUnits: (type, list) => {
+            log('Instellingen', 'Eenheden', `Eenheden voor ${type}: ${list.join(', ')}`);
+            return ownerDoc().set({ [UNIT_FIELD[type]]: list }, { merge: true });
+        },
         async renameUnit(type, list, oldName, newName) {
+            log('Instellingen', 'Eenheid ' + oldName, `Hernoemd naar ${newName}`);
             await ownerDoc().set({ [UNIT_FIELD[type]]: list.map(u => u === oldName ? newName : u) }, { merge: true });
             const its = derived.items.filter(i => i.eenheid === oldName && derived.typeOf(i) === type);
             await runBatched(its.map(i => b => b.update(db.collection('items').doc(i.id), { eenheid: newName })));
@@ -548,9 +594,10 @@ export function StoreProvider({ children }) {
             };
             if (id) await db.collection('recepten').doc(id).update(clean);
             else await db.collection('recepten').add({ ...clean, userId: ownerId });
+            log('Recept', clean.naam, id ? 'Recept aangepast' : `Nieuw recept (${clean.ingredienten.length} ingrediënten)`);
             notify(id ? 'Recept bijgewerkt' : 'Recept opgeslagen');
         },
-        deleteRecipe: (r) => db.collection('recepten').doc(r.id).delete(),
+        deleteRecipe: (r) => { log('Recept', r.naam, 'Recept verwijderd'); return db.collection('recepten').doc(r.id).delete(); },
 
         // ----- Controle (balans) -----
         async finishAudit(lade, deleteIds, changes = []) {
@@ -561,6 +608,7 @@ export function StoreProvider({ children }) {
                 ...upd.map(c => b => b.update(db.collection('items').doc(c.item.id), { aantal: c.aantal }))
             ]);
             list.forEach(i => log('Verwijderd', i.naam, 'Ligt niet meer in lade (via Controle)', i.vriezerId));
+            log('Lade', lade.naam, `Gecontroleerd${list.length || upd.length ? ` (${list.length} weg, ${upd.length} aangepast)` : ', alles klopte'}`, lade.vriezerId);
             upd.forEach(c => log('Bewerkt', c.item.naam, `Aantal: ${c.item.aantal} ➔ ${c.aantal} (via Controle)`, c.item.vriezerId));
             await db.collection('lades').doc(lade.id).update({ laatstGecontroleerd: new Date(), laatstGewijzigd: new Date() }).catch(() => { });
             notify(`${lade.naam} gecontroleerd`);
@@ -573,6 +621,7 @@ export function StoreProvider({ children }) {
             if (email === (user.email || '').toLowerCase()) { notify('Je kan jezelf niet uitnodigen.', 'error'); return; }
             if (outgoingShares.some(s => s.sharedWithEmail === email && s.status !== 'declined')) { notify('Deze persoon is al uitgenodigd of heeft al toegang.', 'error'); return; }
             await db.collection('shares').add({ ownerId: user.uid, ownerEmail: user.email, sharedWithEmail: email, role: 'editor', status: 'pending', createdAt: new Date().toISOString() });
+            log('Delen', email, 'Uitgenodigd om samen te beheren', null, user.uid);
             notify('Uitnodiging verstuurd');
             return true;
         },
@@ -581,12 +630,14 @@ export function StoreProvider({ children }) {
             await db.collection('toegang').doc(`${s.ownerId}_${user.uid}`).set({ ownerId: s.ownerId, uid: user.uid, shareId: s.id, email: (user.email || '').toLowerCase() }).catch(e => console.warn(e));
             accessDone.current.add(s.id);
             await switchAccount(s.ownerId, true);
+            log('Delen', user.email || '', `Uitnodiging aanvaard van ${s.ownerEmail}`, null, s.ownerId);
             notify(`Je beheert nu ook de voorraad van ${s.ownerEmail}`);
         },
-        declineInvite: (s) => db.collection('shares').doc(s.id).update({ status: 'declined' }),
+        declineInvite: (s) => { log('Delen', user.email || '', `Uitnodiging geweigerd van ${s.ownerEmail}`, null, user.uid); return db.collection('shares').doc(s.id).update({ status: 'declined' }); },
         async revokeShare(s) {
             await db.collection('shares').doc(s.id).delete();
             if (s.acceptedUid) db.collection('toegang').doc(`${s.ownerId}_${s.acceptedUid}`).delete().catch(() => { });
+            log('Delen', s.sharedWithEmail, 'Toegang ingetrokken', null, user.uid);
             notify('Toegang ingetrokken');
         },
         async togglePublicLink() {
@@ -594,6 +645,7 @@ export function StoreProvider({ children }) {
             const enabled = !(me && me.publicShareEnabled);
             await setMine({ publicShareToken: token, publicShareEnabled: enabled });
             await syncPublicShare(enabled ? token : null, enabled ? null : token);
+            log('Delen', 'Bekijk-link', enabled ? 'Bekijk-link aangezet' : 'Bekijk-link uitgezet', null, user.uid);
         },
         async regeneratePublicLink() {
             const old = me && me.publicShareToken;
